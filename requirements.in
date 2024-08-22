@@ -1,0 +1,6 @@
+celery[redis]
+fastapi
+psycopg[binary]
+sentry_sdk[fastapi]
+sqlmodel
+uvicorn

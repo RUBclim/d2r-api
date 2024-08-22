@@ -1,0 +1,6 @@
+covdefaults
+coverage
+pip-tools
+pytest
+pytest-randomly
+sphinx

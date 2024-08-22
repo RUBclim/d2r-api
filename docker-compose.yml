@@ -1,0 +1,52 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: d2r-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider http://localhost:5000 || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  celery:
+    container_name: celery
+    hostname: celery
+    # TODO: maybe build a separate image
+    image: d2r-api
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/src/app/venv/bin/celery -A app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      - redis
+
+  nginx:
+    container_name: nginx
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    healthcheck:
+      test: ["CMD-SHELL", "service nginx status || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      - app
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf:ro

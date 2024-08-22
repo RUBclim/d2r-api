@@ -1,0 +1,84 @@
+[![ci](https://github.com/RUBclim/d2r-api/actions/workflows/CI.yaml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/CI.yaml)
+[![pre-commit](https://github.com/RUBclim/d2r-api/actions/workflows/pre-commit.yaml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/pre-commit.yaml)
+
+# d2r-api
+
+## development
+
+### setup the development environment
+
+1. create a virtual environment using `tox` (needs to be available globally)
+   ```bash
+   tox --devenv venv -e py312
+   ```
+1. alternatively, create the virtual environment manually
+   ```bash
+   virtualenv venv -ppy312
+   ```
+   **or**
+   ```bash
+   python3.12 -m venv venv
+   ```
+1. and install the requirements
+   ```bash
+   pip install -r requirements.txt -r requirements-dev.txt
+   ```
+1. activate the virtual environment
+   ```bash
+   . venv/bin/activate
+   ```
+1. install and set up `pre-commit`. If not already installed globally, run
+   ```bash
+   pip install pre-commit
+   ```
+   setup the git-hook
+   ```bash
+   pre-commit install
+   ```
+
+### run only the web app
+
+You can only run the web app without the queue and worker process
+
+1. export the environment variables
+   ```bash
+   export $(cat .env.dev | grep -Ev "^#" | xargs -L 1)
+   ```
+1. run the web app
+   ```bash
+   python -m app.app
+   ```
+
+### run the entire system in development mode
+
+You need to have `docker-compose` (can be installed via `pip install docker-compose`)
+and `docker` installed on your system.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d
+```
+
+- the setup is configured, so that the Flask web app restarts if changes are made to any
+  of the Python code or the html templates the worker, however, needs to be restarted
+  manually
+- currently the celery worker has no access to the sqlite database used for development.
+  Submitting a task hence fails in the docker development mode. The production setup
+  with the postgres database has to be used.
+
+### run the tests
+
+You can run the tests including `coverage` using `tox`
+
+```bash
+tox -e py
+```
+
+You can run the tests using only `pytest` (without coverage)
+
+```
+pytest tetsts/
+```
+
+### upgrade requirements
+
+We are using `pip-tools` to manage our requirements
