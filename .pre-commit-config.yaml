@@ -24,10 +24,6 @@ repos:
             -   flake8-timeout==0.3.0
             -   flake8-ban-utcnow==0.2.0
         args: ["--min-python-version=3.12", "--max-line-length=88"]
--   repo: https://github.com/jkittner/sri-checker
-    rev: 0.1.1
-    hooks:
-    -   id: sri-checker
 -   repo: https://github.com/pre-commit/mirrors-autopep8
     rev: v2.0.4
     hooks:
@@ -56,14 +52,8 @@ repos:
     -   id: prettier
         args: [--prose-wrap, always, --print-width=88]
         types_or: [markdown, javascript]
--   repo: https://github.com/rtts/djhtml
-    rev: '3.0.6'
-    hooks:
-      - id: djhtml
-      - id: djcss
-      - id: djjs
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.1
     hooks:
     -   id: mypy
-        additional_dependencies: [sqlmodel, fastapi]
+        additional_dependencies: ['fastapi==0.112.1', 'sqlalchemy[mypy]==2.0.32']

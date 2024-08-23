@@ -1,4 +1,20 @@
 services:
+  db:
+    container_name: db
+    image: postgres:16-bookworm
+    volumes:
+      # TODO: add properly tuned postgres conf
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      # we need to set this, so ordering is case insensitive
+      POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname=${POSTGRES_DB} --username=${POSTGRES_USER} || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
   app:
     build:
       context: .
@@ -50,3 +66,6 @@ services:
       - app
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+
+volumes:
+  pgdata:

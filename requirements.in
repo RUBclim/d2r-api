@@ -4,3 +4,4 @@ psycopg[binary]
 sentry_sdk[fastapi]
 sqlmodel
 uvicorn
+git+https://github.com/RUBclim/element-api

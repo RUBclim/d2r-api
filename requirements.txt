@@ -29,6 +29,8 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
+element-api @ git+https://github.com/RUBclim/element-api
+    # via -r requirements.in
 fastapi==0.112.1
     # via
     #   -r requirements.in
@@ -41,6 +43,10 @@ idna==3.7
     # via anyio
 kombu==5.3.7
     # via celery
+numpy==2.1.0
+    # via pandas
+pandas==2.2.2
+    # via element-api
 prompt-toolkit==3.0.45
     # via -r requirements.in
 psycopg-binary==3.1.19
@@ -54,7 +60,11 @@ pydantic==2.8.2
 pydantic-core==2.20.1
     # via pydantic
 python-dateutil==2.9.0.post0
-    # via celery
+    # via
+    #   celery
+    #   pandas
+pytz==2024.1
+    # via pandas
 redis==5.0.4
     # via celery
 sentry-sdk[fastapi]==2.4.0
@@ -77,7 +87,9 @@ typing-extensions==4.12.1
     #   pydantic-core
     #   sqlalchemy
 tzdata==2024.1
-    # via celery
+    # via
+    #   celery
+    #   pandas
 urllib3==2.2.1
     # via sentry-sdk
 uvicorn==0.30.6
