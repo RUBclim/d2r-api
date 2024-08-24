@@ -19,6 +19,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GH_PAT: ${GH_PAT}
     image: d2r-api
     healthcheck:
       test: ["CMD-SHELL", "wget --spider http://localhost:5000 || exit 1"]

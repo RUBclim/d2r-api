@@ -1,4 +1,5 @@
 FROM python:3.12-bookworm
+ARG GH_PAT
 
 RUN : \
     && apt-get update \
@@ -16,6 +17,6 @@ WORKDIR /usr/src/app
 COPY ./requirements.txt .
 
 RUN python -m venv venv
-RUN venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN GH_TOKEN=${GH_PAT} venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY app app

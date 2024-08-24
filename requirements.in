@@ -2,6 +2,7 @@ asgiref
 celery[redis]
 fastapi
 psycopg[binary] > 3.2.0
+pythermalcomfort
 sentry_sdk[fastapi]
 sqlmodel
 uvicorn

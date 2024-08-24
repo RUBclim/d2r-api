@@ -22,11 +22,11 @@ class Station(BaseModel):
 
 class PublicParams(StrEnum):
     absolute_humidity = 'absolute_humidity'
-    air_pressure = 'air_pressure'
+    atmospheric_pressure = 'air_pressure'
     air_temperature = 'air_temperature'
     dew_point = 'dew_point'
     heat_index = 'heat_index'
-    lightning_avg_distance = 'lightning_avg_distance'
+    lightning_average_distance = 'lightning_avg_distance'
     lightning_strike_count = 'lightning_strike_count'
     mrt = 'mrt'
     pet = 'pet'
@@ -48,5 +48,6 @@ class OneParam(BaseModel):
     long_name: str
     latitude: float
     longitude: float
+    altitude: float
     measured_at: datetime
-    value: float
+    value: float | str | None

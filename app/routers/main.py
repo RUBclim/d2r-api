@@ -41,6 +41,9 @@ async def get_station_latest_data(
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     # we need ot query a view here so it is fast!
+    # we limit to measured_on, so we do not accidentally provide very old data
+    # which may seem (spatially) out of context
+    # TODO: This should also use the ORM, once we implemented this
     query = SQL(
         '''\
         SELECT
@@ -48,9 +51,12 @@ async def get_station_latest_data(
             long_name,
             latitude,
             longitude,
+            altitude,
             measured_at,
             {param_name} AS value
         FROM latest_data
+        WHERE measured_at > NOW() - '2hours'::INTERVAL
+        AND {param_name} IS NOT NULL
         ORDER BY name
         ''',
     ).format(param_name=Identifier(param))

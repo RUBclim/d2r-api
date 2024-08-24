@@ -28,16 +28,69 @@ def create_app() -> FastAPI:
             # TODO: we can implement this in sqlalchemy
             latest_data_view = '''\
                 CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
-                SELECT DISTINCT ON (name)
-                    name,
-                    long_name,
-                    latitude,
-                    longitude,
-                    measured_at,
-                    air_temperature,
-                    relative_humidity
-                FROM sht35_data_raw INNER JOIN station USING(name)
-                ORDER BY name, measured_at DESC
+                (
+                    SELECT DISTINCT ON (name)
+                        name,
+                        long_name,
+                        latitude,
+                        longitude,
+                        altitude,
+                        measured_at,
+                        air_temperature,
+                        relative_humidity,
+                        dew_point,
+                        absolute_humidity,
+                        heat_index,
+                        wet_bulb_temperature,
+                        atmospheric_pressure,
+                        lightning_average_distance,
+                        lightning_strike_count,
+                        mrt,
+                        pet,
+                        pet_category,
+                        precipitation_sum,
+                        solar_radiation,
+                        utci,
+                        utci_category,
+                        vapor_pressure,
+                        wind_direction,
+                        wind_speed,
+                        wind_speed_max
+                    FROM biomet_data INNER JOIN station USING(name)
+                    ORDER BY name, measured_at DESC
+                )
+                UNION ALL
+                (
+                    SELECT DISTINCT ON (name)
+                        name,
+                        long_name,
+                        latitude,
+                        longitude,
+                        altitude,
+                        measured_at,
+                        air_temperature,
+                        relative_humidity,
+                        dew_point,
+                        absolute_humidity,
+                        heat_index,
+                        wet_bulb_temperature,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL
+                    FROM temp_rh_data INNER JOIN station USING(name)
+                    ORDER BY name, measured_at DESC
+                )
             '''
             await con.execute(text(latest_data_view))
         yield

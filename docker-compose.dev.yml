@@ -31,7 +31,7 @@ services:
     command: [
       /usr/src/app/venv/bin/celery, -A, app.celery, worker,
       --prefetch-multiplier=1,
-      --concurrency=1,
+      --concurrency=2,
       --loglevel, DEBUG,
       -B
     ]

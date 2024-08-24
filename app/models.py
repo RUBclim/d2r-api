@@ -178,9 +178,6 @@ class ATM41DataRaw(_ATM41DataRawBase):
 
 class _BLGDataRawBase(_Data):
     __abstract__ = True
-    name: Mapped[str] = mapped_column(
-        ForeignKey('station.blg_name'), primary_key=True,
-    )
     black_globe_temperature: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
@@ -194,13 +191,16 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
+    name: Mapped[str] = mapped_column(
+        ForeignKey('station.blg_name'), primary_key=True,
+    )
     station: Mapped[Station] = relationship(
         back_populates='blg_data_raw',
         lazy=True,
     )
 
 
-class _TempRHDeviates(Base):
+class _TempRHDerivatives(Base):
     __abstract__ = True
     dew_point: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     absolute_humidity: Mapped[Decimal] = mapped_column(
@@ -214,13 +214,18 @@ class _TempRHDeviates(Base):
     )
 
 
-class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDeviates):
+class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     __tablename__ = 'biomet_data'
+    blg_time_offset: Mapped[float] = mapped_column(
+        nullable=True,
+        comment='seconds',
+    )
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_category: Mapped[Decimal] = mapped_column(nullable=True)
+    # TODO: this should become an Enum
+    utci_category: Mapped[str] = mapped_column(nullable=True)
     pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_category: Mapped[Decimal] = mapped_column(nullable=True)
+    pet_category: Mapped[str] = mapped_column(nullable=True)
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
         back_populates='biomet_data',
@@ -228,7 +233,7 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDeviates):
     )
 
 
-class TempRHData(_SHT35DataRawBase, _TempRHDeviates):
+class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     __tablename__ = 'temp_rh_data'
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
