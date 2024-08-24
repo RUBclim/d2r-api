@@ -10,11 +10,13 @@ annotated-types==0.7.0
     # via pydantic
 anyio==4.4.0
     # via starlette
+asgiref==3.8.1
+    # via -r requirements.in
 billiard==4.2.0
     # via celery
 celery[redis]==5.4.0
     # via -r requirements.in
-certifi==2024.6.2
+certifi==2024.7.4
     # via sentry-sdk
 click==8.1.7
     # via
@@ -29,7 +31,7 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-element-api @ git+https://github.com/RUBclim/element-api
+element-api @ git+https://${GH_TOKEN}@github.com/RUBclim/element-api
     # via -r requirements.in
 fastapi==0.112.1
     # via
@@ -39,19 +41,19 @@ greenlet==3.0.3
     # via sqlalchemy
 h11==0.14.0
     # via uvicorn
-idna==3.7
+idna==3.8
     # via anyio
-kombu==5.3.7
+kombu==5.4.0
     # via celery
 numpy==2.1.0
     # via pandas
 pandas==2.2.2
     # via element-api
-prompt-toolkit==3.0.45
+prompt-toolkit==3.0.47
     # via -r requirements.in
-psycopg-binary==3.1.19
+psycopg-binary==3.2.1
     # via click-repl
-psycopg[binary]==3.1.19
+psycopg[binary]==3.2.1
     # via psycopg
 pydantic==2.8.2
     # via
@@ -65,9 +67,9 @@ python-dateutil==2.9.0.post0
     #   pandas
 pytz==2024.1
     # via pandas
-redis==5.0.4
+redis==5.0.8
     # via celery
-sentry-sdk[fastapi]==2.4.0
+sentry-sdk[fastapi]==2.13.0
     # via -r requirements.in
 six==1.16.0
     # via python-dateutil
@@ -79,7 +81,7 @@ sqlmodel==0.0.21
     # via -r requirements.in
 starlette==0.38.2
     # via fastapi
-typing-extensions==4.12.1
+typing-extensions==4.12.2
     # via
     #   fastapi
     #   psycopg
@@ -90,7 +92,7 @@ tzdata==2024.1
     # via
     #   celery
     #   pandas
-urllib3==2.2.1
+urllib3==2.2.2
     # via sentry-sdk
 uvicorn==0.30.6
     # via -r requirements.in

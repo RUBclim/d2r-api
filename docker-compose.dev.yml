@@ -38,6 +38,16 @@ services:
     volumes:
       - ./app:/usr/src/app/app:ro
 
+  celery-beat:
+    env_file:
+      - .env.dev
+    command: [
+      /usr/src/app/venv/bin/celery, -A, app.tasks, beat,
+      --loglevel, INFO,
+      --schedule, /tmp/celerybeat-schedule.db
+    ]
+
+
   nginx:
     ports:
       - "8080:8080"

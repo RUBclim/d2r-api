@@ -1,7 +1,8 @@
+asgiref
 celery[redis]
 fastapi
-psycopg[binary]
+psycopg[binary] > 3.2.0
 sentry_sdk[fastapi]
 sqlmodel
 uvicorn
-git+https://github.com/RUBclim/element-api
+git+https://${GH_TOKEN}@github.com/RUBclim/element-api

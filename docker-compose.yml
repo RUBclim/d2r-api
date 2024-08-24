@@ -51,6 +51,13 @@ services:
     depends_on:
       - redis
 
+  celery-beat:
+    container_name: celery-beat
+    user: nobody
+    image: d2r-api
+    depends_on:
+      - redis
+
   nginx:
     container_name: nginx
     build:

@@ -6,6 +6,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+from sqlalchemy import text
 
 from app.database import Base
 from app.database import sessionmanager
@@ -24,6 +25,21 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         async with sessionmanager.connect() as con:
             await con.run_sync(Base.metadata.create_all)
+            # TODO: we can implement this in sqlalchemy
+            latest_data_view = '''\
+                CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
+                SELECT DISTINCT ON (name)
+                    name,
+                    long_name,
+                    latitude,
+                    longitude,
+                    measured_at,
+                    air_temperature,
+                    relative_humidity
+                FROM sht35_data_raw INNER JOIN station USING(name)
+                ORDER BY name, measured_at DESC
+            '''
+            await con.execute(text(latest_data_view))
         yield
         if sessionmanager._engine is not None:
             await sessionmanager.close()
