@@ -46,24 +46,19 @@ You can only run the web app without the queue and worker process
    ```
 1. run the web app
    ```bash
-   python -m app.app
+   uvicorn app.psm:app --reload
    ```
 
 ### run the entire system in development mode
 
-You need to have `docker-compose` (can be installed via `pip install docker-compose`)
-and `docker` installed on your system.
+You need to have `docker compose` and `docker` installed on your system.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d
 ```
 
-- the setup is configured, so that the Flask web app restarts if changes are made to any
-  of the Python code or the html templates the worker, however, needs to be restarted
-  manually
-- currently the celery worker has no access to the sqlite database used for development.
-  Submitting a task hence fails in the docker development mode. The production setup
-  with the postgres database has to be used.
+- the setup is configured, so that the fastapi web app restarts if changes are made to
+  any of the Python code. The worker, however, needs to be restarted manually.
 
 ### run the tests
 
