@@ -7,6 +7,8 @@ from enum import StrEnum
 from sqlalchemy import BigInteger
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
@@ -17,6 +19,20 @@ from app.database import Base
 class StationType(StrEnum):
     temprh = 'temprh'
     biomet = 'biomet'
+
+
+class HeatStressCategories(StrEnum):
+    unknown = 'unknown'
+    extreme_cold_stress = 'extreme cold stress'
+    very_strong_cold_stress = 'very strong cold stress'
+    strong_cold_stress = 'strong cold stress'
+    moderate_cold_stress = 'moderate cold stress'
+    slight_cold_stress = 'slight cold stress'
+    no_thermal_stress = 'no thermal stress'
+    moderate_heat_stress = 'moderate heat stress'
+    strong_heat_stress = 'strong heat stress'
+    very_strong_heat_stress = 'very strong heat stress'
+    extreme_heat_stress = 'extreme heat stress'
 
 
 class Station(Base):
@@ -223,9 +239,17 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     # TODO: this should become an Enum
-    utci_category: Mapped[str] = mapped_column(nullable=True)
+    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
     pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_category: Mapped[str] = mapped_column(nullable=True)
+    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',  # we've converted it to hPa in the meantime
+    )
+    atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
         back_populates='biomet_data',
@@ -240,3 +264,83 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
         back_populates='temp_rh_data',
         lazy=True,
     )
+
+
+async def refresh_views(db: AsyncSession) -> None:
+    await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))
+
+
+latest_data_view = '''\
+    CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
+    (
+        SELECT DISTINCT ON (name)
+            name,
+            long_name,
+            latitude,
+            longitude,
+            altitude,
+            district,
+            lcz,
+            station_type,
+            measured_at,
+            air_temperature,
+            relative_humidity,
+            dew_point,
+            absolute_humidity,
+            heat_index,
+            wet_bulb_temperature,
+            atmospheric_pressure,
+            atmospheric_pressure_reduced,
+            lightning_average_distance,
+            lightning_strike_count,
+            mrt,
+            pet,
+            pet_category,
+            precipitation_sum,
+            solar_radiation,
+            utci,
+            utci_category,
+            vapor_pressure,
+            wind_direction,
+            wind_speed,
+            wind_speed_max
+        FROM biomet_data INNER JOIN station USING(name)
+        ORDER BY name, measured_at DESC
+    )
+    UNION ALL
+    (
+        SELECT DISTINCT ON (name)
+            name,
+            long_name,
+            latitude,
+            longitude,
+            altitude,
+            district,
+            lcz,
+            station_type,
+            measured_at,
+            air_temperature,
+            relative_humidity,
+            dew_point,
+            absolute_humidity,
+            heat_index,
+            wet_bulb_temperature,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL
+        FROM temp_rh_data INNER JOIN station USING(name)
+        ORDER BY name, measured_at DESC
+    )
+'''

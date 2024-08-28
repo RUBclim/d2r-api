@@ -4,13 +4,13 @@
 #
 #    pip-compile --allow-unsafe requirements-dev.in
 #
-alabaster==0.7.16
+alabaster==1.0.0
     # via sphinx
-babel==2.15.0
+babel==2.16.0
     # via sphinx
 build==1.2.1
     # via pip-tools
-certifi==2024.6.2
+certifi==2024.7.4
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -18,13 +18,13 @@ click==8.1.7
     # via pip-tools
 covdefaults==2.3.0
     # via -r requirements-dev.in
-coverage==7.5.3
+coverage==7.6.1
     # via
     #   -r requirements-dev.in
     #   covdefaults
 docutils==0.21.2
     # via sphinx
-idna==3.7
+idna==3.8
     # via requests
 imagesize==1.4.1
     # via sphinx
@@ -34,11 +34,11 @@ jinja2==3.1.4
     # via sphinx
 markupsafe==2.1.5
     # via jinja2
-packaging==24.0
+packaging==24.1
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==24.0
+pip==24.2
     # via
     #   build
     #   pytest
@@ -53,7 +53,7 @@ pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
-pytest==8.2.1
+pytest==8.3.2
     # via
     #   -r requirements-dev.in
     #   pytest-randomly
@@ -61,25 +61,25 @@ pytest-randomly==3.15.0
     # via -r requirements-dev.in
 requests==2.32.3
     # via pip-tools
-setuptools==70.0.0
+setuptools==73.0.1
     # via sphinx
 snowballstemmer==2.2.0
     # via sphinx
-sphinx==7.3.7
+sphinx==8.0.2
     # via -r requirements-dev.in
-sphinxcontrib-applehelp==1.0.8
+sphinxcontrib-applehelp==2.0.0
     # via sphinx
-sphinxcontrib-devhelp==1.0.6
+sphinxcontrib-devhelp==2.0.0
     # via sphinx
-sphinxcontrib-htmlhelp==2.0.5
+sphinxcontrib-htmlhelp==2.1.0
     # via sphinx
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
-sphinxcontrib-qthelp==1.0.7
+sphinxcontrib-qthelp==2.0.0
     # via sphinx
-sphinxcontrib-serializinghtml==1.1.10
+sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
-urllib3==2.2.1
+urllib3==2.2.2
     # via requests
-wheel==0.43.0
+wheel==0.44.0
     # via pip-tools

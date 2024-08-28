@@ -13,6 +13,7 @@ from pythermalcomfort.psychrometrics import t_mrt
 from pythermalcomfort.psychrometrics import t_wb
 from sqlalchemy import func
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.celery import async_task
 from app.celery import celery_app
@@ -20,6 +21,7 @@ from app.database import sessionmanager
 from app.models import ATM41DataRaw
 from app.models import BiometData
 from app.models import BLGDataRaw
+from app.models import refresh_views
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
@@ -60,51 +62,84 @@ KLIMA_MICHEL = {
 }
 
 
-# TODO: we can make those calculations smart, so more code is reused
+def reduce_pressure(p: float, alt: float) -> float:
+    """Correct barometric pressure in **hPa** to sea level
+    Wallace, J.M. and P.V. Hobbes. 197725 Atmospheric Science:
+    An Introductory Survey. Academic Press
+    """
+    return p + 1013.25 * (1 - (1 - alt / 44307.69231)**5.25328)
+
+
+async def _download_data(
+        name: str,
+        target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw],
+        con: AsyncSession,
+) -> tuple[Station, pd.DataFrame]:
+    station = (
+        # one of which has to be present. The "name" should be unique across all
+        # devices
+        await con.execute(
+            select(Station).where(
+                (Station.name == name) |
+                (Station.blg_name == name),
+            ),
+        )
+    ).scalar_one()
+
+    start_date = (
+        await con.execute(
+            select(
+                func.max(target_table.measured_at).label('newest_data'),
+            ).where(target_table.name == name),
+        )
+    ).scalar_one_or_none()
+    if start_date is not None:
+        # the API request is inclusive, so we need to move forward one tick
+        start_date += timedelta(microseconds=1)
+    else:
+        start_date = station.setup_date
+
+    data = api.get_readings(
+        device_name=name,
+        sort='measured_at',
+        sort_direction='asc',
+        start=start_date,
+        as_dataframe=True,
+    )
+    return station, data
+
 
 @async_task(
     app=celery_app,
     name='download_temp_rh_data',
 )
 async def download_temp_rh_data(name: str) -> None:
-    async with sessionmanager.connect() as con:
-        start_date = (
-            await con.execute(
-                select(
-                    func.max(SHT35DataRaw.measured_at).label('newest_data'),
-                ).where(SHT35DataRaw.name == name),
-            )
-        ).scalar_one_or_none()
-        if start_date is not None:
-            # the API request is inclusive, so we need to move forward one tick
-            start_date += timedelta(microseconds=1)
-        data = api.get_readings(
-            device_name=name,
-            sort='measured_at',
-            sort_direction='asc',
-            start=start_date,
-            as_dataframe=True,
+    async with sessionmanager.session() as sess:
+        _, data = await _download_data(
+            name=name,
+            target_table=SHT35DataRaw,
+            con=sess,
         )
         if data.empty:
             return
 
         data['name'] = name
         data = data.rename(columns=RENAMER)
-        subset = [
+        data = data[[
             'name', 'battery_voltage', 'protocol_version',
             'air_temperature', 'relative_humidity',
-        ]
-        data = data[subset]
+        ]]
+        con = await sess.connection()
         await con.run_sync(
-            lambda sync_con: data.to_sql(
+            lambda con: data.to_sql(
                 name=SHT35DataRaw.__tablename__,
-                con=sync_con,
+                con=con,
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
             ),
         )
-        await con.commit()
+        await sess.commit()
         # now that we have data, calculate the derived parameters as a new task
         calculate_temp_rh.delay(name)
 
@@ -114,34 +149,18 @@ async def download_temp_rh_data(name: str) -> None:
     name='download-biomet-data',
 )
 async def download_biomet_data(name: str) -> None:
-    async with sessionmanager.connect() as con:
-        # TODO: something is off with the type
-        station = (
-            await con.execute(select(Station).where(Station.name == name))
-        ).one()
-        start_date_atm_41 = (
-            await con.execute(
-                select(
-                    func.max(ATM41DataRaw.measured_at).label('newest_data'),
-                ).where(ATM41DataRaw.name == name),
-            )
-        ).scalar_one_or_none()
-        if start_date_atm_41 is not None:
-            # the API request is inclusive, so we need to move forward one tick
-            start_date_atm_41 += timedelta(microseconds=1)
-        data = api.get_readings(
-            device_name=name,
-            sort='measured_at',
-            sort_direction='asc',
-            start=start_date_atm_41,
-            as_dataframe=True,
+    async with sessionmanager.session() as sess:
+        station, data = await _download_data(
+            name=name,
+            target_table=ATM41DataRaw,
+            con=sess,
         )
         if data.empty:
             return
 
         data['name'] = name
         data = data.rename(columns=RENAMER)
-        subset = [
+        data = data[[
             'air_temperature', 'relative_humidity', 'atmospheric_pressure',
             'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind', 'v_wind',
             'wind_speed_max', 'precipitation_sum', 'solar_radiation',
@@ -149,63 +168,51 @@ async def download_biomet_data(name: str) -> None:
             'sensor_temperature_internal', 'x_orientation_angle',
             'y_orientation_angle', 'name', 'battery_voltage',
             'protocol_version',
-        ]
-        data = data[subset]
+        ]]
+        con = await sess.connection()
         await con.run_sync(
-            lambda sync_con: data.to_sql(
+            lambda con: data.to_sql(
                 name=ATM41DataRaw.__tablename__,
-                con=sync_con,
+                con=con,
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
             ),
         )
         # now download the corresponding blackglobe data
-        start_date_blg = (
-            await con.execute(
-                select(
-                    func.max(BLGDataRaw.measured_at).label('newest_data'),
-                ).where(BLGDataRaw.name == station.blg_name),
-            )
-        ).scalar_one_or_none()
-        if start_date_blg is not None:
-            # the API request is inclusive, so we need to move forward one tick
-            start_date_blg += timedelta(microseconds=1)
-        data = api.get_readings(
-            device_name=station.blg_name,
-            sort='measured_at',
-            sort_direction='asc',
-            start=start_date_blg,
-            as_dataframe=True,
+        _, blg_data = await _download_data(
+            name=station.blg_name,
+            target_table=BLGDataRaw,
+            con=sess,
         )
-        if data.empty:
+        if blg_data.empty:
             return
 
-        data['name'] = station.blg_name
-        data = data.rename(columns=RENAMER)
-        subset = [
+        blg_data['name'] = station.blg_name
+        blg_data = blg_data.rename(columns=RENAMER)
+        blg_data = blg_data[[
             'battery_voltage', 'protocol_version', 'black_globe_temperature',
             'thermistor_resistance', 'voltage_ratio', 'name',
-        ]
-        data = data[subset]
+        ]]
+        con = await sess.connection()
         await con.run_sync(
-            lambda sync_con: data.to_sql(
+            lambda sync_cont: blg_data.to_sql(
                 name=BLGDataRaw.__tablename__,
-                con=sync_con,
+                con=sync_cont,
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
             ),
         )
-        await con.commit()
+        await sess.commit()
         # now that we have data, calculate the derived biomet parameters as a new task
         calculate_biomet.delay(station.name)
 
 
 @async_task(app=celery_app, name='download-data')
 async def _sync_data_wrapper() -> None:
-    async with sessionmanager.connect() as con:
-        stations = (await con.execute(select(Station))).all()
+    async with sessionmanager.session() as sess:
+        stations = (await sess.execute(select(Station))).scalars().all()
         for station in stations:
             if station.station_type == StationType.biomet:
                 download_biomet_data.delay(station.name)
@@ -215,14 +222,14 @@ async def _sync_data_wrapper() -> None:
 
 @async_task(app=celery_app, name='calculate-biomet')
 async def calculate_biomet(name: str) -> None:
-    async with sessionmanager.connect() as con:
+    async with sessionmanager.session() as sess:
         # 1. get information on the current station
         station = (
-            await con.execute(select(Station).where(Station.name == name))
-        ).one()
+            await sess.execute(select(Station).where(Station.name == name))
+        ).scalar_one()
         # 2. get the newest biomet data, so we can start from there
         biomet_latest = (
-            await con.execute(
+            await sess.execute(
                 select(
                     func.max(BiometData.measured_at).label('newest_data'),
                 ).where(BiometData.name == name),
@@ -233,18 +240,20 @@ async def calculate_biomet(name: str) -> None:
             biomet_latest = datetime(2024, 1, 1)
 
         # 3. get the biomet data
+        con = await sess.connection()
         atm41_data = await con.run_sync(
-            lambda sync_con: pd.read_sql(
+            lambda con: pd.read_sql(
                 sql=select(ATM41DataRaw).where(
                     (ATM41DataRaw.name == name) &
                     (ATM41DataRaw.measured_at > biomet_latest),
                 ).order_by(ATM41DataRaw.measured_at),
-                con=sync_con,
+                con=con,
             ),
         )
         # 4. get the biomet data
+        con = await sess.connection()
         blg_data = await con.run_sync(
-            lambda sync_con: pd.read_sql(
+            lambda con: pd.read_sql(
                 sql=select(
                     BLGDataRaw.measured_at.label('measured_at_blg'),
                     BLGDataRaw.black_globe_temperature,
@@ -254,7 +263,7 @@ async def calculate_biomet(name: str) -> None:
                     # it to the closes ATM41 measurement
                     (BLGDataRaw.measured_at > (biomet_latest - timedelta(minutes=5))),
                 ).order_by(BLGDataRaw.measured_at),
-                con=sync_con,
+                con=con,
             ),
         )
         # 5. merge both with a tolerance of 5 minutes
@@ -280,6 +289,13 @@ async def calculate_biomet(name: str) -> None:
         df_biomet = df_biomet.drop('measured_at_blg', axis=1)
 
         df_biomet = df_biomet.set_index('measured_at')
+
+        # convert kPa to hPa
+        df_biomet['atmospheric_pressure'] = df_biomet['atmospheric_pressure'] * 10
+        df_biomet['atmospheric_pressure_reduced'] = reduce_pressure(
+            p=df_biomet['atmospheric_pressure'],
+            alt=station.altitude,
+        )
 
         df_biomet['mrt'] = t_mrt(
             tg=df_biomet['black_globe_temperature'],
@@ -331,24 +347,26 @@ async def calculate_biomet(name: str) -> None:
         #     height=KLIMA_MICHEL['height'],
         #     wme=0,  # external work, [W/(m2)]
         # )
+        con = await sess.connection()
         await con.run_sync(
-            lambda sync_con: df_biomet.to_sql(
+            lambda con: df_biomet.to_sql(
                 name=BiometData.__tablename__,
-                con=sync_con,
+                con=con,
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
             ),
         )
-        await con.commit()
+        await refresh_views(db=sess)
+        await sess.commit()
 
 
 @async_task(app=celery_app, name='calculate-temp_rh')
 async def calculate_temp_rh(name: str) -> None:
-    async with sessionmanager.connect() as con:
+    async with sessionmanager.session() as sess:
         # 1. get the newest data, so we can start from there
         latest = (
-            await con.execute(
+            await sess.execute(
                 select(
                     func.max(TempRHData.measured_at).label('newest_data'),
                 ).where(TempRHData.name == name),
@@ -359,13 +377,14 @@ async def calculate_temp_rh(name: str) -> None:
             latest = datetime(2024, 1, 1)
 
         # 3. get the temp and rh data
+        con = await sess.connection()
         data = await con.run_sync(
-            lambda sync_con: pd.read_sql(
+            lambda con: pd.read_sql(
                 sql=select(SHT35DataRaw).where(
                     (SHT35DataRaw.name == name) &
                     (SHT35DataRaw.measured_at > latest),
                 ).order_by(SHT35DataRaw.measured_at),
-                con=sync_con,
+                con=con,
             ),
         )
         data = data.set_index('measured_at')
@@ -384,13 +403,15 @@ async def calculate_temp_rh(name: str) -> None:
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
         )
+        con = await sess.connection()
         await con.run_sync(
-            lambda sync_con: data.to_sql(
+            lambda con: data.to_sql(
                 name=TempRHData.__tablename__,
-                con=sync_con,
+                con=con,
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
             ),
         )
-        await con.commit()
+        await refresh_views(db=sess)
+        await sess.commit()

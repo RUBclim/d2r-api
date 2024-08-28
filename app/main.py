@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from app.database import Base
 from app.database import sessionmanager
+from app.models import latest_data_view
 from app.routers import main
 
 
@@ -25,73 +26,6 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         async with sessionmanager.connect() as con:
             await con.run_sync(Base.metadata.create_all)
-            # TODO: we can implement this in sqlalchemy
-            latest_data_view = '''\
-                CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
-                (
-                    SELECT DISTINCT ON (name)
-                        name,
-                        long_name,
-                        latitude,
-                        longitude,
-                        altitude,
-                        measured_at,
-                        air_temperature,
-                        relative_humidity,
-                        dew_point,
-                        absolute_humidity,
-                        heat_index,
-                        wet_bulb_temperature,
-                        atmospheric_pressure,
-                        lightning_average_distance,
-                        lightning_strike_count,
-                        mrt,
-                        pet,
-                        pet_category,
-                        precipitation_sum,
-                        solar_radiation,
-                        utci,
-                        utci_category,
-                        vapor_pressure,
-                        wind_direction,
-                        wind_speed,
-                        wind_speed_max
-                    FROM biomet_data INNER JOIN station USING(name)
-                    ORDER BY name, measured_at DESC
-                )
-                UNION ALL
-                (
-                    SELECT DISTINCT ON (name)
-                        name,
-                        long_name,
-                        latitude,
-                        longitude,
-                        altitude,
-                        measured_at,
-                        air_temperature,
-                        relative_humidity,
-                        dew_point,
-                        absolute_humidity,
-                        heat_index,
-                        wet_bulb_temperature,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL
-                    FROM temp_rh_data INNER JOIN station USING(name)
-                    ORDER BY name, measured_at DESC
-                )
-            '''
             await con.execute(text(latest_data_view))
         yield
         if sessionmanager._engine is not None:
