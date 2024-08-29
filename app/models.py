@@ -8,6 +8,7 @@ from sqlalchemy import BigInteger
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -33,6 +34,10 @@ class HeatStressCategories(StrEnum):
     strong_heat_stress = 'strong heat stress'
     very_strong_heat_stress = 'very strong heat stress'
     extreme_heat_stress = 'extreme heat stress'
+
+
+# we need this for pandas to be able to insert enums via .to_sql
+_HeatStressCategories = ENUM(HeatStressCategories)
 
 
 class Station(Base):
@@ -247,6 +252,10 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
         comment='hPa',  # we've converted it to hPa in the meantime
     )
     atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
     )

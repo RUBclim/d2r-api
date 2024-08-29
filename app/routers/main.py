@@ -27,7 +27,11 @@ from app.schemas import PublicParams
 router = APIRouter()
 
 
-@router.get('/stations/metadata', response_model=list[schemas.StationMetadata])
+@router.get(
+    '/stations/metadata',
+    response_model=list[schemas.StationMetadata],
+    tags=['stations'],
+)
 async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> Any:
     """API-endpoint for retrieving metadata from all available stations."""
     return (
@@ -50,6 +54,7 @@ async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> An
     '/stations/latest_data',
     response_model=list[schemas.StationParams],
     response_model_exclude_unset=True,
+    tags=['stations'],
 )
 async def get_station_latest_data(
         param: list[PublicParams] = Query(
@@ -104,6 +109,7 @@ async def get_station_latest_data(
     '/districts/latest_data',
     response_model=list[schemas.DistrictParams],
     response_model_exclude_unset=True,
+    tags=['districts'],
 )
 async def get_districts(
         param: list[PublicParams] = Query(
@@ -193,6 +199,7 @@ async def get_stats(
     '/data/{name}',
     response_model=list[schemas.StationData],
     response_model_exclude_unset=True,
+    tags=['stations'],
 )
 async def get_data(
         name: str = Path(

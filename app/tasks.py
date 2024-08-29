@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.celery import async_task
 from app.celery import celery_app
 from app.database import sessionmanager
+from app.models import _HeatStressCategories
 from app.models import ATM41DataRaw
 from app.models import BiometData
 from app.models import BLGDataRaw
@@ -251,7 +252,6 @@ async def calculate_biomet(name: str) -> None:
             ),
         )
         # 4. get the biomet data
-        con = await sess.connection()
         blg_data = await con.run_sync(
             lambda con: pd.read_sql(
                 sql=select(
@@ -292,6 +292,7 @@ async def calculate_biomet(name: str) -> None:
 
         # convert kPa to hPa
         df_biomet['atmospheric_pressure'] = df_biomet['atmospheric_pressure'] * 10
+        df_biomet['vapor_pressure'] = df_biomet['vapor_pressure'] * 10
         df_biomet['atmospheric_pressure_reduced'] = reduce_pressure(
             p=df_biomet['atmospheric_pressure'],
             alt=station.altitude,
@@ -325,6 +326,7 @@ async def calculate_biomet(name: str) -> None:
             v=df_biomet['wind_speed'],
             rh=df_biomet['relative_humidity'],
             return_stress_category=True,
+            limit_inputs=False,
         )
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
@@ -355,6 +357,10 @@ async def calculate_biomet(name: str) -> None:
                 if_exists='append',
                 chunksize=1024,
                 method='multi',
+                dtype={
+                    'utci_category': _HeatStressCategories,
+                    'pet_category': _HeatStressCategories,
+                },
             ),
         )
         await refresh_views(db=sess)

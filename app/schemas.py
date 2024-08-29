@@ -100,13 +100,16 @@ class Parameters(BaseModel):
     )
     dew_point: float | None = Field(
         None,
-        examples=[],
+        examples=[7.5],
         description='The dew point temperature in **°C**',
     )
     heat_index: float | None = Field(
         None,
-        examples=[],
-        description='',
+        examples=[25.6],
+        description=(
+            'The heat index derived from relative humidity and air temperature '
+            'in **°C**'
+        ),
     )
     lightning_average_distance: float | None = Field(
         None,
@@ -164,8 +167,8 @@ class Parameters(BaseModel):
     )
     vapor_pressure: float | None = Field(
         None,
-        examples=[],
-        description='',
+        examples=[19.5],
+        description='The vapor pressure in **hPa**',
     )
     wet_bulb_temperature: float | None = Field(
         None,

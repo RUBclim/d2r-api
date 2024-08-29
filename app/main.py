@@ -31,7 +31,30 @@ def create_app() -> FastAPI:
         if sessionmanager._engine is not None:
             await sessionmanager.close()
 
-    app = FastAPI(lifespan=lifespan)
+    app = FastAPI(
+        title='D2R-API',
+        description=(
+            'API for getting data from the (bio-) meteorological network deployed '
+            'in the [Data2Resilience (D2R) Project](https://data2resilience.de/)'
+        ),
+        contact={
+            'name': 'Bochum Urban Climate Lab',
+            'url': 'https://climate.rub.de',
+            'email': 'climate@rub.de',
+        },
+        version='0.0.0',
+        openapi_tags=[
+            {
+                'name': 'stations',
+                'description': 'operations on a per-station or all stations level',
+            },
+            {
+                'name': 'districts',
+                'description': 'operations on a per-district or all districts level',
+            },
+        ],
+        lifespan=lifespan,
+    )
     # we want this as a router, so we can do easy url-versioning
     app.include_router(router=main.router, prefix='/v1')
     return app
