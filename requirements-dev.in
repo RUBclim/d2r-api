@@ -1,6 +1,9 @@
+asgi-lifespan
 covdefaults
 coverage
+httpx
 pip-tools
 pytest
 pytest-randomly
 sphinx
+trio

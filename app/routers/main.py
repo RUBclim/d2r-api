@@ -45,7 +45,7 @@ async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> An
                 Station.district,
                 Station.lcz,
                 Station.station_type,
-            ),
+            ).order_by(Station.name),
         )
     )
 

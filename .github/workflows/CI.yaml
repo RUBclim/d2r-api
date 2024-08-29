@@ -12,6 +12,11 @@ jobs:
       matrix:
         python-version: ["3.12"]
     steps:
+    - name: setup database container
+      run: |
+        sudo apt-get install -y wait-for-it --no-install-recommends
+        docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d db
+        wait-for-it localhost:5432 --
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -21,3 +26,5 @@ jobs:
       run: pip install --upgrade tox
     - name: run tests in tox
       run: tox -e py
+      env:
+        GH_TOKEN: ${{ secrets.GH_ELEMENT_API_TOKEN }}
