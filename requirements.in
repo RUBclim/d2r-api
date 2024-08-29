@@ -1,3 +1,4 @@
+alembic
 asgiref
 celery[redis]
 fastapi

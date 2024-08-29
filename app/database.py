@@ -67,11 +67,13 @@ class DatabaseSessionManager:
             await session.close()
 
 
-sessionmanager = DatabaseSessionManager(
+DB_URL = (
     f"{os.environ['DB_PROVIDER']}://{os.environ['POSTGRES_USER']}:"
     f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['DB_HOST']}:"
-    f"{os.environ['DB_PORT']}/{os.environ['POSTGRES_DB']}",
+    f"{os.environ['DB_PORT']}/{os.environ['POSTGRES_DB']}"
 )
+
+sessionmanager = DatabaseSessionManager(DB_URL)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession]:

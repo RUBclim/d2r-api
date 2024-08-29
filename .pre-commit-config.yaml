@@ -56,4 +56,8 @@ repos:
     rev: v1.11.2
     hooks:
     -   id: mypy
-        additional_dependencies: ['fastapi==0.112.1', 'sqlalchemy[mypy]==2.0.32']
+        additional_dependencies: [
+            'fastapi==0.112.1',
+            'sqlalchemy[mypy]==2.0.32',
+            'alembic==1.13.2',
+    ]
