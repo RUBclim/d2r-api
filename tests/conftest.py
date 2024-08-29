@@ -6,12 +6,22 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport
 from httpx import AsyncClient
 from sqlalchemy import delete
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import Base
 from app.database import sessionmanager
 from app.main import create_app
+from app.models import latest_data_view
 from app.models import Station
 from app.models import StationType
+
+
+@pytest.fixture(scope='session', autouse=True)
+async def create_tables(db: AsyncSession) -> None:
+    con = await db.connection()
+    await con.run_sync(Base.metadata.create_all)
+    await con.execute(text(latest_data_view))
 
 
 @pytest.fixture

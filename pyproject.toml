@@ -11,7 +11,7 @@ dynamic = ["version"]
 include-package-data = false
 
 [tool.coverage.report]
-fail_under = 0
+fail_under = 50
 
 [tool.coverage.run]
 parallel = true
