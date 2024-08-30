@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from datetime import timedelta
 from typing import Any
 
@@ -238,7 +237,7 @@ async def calculate_biomet(name: str) -> None:
         ).scalar_one_or_none()
         # set it to a date early enough, so there was no data
         if biomet_latest is None:
-            biomet_latest = datetime(2024, 1, 1)
+            biomet_latest = station.setup_date
 
         # 3. get the biomet data
         con = await sess.connection()
@@ -370,6 +369,9 @@ async def calculate_biomet(name: str) -> None:
 @async_task(app=celery_app, name='calculate-temp_rh')
 async def calculate_temp_rh(name: str) -> None:
     async with sessionmanager.session() as sess:
+        station = (
+            await sess.execute(select(Station).where(Station.name == name))
+        ).scalar_one()
         # 1. get the newest data, so we can start from there
         latest = (
             await sess.execute(
@@ -380,7 +382,7 @@ async def calculate_temp_rh(name: str) -> None:
         ).scalar_one_or_none()
         # set it to a date early enough, so there was no data
         if latest is None:
-            latest = datetime(2024, 1, 1)
+            latest = station.setup_date
 
         # 3. get the temp and rh data
         con = await sess.connection()
@@ -394,6 +396,15 @@ async def calculate_temp_rh(name: str) -> None:
             ),
         )
         data = data.set_index('measured_at')
+        # apply the calibration
+        # also save the original values w/o calibration
+        data['air_temperature_raw'] = data['air_temperature']
+        data['relative_humidity_raw'] = data['relative_humidity']
+        # now add the offset
+        data['air_temperature'] = data['air_temperature_raw'] + \
+            station.temp_calib_offset
+        data['relative_humidity'] = data['relative_humidity_raw'] + \
+            station.relhum_calib_offset
 
         data['dew_point'] = t_dp(
             tdb=data['air_temperature'],

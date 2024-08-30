@@ -71,6 +71,14 @@ class Station(Base):
     # TODO: add more station metadata
     lcz: Mapped[str] = mapped_column(nullable=True)
     svf: Mapped[Decimal] = mapped_column(nullable=True)
+    temp_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+    )
+    relhum_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+    )
     blg_data_raw: Mapped[list[BLGDataRaw]] = relationship(
         back_populates='station',
         lazy=True,
@@ -268,6 +276,14 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     __tablename__ = 'temp_rh_data'
+    air_temperature_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+    )
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
         back_populates='temp_rh_data',
