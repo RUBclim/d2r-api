@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.database import Base
 from app.database import sessionmanager
 from app.models import latest_data_view
+from app.models import LatestData
 from app.routers import main
 
 
@@ -25,7 +26,14 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         async with sessionmanager.connect() as con:
-            await con.run_sync(Base.metadata.create_all)
+            # we need to exclude tables that actually represent a views
+            # we trick sqlalchemy into thinking this was a table, but of course
+            # we must prevent it trying to create it.
+            excluded = {LatestData.__tablename__}
+            tables_to_creates = [
+                v for k, v in Base.metadata.tables.items() if k not in excluded
+            ]
+            await con.run_sync(Base.metadata.create_all, tables=tables_to_creates)
             await con.execute(text(latest_data_view))
         yield
         if sessionmanager._engine is not None:

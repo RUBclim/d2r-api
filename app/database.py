@@ -6,7 +6,6 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncConnection
-from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -22,23 +21,18 @@ class Base(DeclarativeBase):
 
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] = {}):
-        self._engine: AsyncEngine | None = create_async_engine(
+        self._engine = create_async_engine(
             host,
             **engine_kwargs,
         )
-        self._sessionmaker: async_sessionmaker[AsyncSession] | None = async_sessionmaker(  # noqa: E501
+        self._sessionmaker = async_sessionmaker(
             autocommit=False,
             bind=self._engine,
             expire_on_commit=False,
         )
 
     async def close(self) -> None:
-        if self._engine is None:
-            raise Exception('DatabaseSessionManager is not initialized')
         await self._engine.dispose()
-
-        self._engine = None
-        self._sessionmaker = None
 
     @contextlib.asynccontextmanager
     async def connect(self) -> AsyncGenerator[AsyncConnection]:

@@ -253,7 +253,6 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     )
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    # TODO: this should become an Enum
     utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
     pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
@@ -291,10 +290,6 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
         back_populates='temp_rh_data',
         lazy=True,
     )
-
-
-async def refresh_views(db: AsyncSession) -> None:
-    await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))
 
 
 latest_data_view = '''\
@@ -371,3 +366,41 @@ latest_data_view = '''\
         ORDER BY name, measured_at DESC
     )
 '''
+
+
+class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
+    """This is not an actual table, but a materialized view. We simply trick sqlalchemy
+    into thinking this was a table. Querying a materialized view does not differ from
+    querying a proper table.
+
+    The query for creating this materialized view is saved above.
+    """
+    __tablename__ = 'latest_data'
+    long_name: Mapped[str] = mapped_column(nullable=False)
+    latitude: Mapped[float] = mapped_column(nullable=False)
+    longitude: Mapped[float] = mapped_column(nullable=False)
+    altitude: Mapped[float] = mapped_column(nullable=False)
+    district: Mapped[str] = mapped_column(nullable=True)
+    lcz: Mapped[str] = mapped_column(nullable=True)
+    station_type: Mapped[StationType] = mapped_column(nullable=False)
+    mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',  # we've converted it to hPa in the meantime
+    )
+    atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
+
+    @classmethod
+    async def refresh(cls, db: AsyncSession) -> None:
+        await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))

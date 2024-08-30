@@ -10,15 +10,16 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
-from psycopg.sql import Identifier
-from psycopg.sql import SQL
+from sqlalchemy import and_
+from sqlalchemy import func
 from sqlalchemy import select
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app import schemas
 from app.database import get_db_session
 from app.models import BiometData
+from app.models import LatestData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
@@ -79,32 +80,28 @@ async def get_station_latest_data(
     """API-endpoint for getting the latest data from all available stations. Only
     stations that can provide all requested parameters are returned.
     """
-    # we need ot query a view here so it is fast!
-    identifiers = [Identifier(p.value) for p in param]
-    conditions = [SQL('AND {f} IS NOT NULL').format(f=i) for i in identifiers]
-    query = SQL(
-        '''\
-        SELECT
-            name,
-            long_name,
-            latitude,
-            longitude,
-            altitude,
-            district,
-            lcz,
-            station_type,
-            measured_at,
-            {fields}
-        FROM latest_data
-        WHERE measured_at > {cut_off_date} {conditions}
-        ORDER BY name
-        ''',
-    ).format(
-        fields=SQL(',').join(identifiers),
-        conditions=SQL(' ').join(conditions),
-        cut_off_date=datetime.now(tz=timezone.utc) - max_age,
-    )
-    data = await db.execute(text(query.as_string()))
+    columns: list[InstrumentedAttribute[Any]] = [
+        getattr(LatestData, i) for i in param
+    ]
+    cut_off_date = datetime.now(tz=timezone.utc) - max_age
+    not_null_conditions = [c.isnot(None) for c in columns]
+    query = select(
+        LatestData.name,
+        LatestData.long_name,
+        LatestData.latitude,
+        LatestData.longitude,
+        LatestData.altitude,
+        LatestData.district,
+        LatestData.measured_at,
+        LatestData.lcz,
+        LatestData.station_type,
+        LatestData.measured_at,
+        *columns,
+    ).where(
+        LatestData.measured_at > cut_off_date,
+        and_(*not_null_conditions),
+    ).order_by(LatestData.name)
+    data = await db.execute(query)
     return GenericReturn(data=data.mappings().all())
 
 
@@ -136,38 +133,29 @@ async def get_districts(
     districts that can provide all parameters are returned.
     """
     query_parts = []
-    conditions = []
+    not_null_conditions = []
+    cut_off_date = datetime.now(tz=timezone.utc) - max_age
     for p in param:
+        column: InstrumentedAttribute[Any] = getattr(LatestData, p)
         if '_max' in param:
-            query_part = SQL('MAX({p}) AS {p}')
+            query_part = func.max(column).label(p)
         elif 'category' in param:
-            query_part = SQL('MODE() WITHIN GROUP (ORDER BY {p}) AS {p}')
+            query_part = func.mode().within_group(column.asc()).label(p)
         elif 'direction' in param:
             pass
         else:
-            query_part = SQL('AVG({p}) AS {p}')
+            query_part = func.avg(column).label(p)
 
-        conditions.append(SQL('AND {f} IS NOT NULL').format(f=Identifier(p)))
-        query_parts.append(query_part.format(p=Identifier(p)))
+        not_null_conditions.append(column.isnot(None))
+        query_parts.append(query_part)
 
-    query = SQL(
-        '''\
-            SELECT
-                district,
-                {query_part},
-            FROM latest_data
-            WHERE
-                district IS NOT NULL AND
-                measured_at > {cut_off_date}
-                {conditions}
-            GROUP BY district
-        ''',
-    ).format(
-        query_part=SQL(', ').join(query_parts),
-        conditions=SQL(' ').join(conditions),
-        cut_off_date=datetime.now(tz=timezone.utc) - max_age,
-    )
-    data = await db.execute(text(query.as_string()))
+    query = select(LatestData.district, *query_parts).where(
+        (LatestData.measured_at > cut_off_date) & (
+            LatestData.district.isnot(None)
+        ),
+        and_(*not_null_conditions),
+    ).group_by(LatestData.district).order_by(LatestData.district)
+    data = await db.execute(query)
     return GenericReturn(data=data.mappings().all())
 
 

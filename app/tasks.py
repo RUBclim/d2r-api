@@ -21,7 +21,7 @@ from app.models import _HeatStressCategories
 from app.models import ATM41DataRaw
 from app.models import BiometData
 from app.models import BLGDataRaw
-from app.models import refresh_views
+from app.models import LatestData
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
@@ -362,7 +362,7 @@ async def calculate_biomet(name: str) -> None:
                 },
             ),
         )
-        await refresh_views(db=sess)
+        await LatestData.refresh(db=sess)
         await sess.commit()
 
 
@@ -402,9 +402,9 @@ async def calculate_temp_rh(name: str) -> None:
         data['relative_humidity_raw'] = data['relative_humidity']
         # now add the offset
         data['air_temperature'] = data['air_temperature_raw'] + \
-            station.temp_calib_offset
+            float(station.temp_calib_offset)
         data['relative_humidity'] = data['relative_humidity_raw'] + \
-            station.relhum_calib_offset
+            float(station.relhum_calib_offset)
 
         data['dew_point'] = t_dp(
             tdb=data['air_temperature'],
@@ -430,5 +430,5 @@ async def calculate_temp_rh(name: str) -> None:
                 method='multi',
             ),
         )
-        await refresh_views(db=sess)
+        await LatestData.refresh(db=sess)
         await sess.commit()

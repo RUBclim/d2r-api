@@ -1,6 +1,7 @@
 asgi-lifespan
 covdefaults
 coverage
+freezegun
 httpx
 pip-tools
 pytest
