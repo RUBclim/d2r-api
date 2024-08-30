@@ -74,10 +74,12 @@ class Station(Base):
     temp_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False,
         default=0,
+        server_default='0',
     )
     relhum_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False,
         default=0,
+        server_default='0',
     )
     blg_data_raw: Mapped[list[BLGDataRaw]] = relationship(
         back_populates='station',
