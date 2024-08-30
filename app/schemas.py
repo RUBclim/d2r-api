@@ -1,6 +1,8 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Generic
 from typing import Literal
+from typing import TypeVar
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -37,6 +39,16 @@ class PublicParams(StrEnum):
     wind_direction = 'wind_direction'
     wind_speed = 'wind_speed'
     wind_speed_max = 'wind_speed_max'
+
+
+T = TypeVar('T')
+
+
+class GenericReturn(BaseModel, Generic[T]):
+    """Generic structure of an API response."""
+    data: T = Field(
+        description='array or object containing the requested data',
+    )
 
 
 class StationMetadata(BaseModel):

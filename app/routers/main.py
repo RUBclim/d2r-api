@@ -22,6 +22,7 @@ from app.models import BiometData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.schemas import GenericReturn
 from app.schemas import PublicParams
 
 router = APIRouter()
@@ -29,12 +30,12 @@ router = APIRouter()
 
 @router.get(
     '/stations/metadata',
-    response_model=list[schemas.StationMetadata],
+    response_model=GenericReturn[list[schemas.StationMetadata]],
     tags=['stations'],
 )
 async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> Any:
     """API-endpoint for retrieving metadata from all available stations."""
-    return (
+    data = (
         await db.execute(
             select(
                 Station.name,
@@ -48,11 +49,12 @@ async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> An
             ).order_by(Station.name),
         )
     )
+    return GenericReturn(data=data.mappings().all())
 
 
 @router.get(
     '/stations/latest_data',
-    response_model=list[schemas.StationParams],
+    response_model=GenericReturn[list[schemas.StationParams]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
@@ -102,12 +104,13 @@ async def get_station_latest_data(
         conditions=SQL(' ').join(conditions),
         cut_off_date=datetime.now(tz=timezone.utc) - max_age,
     )
-    return await db.execute(text(query.as_string()))
+    data = await db.execute(text(query.as_string()))
+    return GenericReturn(data=data.mappings().all())
 
 
 @router.get(
     '/districts/latest_data',
-    response_model=list[schemas.DistrictParams],
+    response_model=GenericReturn[list[schemas.DistrictParams]],
     response_model_exclude_unset=True,
     tags=['districts'],
 )
@@ -164,7 +167,8 @@ async def get_districts(
         conditions=SQL(' ').join(conditions),
         cut_off_date=datetime.now(tz=timezone.utc) - max_age,
     )
-    return await db.execute(text(query.as_string()))
+    data = await db.execute(text(query.as_string()))
+    return GenericReturn(data=data.mappings().all())
 
 
 @router.get('/trends/{param}')
@@ -197,7 +201,7 @@ async def get_stats(
 
 @router.get(
     '/data/{name}',
-    response_model=list[schemas.StationData],
+    response_model=GenericReturn[list[schemas.StationData]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
@@ -254,7 +258,7 @@ async def get_data(
                     (table.name == station.name),
                 ),
             )
-        ).all()
-        return data
+        )
+        return GenericReturn(data=data.mappings().all())
     else:
         raise HTTPException(status_code=404, detail='Station not found')
