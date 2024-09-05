@@ -137,12 +137,12 @@ async def get_districts(
     cut_off_date = datetime.now(tz=timezone.utc) - max_age
     for p in param:
         column: InstrumentedAttribute[Any] = getattr(LatestData, p)
-        if '_max' in param:
+        if '_max' in p:
             query_part = func.max(column).label(p)
-        elif 'category' in param:
+        elif 'category' in p:
             query_part = func.mode().within_group(column.asc()).label(p)
-        elif 'direction' in param:
-            pass
+        elif 'direction' in p:
+            query_part = func.avg_angle(column).label(p)
         else:
             query_part = func.avg(column).label(p)
 

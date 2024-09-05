@@ -1,0 +1,6 @@
+ARG PG_VERSION
+FROM timescale/timescaledb-ha:pg${PG_VERSION}
+ARG PG_VERSION
+ARG ANGLE_AVG_VERSION
+
+RUN curl --output /usr/lib/postgresql/${PG_VERSION}/lib/angle_avg.so --silent --location https://github.com/jkittner/postgres-angle-avg/releases/download/${ANGLE_AVG_VERSION}/angle_avg_pg${PG_VERSION}.so

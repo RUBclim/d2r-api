@@ -8,6 +8,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sqlalchemy import text
 
+from app.database import angle_avg_funcs
 from app.database import Base
 from app.database import sessionmanager
 from app.models import latest_data_view
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
                 v for k, v in Base.metadata.tables.items() if k not in excluded
             ]
             await con.run_sync(Base.metadata.create_all, tables=tables_to_creates)
+            await con.execute(text(angle_avg_funcs))
             await con.execute(text(latest_data_view))
         yield
         if sessionmanager._engine is not None:

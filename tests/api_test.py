@@ -246,3 +246,46 @@ async def test_get_station_latest_data_multiple_params(
             'utci_category': 'extreme heat stress',
         }],
     }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('stations', [2], indirect=True)
+@freezegun.freeze_time('2024-08-01 01:35')
+@pytest.mark.usefixtures('clean_db')
+async def test_get_districts_latest_data_angles_are_averaged(
+        app: AsyncClient,
+        stations: list[Station],
+        db: AsyncSession,
+) -> None:
+    # add data for the station
+    data_station_0 = BiometData(
+        name=stations[0].name,
+        measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
+        wind_direction=360,
+        air_temperature=10,
+    )
+    db.add(data_station_0)
+    data_station_1 = BiometData(
+        name=stations[1].name,
+        measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
+        wind_direction=10,
+        air_temperature=20,
+    )
+    db.add(data_station_1)
+    await db.commit()
+    # we need to refresh the views so we actually get the data
+    await LatestData.refresh(db=db)
+    await db.commit()
+
+    resp = await app.get(
+        '/v1/districts/latest_data',
+        params={'param': ['air_temperature', 'wind_direction']},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        'data': [{
+            'district': 'Innenstadt',
+            'wind_direction': pytest.approx(5),
+            'air_temperature': 15.0,
+        }],
+    }

@@ -1,10 +1,15 @@
 services:
   db:
     container_name: db
-    image: postgres:16-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+      args:
+        PG_VERSION: 16
+        ANGLE_AVG_VERSION: "0.1.1"
     volumes:
       # TODO: add properly tuned postgres conf
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/home/postgres/pgdata/data
     environment:
       # we need to set this, so ordering is case insensitive
       POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
