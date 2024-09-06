@@ -1,11 +1,13 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from typing import Generic
 from typing import Literal
 from typing import TypeVar
 
 from pydantic import BaseModel
 from pydantic import Field
+from pydantic import RootModel
 
 from app.models import HeatStressCategories
 from app.models import StationType
@@ -269,3 +271,13 @@ class StationData(Parameters):
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
         description='The exact time the value was measured in **UTC**',
     )
+
+
+class _Trends(RootModel[dict[str, Any | None]]):
+    pass
+
+
+class Trends(BaseModel):
+    supported_ids: set[str]
+    unit: Units
+    trends: list[_Trends]

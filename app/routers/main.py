@@ -11,20 +11,29 @@ from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
 from sqlalchemy import and_
+from sqlalchemy import CompoundSelect
 from sqlalchemy import func
+from sqlalchemy import Function
+from sqlalchemy import Select
 from sqlalchemy import select
+from sqlalchemy import WithinGroup
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app import schemas
 from app.database import get_db_session
 from app.models import BiometData
+from app.models import BiometDataHourly
 from app.models import LatestData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataHourly
+from app.schemas import _Trends
 from app.schemas import GenericReturn
 from app.schemas import PublicParams
+from app.schemas import Trends
+from app.schemas import UNIT_MAPPING
 
 router = APIRouter()
 
@@ -137,15 +146,7 @@ async def get_districts(
     cut_off_date = datetime.now(tz=timezone.utc) - max_age
     for p in param:
         column: InstrumentedAttribute[Any] = getattr(LatestData, p)
-        if '_max' in p:
-            query_part = func.max(column).label(p)
-        elif 'category' in p:
-            query_part = func.mode().within_group(column.asc()).label(p)
-        elif 'direction' in p:
-            query_part = func.avg_angle(column).label(p)
-        else:
-            query_part = func.avg(column).label(p)
-
+        query_part = get_aggregator(col=column).label(p)
         not_null_conditions.append(column.isnot(None))
         query_parts.append(query_part)
 
@@ -159,18 +160,201 @@ async def get_districts(
     return GenericReturn(data=data.mappings().all())
 
 
-@router.get('/trends/{param}')
+def get_aggregator(col: InstrumentedAttribute[Any]) -> Function[Any] | WithinGroup[Any]:
+    if '_max' in col.name:
+        return func.max(col)
+    elif 'category' in col.name:
+        return func.mode().within_group(col.asc())
+    elif 'direction' in col.name:
+        return func.avg_angle(col)
+    else:
+        return func.avg(col)
+
+
+@router.get(
+    '/trends/{param}',
+    response_model=GenericReturn[schemas.Trends],
+)
 async def get_historic_data(
         param: PublicParams,
-        item_type: Literal['stations', 'districts'],
-        item_id: str,
-        start_date: datetime | None,
-        end_date: datetime,
-        hour: Annotated[int, Query(ge=0, le=23)],
-        value_type: Literal['min', 'max', 'mean'],
+        item_type: Literal['stations', 'districts'] = Query(),
+        item_ids: list[str] = Query(),
+        start_date: datetime = Query(),
+        end_date: datetime | None = Query(),
+        hour: int = Query(ge=0, le=23),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
-    ...
+    if end_date is None:
+        end_date = start_date
+
+    # check if the columns exists for both station types, biomet has all columns that
+    # temp_rh has, hence we check this first
+    column_biomet: InstrumentedAttribute[Any] = getattr(
+        BiometDataHourly, param,
+    )
+    column_temp_rh: InstrumentedAttribute[Any] | None = getattr(
+        TempRHDataHourly,
+        param,
+        None,
+    )
+
+    # we need to to do this completely different depending on whether stations or
+    # districts are requested
+    query: Select[Any] | CompoundSelect
+    if item_type == 'stations':
+        # get the supported ids which are needed for the API return, probably for
+        # possible comparison
+        biomet_id_query = select(BiometDataHourly.name).distinct(
+            BiometDataHourly.name,
+        ).where(
+            BiometDataHourly.measured_at.between(start_date, end_date) &
+            (column_biomet.is_not(None)),
+        )
+        supported_biomet_ids = set((await db.execute(biomet_id_query)).scalars().all())
+
+        # now get the data for the requested item_ids
+        query = select(
+            BiometDataHourly.measured_at,
+            BiometDataHourly.name.label('key'),
+            column_biomet.label('value'),
+        ).where(
+            BiometDataHourly.measured_at.between(start_date, end_date) &
+            BiometDataHourly.name.in_(item_ids) &
+            (func.extract('hour', BiometDataHourly.measured_at) == hour),
+        )
+        # if column_temp_rh is None, the entire station type is not supported, hence we
+        # can start with a default of an empty list and change it if needed.
+        if column_temp_rh is not None:
+            temp_rh_id_query = select(TempRHDataHourly.name).distinct(
+                TempRHDataHourly.name.label('key'),
+            ).where(
+                TempRHDataHourly.measured_at.between(start_date, end_date) &
+                (column_temp_rh.is_not(None)),
+            )
+            supported_temprh_ids = set(
+                (await db.execute(temp_rh_id_query)).scalars().all(),
+            )
+
+            # now get the data for the requested item_ids. We label this as value, so we
+            # can create key-value pairs later on
+            query_temp_rh = select(
+                TempRHDataHourly.measured_at,
+                TempRHDataHourly.name.label('key'),
+                column_temp_rh.label('value'),
+            ).where(
+                TempRHDataHourly.measured_at.between(start_date, end_date) &
+                TempRHDataHourly.name.in_(item_ids) &
+                (func.extract('hour', TempRHDataHourly.measured_at) == hour),
+            )
+            # we can safely combine both queries since we have this parameter at both
+            # types of stations
+            query = query.union_all(query_temp_rh)
+
+        supported_ids = supported_biomet_ids | supported_temprh_ids
+        data = await db.execute(query.order_by(query.c.key, query.c.value))
+    else:
+        # no the only other option are districts
+        # get the supported district names
+        biomet_districts_query = select(Station.district).distinct(
+            Station.district,
+        ).join(
+            BiometDataHourly, Station.name == BiometDataHourly.name,
+        ).where(
+            BiometDataHourly.measured_at.between(start_date, end_date) &
+            (column_biomet.is_not(None)),
+        )
+        supported_biomet_districts = set((
+            await db.execute(biomet_districts_query)
+        ).scalars().all())
+
+        # start with the biomet, since this type supports all params
+        biomet = select(
+            BiometDataHourly.measured_at,
+            Station.district,
+            column_biomet.label('value'),
+        ).join(
+            Station, Station.name == BiometDataHourly.name, isouter=True,
+        ).where(
+            BiometDataHourly.measured_at.between(start_date, end_date) &
+            Station.district.in_(item_ids) &
+            (func.extract('hour', BiometDataHourly.measured_at) == hour),
+        )
+        # check what type of parameter we have an what aggregator we need for that
+        agg = get_aggregator(col=column_biomet)
+
+        if column_temp_rh is not None:
+            temp_rh_districts_query = select(Station.district).distinct(
+                Station.district,
+            ).join(
+                TempRHDataHourly, Station.name == TempRHDataHourly.name,
+            ).where(
+                TempRHDataHourly.measured_at.between(start_date, end_date) &
+                (column_biomet.is_not(None)),
+            )
+            supported_temp_rh_districts = set((
+                await db.execute(temp_rh_districts_query)
+            ).scalars().all())
+            # since we have data from both station types, we have to combine
+            # both datasets
+            temp_rh = select(
+                TempRHDataHourly.measured_at,
+                Station.district,
+                column_temp_rh.label('value'),
+            ).join(Station, Station.name == TempRHDataHourly.name, isouter=True).where(
+                TempRHDataHourly.measured_at.between(start_date, end_date) &
+                Station.district.in_(item_ids) &
+                (func.extract('hour', TempRHDataHourly.measured_at) == hour),
+            )
+            # both have the same columns, so we can simply union both queries
+            all_data = biomet.union_all(temp_rh)
+
+            # again, we need to figure out the aggregate, this time, however, based on
+            # the union of both queries
+            agg_col: WithinGroup[Any] | Function[Any] | Any
+            if '_max' in param:
+                agg_col = func.max(all_data.c.value)
+            elif 'category' in param:
+                agg_col = func.mode().within_group(all_data.c.value.asc())
+            elif 'direction' in param:
+                agg_col = func.avg_angle(all_data.c.value)
+            else:
+                agg_col = func.avg(all_data.c.value)
+
+            # finalize and aggregate on a district level based on the combined data
+            query = select(
+                all_data.c.measured_at,
+                all_data.c.district.label('key'),
+                agg_col.label('value'),
+            ).group_by(all_data.c.district, all_data.c.measured_at).order_by(
+                all_data.c.district,
+                all_data.c.measured_at,
+            )
+        else:
+            # we have no data from a temp_rh station, just query biomet
+            query = select(
+                biomet.c.measured_at,
+                biomet.c.district.label('key'),
+                agg.label('value'),
+            ).group_by(
+                biomet.c.district, biomet.c.measured_at,
+            ).order_by(biomet.c.district, biomet.c.measured_at)
+
+        supported_ids = supported_biomet_districts | supported_temp_rh_districts
+        data = await db.execute(query)
+
+    # we now need to slightly change the format of the data for the schema we are
+    # aiming for
+    trends_data = [
+        _Trends({i['key']: i['value'], 'measured_at': i['measured_at']})
+        for i in data.mappings()
+    ]
+    return GenericReturn(
+        data=Trends(
+            supported_ids=supported_ids,
+            unit=UNIT_MAPPING[param],
+            trends=trends_data,
+        ),
+    )
 
 
 @router.get('/stats/{param}')
