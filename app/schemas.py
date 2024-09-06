@@ -17,6 +17,45 @@ LCZClass = Literal[
 ]
 
 
+class Units(StrEnum):
+    g_m3 = 'g/m³'
+    hpa = 'hPa'
+    deg_c = '°C'
+    km = 'km',
+    mm = 'mm'
+    wm2 = 'w/m²'
+    deg = '°'
+    ms = 'm/s'
+    perc = '%'
+    unitless = '-'
+
+
+# this includes every param of PublicParams
+UNIT_MAPPING: dict[str, Units] = {
+    'absolute_humidity': Units.g_m3,
+    'atmospheric_pressure': Units.hpa,
+    'atmospheric_pressure_reduced': Units.hpa,
+    'air_temperature': Units.deg_c,
+    'dew_point': Units.deg_c,
+    'heat_index': Units.deg_c,
+    'lightning_average_distance': Units.km,
+    'lightning_strike_count': Units.unitless,
+    'mrt': Units.deg_c,
+    'pet': Units.deg_c,
+    'pet_category': Units.unitless,
+    'precipitation_sum': Units.mm,
+    'relative_humidity': Units.perc,
+    'solar_radiation': Units.wm2,
+    'utci': Units.deg_c,
+    'utci_category': Units.unitless,
+    'vapor_pressure': Units.hpa,
+    'wet_bulb_temperature': Units.deg_c,
+    'wind_direction': Units.deg,
+    'wind_speed': Units.ms,
+    'wind_speed_max': Units.ms,
+}
+
+
 class PublicParams(StrEnum):
     absolute_humidity = 'absolute_humidity'
     atmospheric_pressure = 'atmospheric_pressure'
