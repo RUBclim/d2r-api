@@ -14,10 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import sessionmanager
 from app.main import create_app
 from app.models import BiometData
+from app.models import BiometDataHourly
 from app.models import LatestData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataHourly
 
 
 @pytest.fixture
@@ -28,6 +30,8 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.execute(delete(Station))
     await db.commit()
     await LatestData.refresh(db=db)
+    await BiometDataHourly.refresh()
+    await TempRHDataHourly.refresh()
     await db.commit()
 
 
@@ -115,5 +119,6 @@ async def biomet_data(
 
     await db.commit()
     await LatestData.refresh(db=db)
+    await BiometDataHourly.refresh()
     await db.commit()
     yield biomet_data_list

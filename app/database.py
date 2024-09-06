@@ -35,16 +35,25 @@ class DatabaseSessionManager:
         await self._engine.dispose()
 
     @contextlib.asynccontextmanager
-    async def connect(self) -> AsyncGenerator[AsyncConnection]:
+    async def connect(
+            self,
+            as_transaction: bool = True,
+    ) -> AsyncGenerator[AsyncConnection]:
         if self._engine is None:
             raise Exception('DatabaseSessionManager is not initialized')
 
-        async with self._engine.begin() as connection:
-            try:
+        if as_transaction:
+            async with self._engine.begin() as connection:
+                try:
+                    yield connection
+                except Exception:
+                    await connection.rollback()
+                    raise
+
+        else:
+            async with self._engine.connect() as connection:
+                await connection.execution_options(isolation_level='AUTOCOMMIT')
                 yield connection
-            except Exception:
-                await connection.rollback()
-                raise
 
     @contextlib.asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:

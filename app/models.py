@@ -3,10 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import BigInteger
+from sqlalchemy import Connection
 from sqlalchemy import DateTime
+from sqlalchemy import event
 from sqlalchemy import ForeignKey
+from sqlalchemy import Table
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +19,7 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.database import sessionmanager
 
 
 class StationType(StrEnum):
@@ -292,7 +297,44 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     )
 
 
-latest_data_view = '''\
+class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
+    """This is not an actual table, but a materialized view. We simply trick sqlalchemy
+    into thinking this was a table. Querying a materialized view does not differ from
+    querying a proper table.
+
+    The query for creating this materialized view is saved above.
+    """
+    __tablename__ = 'latest_data'
+    long_name: Mapped[str] = mapped_column(nullable=False)
+    latitude: Mapped[float] = mapped_column(nullable=False)
+    longitude: Mapped[float] = mapped_column(nullable=False)
+    altitude: Mapped[float] = mapped_column(nullable=False)
+    district: Mapped[str] = mapped_column(nullable=True)
+    lcz: Mapped[str] = mapped_column(nullable=True)
+    station_type: Mapped[StationType] = mapped_column(nullable=False)
+    mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',  # we've converted it to hPa in the meantime
+    )
+    atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+    )
+
+    @classmethod
+    async def refresh(cls, db: AsyncSession) -> None:
+        await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))
+
+    creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
     (
         SELECT DISTINCT ON (name)
@@ -365,24 +407,16 @@ latest_data_view = '''\
         FROM temp_rh_data INNER JOIN station USING(name)
         ORDER BY name, measured_at DESC
     )
-'''
+    ''')
 
 
-class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
+class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
-
-    The query for creating this materialized view is saved above.
     """
-    __tablename__ = 'latest_data'
-    long_name: Mapped[str] = mapped_column(nullable=False)
-    latitude: Mapped[float] = mapped_column(nullable=False)
-    longitude: Mapped[float] = mapped_column(nullable=False)
-    altitude: Mapped[float] = mapped_column(nullable=False)
-    district: Mapped[str] = mapped_column(nullable=True)
-    lcz: Mapped[str] = mapped_column(nullable=True)
-    station_type: Mapped[StationType] = mapped_column(nullable=False)
+    __tablename__ = 'biomet_data_hourly'
+
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
@@ -400,7 +434,159 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
         nullable=True,
         comment='hPa',
     )
+    station: Mapped[Station] = relationship(lazy=True)
 
     @classmethod
-    async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))
+    async def refresh(cls) -> None:
+        async with sessionmanager.connect(as_transaction=False) as sess:
+            await sess.execute(
+                text("CALL refresh_continuous_aggregate('biomet_data_hourly', NULL, NULL)"),  # noqa: E501
+            )
+
+    creation_sql = text('''\
+        CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly(
+            measured_at,
+            name,
+            mrt,
+            utci,
+            utci_category,
+            pet,
+            pet_category,
+            atmospheric_pressure,
+            atmospheric_pressure_reduced,
+            vapor_pressure,
+            air_temperature,
+            relative_humidity,
+            wind_speed,
+            wind_direction,
+            u_wind,
+            v_wind,
+            wind_speed_max,
+            precipitation_sum,
+            solar_radiation,
+            lightning_average_distance,
+            lightning_strike_count,
+            sensor_temperature_internal,
+            x_orientation_angle,
+            y_orientation_angle,
+            black_globe_temperature,
+            thermistor_resistance,
+            voltage_ratio,
+            battery_voltage,
+            dew_point,
+            absolute_humidity,
+            heat_index,
+            wet_bulb_temperature
+        )
+        WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+            SELECT
+                time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
+                name,
+                AVG(air_temperature),
+                AVG(mrt),
+                AVG(utci),
+                mode() WITHIN GROUP (ORDER BY utci_category),
+                AVG(pet),
+                mode() WITHIN GROUP (ORDER BY pet_category),
+                AVG(atmospheric_pressure),
+                AVG(atmospheric_pressure_reduced),
+                AVG(vapor_pressure),
+                AVG(air_temperature),
+                AVG(relative_humidity),
+                AVG(wind_speed),
+                avg_angle(wind_direction),
+                AVG(u_wind),
+                AVG(v_wind),
+                MAX(wind_speed_max),
+                SUM(precipitation_sum),
+                AVG(solar_radiation),
+                AVG(lightning_average_distance),
+                SUM(lightning_strike_count),
+                AVG(sensor_temperature_internal),
+                AVG(x_orientation_angle),
+                AVG(y_orientation_angle),
+                AVG(black_globe_temperature),
+                AVG(thermistor_resistance),
+                AVG(voltage_ratio),
+                AVG(battery_voltage),
+                AVG(dew_point),
+                AVG(absolute_humidity),
+                AVG(heat_index),
+                AVG(wet_bulb_temperature)
+            FROM biomet_data
+            GROUP BY time_bucket('1hour', measured_at), name
+    ''')
+
+
+class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives):
+    """This is not an actual table, but a materialized view. We simply trick sqlalchemy
+    into thinking this was a table. Querying a materialized view does not differ from
+    querying a proper table.
+    """
+    __tablename__ = 'temp_rh_data_hourly'
+    air_temperature_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+    )
+    station: Mapped[Station] = relationship(lazy=True)
+
+    @classmethod
+    async def refresh(cls) -> None:
+        async with sessionmanager.connect(as_transaction=False) as sess:
+            await sess.execute(
+                text("CALL refresh_continuous_aggregate('temp_rh_data_hourly', NULL, NULL)"),  # noqa: E501
+            )
+
+    creation_sql = text('''\
+        CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly(
+            measured_at,
+            name,
+            air_temperature_raw,
+            relative_humidity_raw,
+            air_temperature,
+            relative_humidity,
+            battery_voltage,
+            dew_point,
+            absolute_humidity,
+            heat_index,
+            wet_bulb_temperature
+        )
+        WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+            SELECT
+                time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
+                name,
+                AVG(air_temperature_raw),
+                AVG(relative_humidity_raw),
+                AVG(air_temperature),
+                AVG(relative_humidity),
+                AVG(battery_voltage),
+                AVG(dew_point),
+                AVG(absolute_humidity),
+                AVG(heat_index),
+                AVG(wet_bulb_temperature)
+            FROM temp_rh_data
+            GROUP BY time_bucket('1hour', measured_at), name
+    ''')
+
+
+@event.listens_for(TempRHData.__table__, 'after_create')
+@event.listens_for(BiometData.__table__, 'after_create')
+@event.listens_for(ATM41DataRaw.__table__, 'after_create')
+@event.listens_for(SHT35DataRaw.__table__, 'after_create')
+def create_hypertable(target: Table, connection: Connection, **kwargs: Any) -> None:
+    connection.execute(
+        text(
+            '''\
+            SELECT create_hypertable(
+                :table,
+                by_range('measured_at', INTERVAL '30 day'),
+                if_not_exists => TRUE
+            )
+            ''',
+        ),
+        parameters={'table': target.name},
+    )

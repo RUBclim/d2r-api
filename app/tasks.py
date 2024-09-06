@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from datetime import timedelta
 from typing import Any
 
@@ -20,12 +21,14 @@ from app.database import sessionmanager
 from app.models import _HeatStressCategories
 from app.models import ATM41DataRaw
 from app.models import BiometData
+from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataHourly
 
 
 @celery_app.on_after_configure.connect
@@ -237,7 +240,7 @@ async def calculate_biomet(name: str) -> None:
         ).scalar_one_or_none()
         # set it to a date early enough, so there was no data
         if biomet_latest is None:
-            biomet_latest = station.setup_date
+            biomet_latest = datetime(2024, 1, 1)
 
         # 3. get the biomet data
         con = await sess.connection()
@@ -363,6 +366,7 @@ async def calculate_biomet(name: str) -> None:
             ),
         )
         await LatestData.refresh(db=sess)
+        await BiometDataHourly.refresh()
         await sess.commit()
 
 
@@ -382,7 +386,7 @@ async def calculate_temp_rh(name: str) -> None:
         ).scalar_one_or_none()
         # set it to a date early enough, so there was no data
         if latest is None:
-            latest = station.setup_date
+            latest = datetime(2024, 1, 1)
 
         # 3. get the temp and rh data
         con = await sess.connection()
@@ -431,4 +435,5 @@ async def calculate_temp_rh(name: str) -> None:
             ),
         )
         await LatestData.refresh(db=sess)
+        await TempRHDataHourly.refresh()
         await sess.commit()
