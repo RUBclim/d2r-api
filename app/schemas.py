@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
 from typing import Generic
 from typing import Literal
 from typing import TypeVar
@@ -20,12 +19,13 @@ LCZClass = Literal[
 
 
 class Units(StrEnum):
+    """Common units used for data provided by this API"""
     g_m3 = 'g/m³'
     hpa = 'hPa'
     deg_c = '°C'
     km = 'km',
     mm = 'mm'
-    wm2 = 'w/m²'
+    wm2 = 'W/m²'
     deg = '°'
     ms = 'm/s'
     perc = '%'
@@ -59,13 +59,19 @@ UNIT_MAPPING: dict[str, Units] = {
 
 
 class PublicParams(StrEnum):
+    """Parameters that are publicly available and data from those parameters can be
+    requested via the API. Not every station supports all of these parameters. Stations
+    of type `StationType.biomet` support all parameters, stations of type
+    `StationType.temprh` only support a subset of parameters, that can be
+    derived from `air_temperature` and `relative_humidity`.
+    """
     absolute_humidity = 'absolute_humidity'
     atmospheric_pressure = 'atmospheric_pressure'
     atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
     air_temperature = 'air_temperature'
     dew_point = 'dew_point'
     heat_index = 'heat_index'
-    lightning_average_distance = 'lightning_avg_distance'
+    lightning_average_distance = 'lightning_average_distance'
     lightning_strike_count = 'lightning_strike_count'
     mrt = 'mrt'
     pet = 'pet'
@@ -85,7 +91,7 @@ class PublicParams(StrEnum):
 T = TypeVar('T')
 
 
-class GenericReturn(BaseModel, Generic[T]):
+class Response(BaseModel, Generic[T]):
     """Generic structure of an API response."""
     data: T = Field(
         description='array or object containing the requested data',
@@ -93,6 +99,7 @@ class GenericReturn(BaseModel, Generic[T]):
 
 
 class StationMetadata(BaseModel):
+    """Metadata of a deployed measurement station"""
     name: str = Field(
         examples=['DEC005476'],
         description='The unique identifier of the station',
@@ -131,6 +138,7 @@ class StationMetadata(BaseModel):
 
 
 class Parameters(BaseModel):
+    """Measured or calculated parameters"""
     absolute_humidity: float | None = Field(
         None,
         examples=[11.5],
@@ -253,6 +261,7 @@ class Parameters(BaseModel):
 
 
 class StationParams(StationMetadata, Parameters):
+    """Parameters provided by a station"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
         description='The exact time the value was measured in **UTC**',
@@ -260,24 +269,44 @@ class StationParams(StationMetadata, Parameters):
 
 
 class DistrictParams(Parameters):
+    """Parameters provided by a district"""
     district: str = Field(
         examples=['Innenstadt'],
-        description='The name of the city district, that station is located in',
+        description='The name of the city district',
     )
 
 
 class StationData(Parameters):
+    """Data from a single station"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
         description='The exact time the value was measured in **UTC**',
     )
 
 
-class _Trends(RootModel[dict[str, Any | None]]):
+class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | None]]):
+    """Key-Value pair where the key is either the station name or the district name.
+    Value can be really anything that is stored as data.
+    """
     pass
 
 
 class Trends(BaseModel):
-    supported_ids: set[str]
-    unit: Units
-    trends: list[_Trends]
+    """Trends for a station or a district"""
+    supported_ids: list[str] = Field(
+        examples=['DEC005476'],
+        description='Either names of stations or names of districts',
+    )
+    unit: Units = Field(
+        examples=[Units.wm2],
+        description='The corresponding unit of the values shown in trends',
+    )
+    trends: list[TrendValue] = Field(
+        examples=[
+            [
+                TrendValue(
+                    {'DEC005476': 855.1, 'measured_at': datetime(2024, 8, 1, 10, 0)},
+                ),
+            ],
+        ],
+    )

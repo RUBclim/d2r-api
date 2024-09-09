@@ -16,6 +16,10 @@ fail_under = 50
 [tool.coverage.run]
 parallel = true
 plugins = ["covdefaults"]
+concurrency = ["greenlet", "thread"]
+
+[tool.autopep8]
+max_line_length = 88
 
 [tool.mypy]
 check_untyped_defs = true

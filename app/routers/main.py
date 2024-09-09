@@ -10,6 +10,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy import and_
 from sqlalchemy import CompoundSelect
 from sqlalchemy import func
@@ -29,10 +30,10 @@ from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataHourly
-from app.schemas import _Trends
-from app.schemas import GenericReturn
 from app.schemas import PublicParams
+from app.schemas import Response
 from app.schemas import Trends
+from app.schemas import TrendValue
 from app.schemas import UNIT_MAPPING
 
 router = APIRouter()
@@ -40,11 +41,12 @@ router = APIRouter()
 
 @router.get(
     '/stations/metadata',
-    response_model=GenericReturn[list[schemas.StationMetadata]],
+    response_model=Response[list[schemas.StationMetadata]],
     tags=['stations'],
 )
-async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> Any:
-    """API-endpoint for retrieving metadata from all available stations."""
+async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> Any:
+    """API-endpoint for retrieving metadata from all available stations. This does
+    not take into account whether or not they currently have any up-to-date data."""
     data = (
         await db.execute(
             select(
@@ -59,16 +61,16 @@ async def get_station_metadata(db: AsyncSession = Depends(get_db_session)) -> An
             ).order_by(Station.name),
         )
     )
-    return GenericReturn(data=data.mappings().all())
+    return Response(data=data.mappings().all())
 
 
 @router.get(
     '/stations/latest_data',
-    response_model=GenericReturn[list[schemas.StationParams]],
+    response_model=Response[list[schemas.StationParams]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
-async def get_station_latest_data(
+async def get_stations_latest_data(
         param: list[PublicParams] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
@@ -87,12 +89,17 @@ async def get_station_latest_data(
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the latest data from all available stations. Only
-    stations that can provide all requested parameters are returned.
+    stations that can provide all requested parameters are returned. The availability
+    depends on the `StationType`. Stations of type `StationType.biomet` support all
+    parameters, stations of type `StationType.temprh` only support a subset of
+    parameters, that can be derived from `air_temperature` and `relative_humidity`.
     """
+    if max_age.total_seconds() < 0:
+        raise HTTPException(status_code=422, detail='max_age must be positive')
+
     columns: list[InstrumentedAttribute[Any]] = [
         getattr(LatestData, i) for i in param
     ]
-    cut_off_date = datetime.now(tz=timezone.utc) - max_age
     not_null_conditions = [c.isnot(None) for c in columns]
     query = select(
         LatestData.name,
@@ -107,20 +114,20 @@ async def get_station_latest_data(
         LatestData.measured_at,
         *columns,
     ).where(
-        LatestData.measured_at > cut_off_date,
+        LatestData.measured_at > (datetime.now(tz=timezone.utc) - max_age),
         and_(*not_null_conditions),
     ).order_by(LatestData.name)
     data = await db.execute(query)
-    return GenericReturn(data=data.mappings().all())
+    return Response(data=data.mappings().all())
 
 
 @router.get(
     '/districts/latest_data',
-    response_model=GenericReturn[list[schemas.DistrictParams]],
+    response_model=Response[list[schemas.DistrictParams]],
     response_model_exclude_unset=True,
     tags=['districts'],
 )
-async def get_districts(
+async def get_districts_latest_data(
         param: list[PublicParams] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
@@ -141,9 +148,11 @@ async def get_districts(
     """API-endpoint for getting the latest data on a per-district level. Only
     districts that can provide all parameters are returned.
     """
+    if max_age.total_seconds() < 0:
+        raise HTTPException(status_code=422, detail='max_age must be positive')
+
     query_parts = []
     not_null_conditions = []
-    cut_off_date = datetime.now(tz=timezone.utc) - max_age
     for p in param:
         column: InstrumentedAttribute[Any] = getattr(LatestData, p)
         query_part = get_aggregator(col=column).label(p)
@@ -151,16 +160,17 @@ async def get_districts(
         query_parts.append(query_part)
 
     query = select(LatestData.district, *query_parts).where(
-        (LatestData.measured_at > cut_off_date) & (
+        (LatestData.measured_at > datetime.now(tz=timezone.utc) - max_age) & (
             LatestData.district.isnot(None)
         ),
         and_(*not_null_conditions),
     ).group_by(LatestData.district).order_by(LatestData.district)
     data = await db.execute(query)
-    return GenericReturn(data=data.mappings().all())
+    return Response(data=data.mappings().all())
 
 
 def get_aggregator(col: InstrumentedAttribute[Any]) -> Function[Any] | WithinGroup[Any]:
+    """choose an appropriate aggregator based on the column name"""
     if '_max' in col.name:
         return func.max(col)
     elif 'category' in col.name:
@@ -173,25 +183,49 @@ def get_aggregator(col: InstrumentedAttribute[Any]) -> Function[Any] | WithinGro
 
 @router.get(
     '/trends/{param}',
-    response_model=GenericReturn[schemas.Trends],
+    response_model=Response[schemas.Trends],
+    tags=['districts', 'stations'],
 )
-async def get_historic_data(
-        param: PublicParams,
-        item_type: Literal['stations', 'districts'] = Query(),
-        item_ids: list[str] = Query(),
-        start_date: datetime = Query(),
-        end_date: datetime | None = Query(),
-        hour: int = Query(ge=0, le=23),
+async def get_trends(
+        param: PublicParams = Path(
+            description=(
+                'The parameter to get data for. Only data from districts that provide '
+                'the value are returned.'
+            ),
+        ),
+        item_type: Literal['stations', 'districts'] = Query(
+            description='The type to get data for.',
+        ),
+        item_ids: list[str] = Query(
+            description='Either names of the districts or names of the stations',
+        ),
+        start_date: datetime = Query(
+            description='provide data only after this date and time (inclusive)',
+        ),
+        end_date: datetime | None = Query(
+            None,
+            description=(
+                'provide data only before this date and time (inclusive). If this is '
+                'not specified, it will be set to `start_date` hence returning data '
+                'for one exact date.'
+            ),
+        ),
+        hour: int = Query(
+            ge=0,
+            le=23,
+            description='The hour (UTC) to get data for',
+        ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
+    """Get data for either districts or stations for one selected hour across a time
+    span for one parameter. Data is selected from hourly aggregates.
+    """
     if end_date is None:
         end_date = start_date
 
     # check if the columns exists for both station types, biomet has all columns that
     # temp_rh has, hence we check this first
-    column_biomet: InstrumentedAttribute[Any] = getattr(
-        BiometDataHourly, param,
-    )
+    column_biomet: InstrumentedAttribute[Any] = getattr(BiometDataHourly, param)
     column_temp_rh: InstrumentedAttribute[Any] | None = getattr(
         TempRHDataHourly,
         param,
@@ -221,9 +255,10 @@ async def get_historic_data(
             BiometDataHourly.measured_at.between(start_date, end_date) &
             BiometDataHourly.name.in_(item_ids) &
             (func.extract('hour', BiometDataHourly.measured_at) == hour),
-        )
+        ).order_by(BiometDataHourly.name, column_biomet)
         # if column_temp_rh is None, the entire station type is not supported, hence we
         # can start with a default of an empty list and change it if needed.
+        supported_temp_rh_ids = set()
         if column_temp_rh is not None:
             temp_rh_id_query = select(TempRHDataHourly.name).distinct(
                 TempRHDataHourly.name.label('key'),
@@ -231,7 +266,7 @@ async def get_historic_data(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
                 (column_temp_rh.is_not(None)),
             )
-            supported_temprh_ids = set(
+            supported_temp_rh_ids = set(
                 (await db.execute(temp_rh_id_query)).scalars().all(),
             )
 
@@ -248,10 +283,11 @@ async def get_historic_data(
             )
             # we can safely combine both queries since we have this parameter at both
             # types of stations
-            query = query.union_all(query_temp_rh)
+            sub_query = query.union_all(query_temp_rh).subquery()
+            query = select(sub_query).order_by(sub_query.c.key, sub_query.c.value)
 
-        supported_ids = supported_biomet_ids | supported_temprh_ids
-        data = await db.execute(query.order_by(query.c.key, query.c.value))
+        supported_ids = sorted(supported_biomet_ids | supported_temp_rh_ids)
+        data = await db.execute(query)
     else:
         # no the only other option are districts
         # get the supported district names
@@ -279,9 +315,8 @@ async def get_historic_data(
             Station.district.in_(item_ids) &
             (func.extract('hour', BiometDataHourly.measured_at) == hour),
         )
-        # check what type of parameter we have an what aggregator we need for that
-        agg = get_aggregator(col=column_biomet)
 
+        supported_temp_rh_districts = set()
         if column_temp_rh is not None:
             temp_rh_districts_query = select(Station.district).distinct(
                 Station.district,
@@ -289,7 +324,7 @@ async def get_historic_data(
                 TempRHDataHourly, Station.name == TempRHDataHourly.name,
             ).where(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
-                (column_biomet.is_not(None)),
+                (column_temp_rh.is_not(None)),
             )
             supported_temp_rh_districts = set((
                 await db.execute(temp_rh_districts_query)
@@ -306,49 +341,47 @@ async def get_historic_data(
                 (func.extract('hour', TempRHDataHourly.measured_at) == hour),
             )
             # both have the same columns, so we can simply union both queries
-            all_data = biomet.union_all(temp_rh)
-
-            # again, we need to figure out the aggregate, this time, however, based on
-            # the union of both queries
-            agg_col: WithinGroup[Any] | Function[Any] | Any
-            if '_max' in param:
-                agg_col = func.max(all_data.c.value)
-            elif 'category' in param:
-                agg_col = func.mode().within_group(all_data.c.value.asc())
-            elif 'direction' in param:
-                agg_col = func.avg_angle(all_data.c.value)
-            else:
-                agg_col = func.avg(all_data.c.value)
-
+            all_data = biomet.union_all(temp_rh).subquery()
             # finalize and aggregate on a district level based on the combined data
             query = select(
                 all_data.c.measured_at,
                 all_data.c.district.label('key'),
-                agg_col.label('value'),
+                func.avg(all_data.c.value).label('value'),
             ).group_by(all_data.c.district, all_data.c.measured_at).order_by(
                 all_data.c.district,
                 all_data.c.measured_at,
             )
         else:
             # we have no data from a temp_rh station, just query biomet
-            query = select(
-                biomet.c.measured_at,
-                biomet.c.district.label('key'),
-                agg.label('value'),
-            ).group_by(
-                biomet.c.district, biomet.c.measured_at,
-            ).order_by(biomet.c.district, biomet.c.measured_at)
+            biomet_subquery = biomet.subquery()
+            agg_col: WithinGroup[Any] | Function[Any]
+            if '_max' in param:
+                agg_col = func.max(biomet_subquery.c.value)
+            elif 'category' in param:
+                agg_col = func.mode().within_group(biomet_subquery.c.value.asc())
+            elif 'direction' in param:
+                agg_col = func.avg_angle(biomet_subquery.c.value)
+            else:
+                agg_col = func.avg(biomet_subquery.c.value)
 
-        supported_ids = supported_biomet_districts | supported_temp_rh_districts
+            query = select(
+                biomet_subquery.c.measured_at,
+                biomet_subquery.c.district.label('key'),
+                agg_col.label('value'),
+            ).group_by(
+                biomet_subquery.c.district, biomet_subquery.c.measured_at,
+            ).order_by(biomet_subquery.c.district, biomet_subquery.c.measured_at)
+
+        supported_ids = sorted(supported_biomet_districts | supported_temp_rh_districts)
         data = await db.execute(query)
 
     # we now need to slightly change the format of the data for the schema we are
     # aiming for
     trends_data = [
-        _Trends({i['key']: i['value'], 'measured_at': i['measured_at']})
+        TrendValue({i['key']: i['value'], 'measured_at': i['measured_at']})
         for i in data.mappings()
     ]
-    return GenericReturn(
+    return Response(
         data=Trends(
             supported_ids=supported_ids,
             unit=UNIT_MAPPING[param],
@@ -357,7 +390,11 @@ async def get_historic_data(
     )
 
 
-@router.get('/stats/{param}')
+@router.get(
+    '/stats/{param}',
+    response_class=RedirectResponse,
+    tags=['districts', 'stations'],
+)
 async def get_stats(
         param: PublicParams,
         item_type: Literal['stations', 'districts'],
@@ -368,12 +405,12 @@ async def get_stats(
         value_type: Literal['min', 'max', 'mean'],
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
-    ...
+    return f'/trends/{param}'
 
 
 @router.get(
     '/data/{name}',
-    response_model=GenericReturn[list[schemas.StationData]],
+    response_model=Response[list[schemas.StationData]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
@@ -402,13 +439,13 @@ async def get_data(
     """
     if start_date > end_date:
         raise HTTPException(
-            status_code=400,
+            status_code=422,
             detail='start_date must not be > end_date',
         )
 
     if end_date - start_date > timedelta(days=30):
         raise HTTPException(
-            status_code=400,
+            status_code=422,
             detail='a maximum of 30 days is allowed per request',
         )
 
@@ -428,9 +465,9 @@ async def get_data(
                 select(table.measured_at, *columns).where(
                     table.measured_at.between(start_date, end_date) &
                     (table.name == station.name),
-                ),
+                ).order_by(table.measured_at),
             )
         )
-        return GenericReturn(data=data.mappings().all())
+        return Response(data=data.mappings().all())
     else:
         raise HTTPException(status_code=404, detail='Station not found')

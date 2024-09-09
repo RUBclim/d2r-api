@@ -482,7 +482,6 @@ class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
             SELECT
                 time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
                 name,
-                AVG(air_temperature),
                 AVG(mrt),
                 AVG(utci),
                 mode() WITHIN GROUP (ORDER BY utci_category),

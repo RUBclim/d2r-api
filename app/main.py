@@ -48,8 +48,7 @@ def create_app() -> FastAPI:
             await con.execute(LatestData.creation_sql)
             await con.execute(TempRHDataHourly.creation_sql)
         yield
-        if sessionmanager._engine is not None:
-            await sessionmanager.close()
+        await sessionmanager.close()
 
     app = FastAPI(
         title='D2R-API',
@@ -66,11 +65,11 @@ def create_app() -> FastAPI:
         openapi_tags=[
             {
                 'name': 'stations',
-                'description': 'operations on a per-station or all stations level',
+                'description': 'operations on a per-station or all-stations level',
             },
             {
                 'name': 'districts',
-                'description': 'operations on a per-district or all districts level',
+                'description': 'operations on a per-district or all-districts level',
             },
         ],
         lifespan=lifespan,
