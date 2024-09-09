@@ -518,8 +518,8 @@ async def test_get_trends_stations_biomet_and_temprh(
         'data': {
             'supported_ids': ['DEC1', 'DEC2', 'DEC4'],
             'trends': [
-                {'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00'},
-                {'DEC4': 11.0, 'measured_at': '2024-08-01T10:00:00'},
+                {'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'},
+                {'DEC4': 11.0, 'measured_at': '2024-08-01T10:00:00Z'},
             ],
             'unit': '°C',
         },
@@ -593,7 +593,7 @@ async def test_get_trends_stations_only_biomet(
     assert resp.json() == {
         'data': {
             'supported_ids': ['DEC1', 'DEC2'],
-            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00'}],
+            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
             'unit': '°C',
         },
     }
@@ -680,7 +680,7 @@ async def test_get_trends_stations_only_temprh(
     assert resp.json() == {
         'data': {
             'supported_ids': ['DEC1', 'DEC4'],
-            'trends': [{'DEC4': 12.0, 'measured_at': '2024-08-01T10:00:00'}],
+            'trends': [{'DEC4': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
             'unit': '°C',
         },
     }
@@ -746,7 +746,7 @@ async def test_get_trends_stations_end_not_set(
     assert resp.json() == {
         'data': {
             'supported_ids': ['DEC1'],
-            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00'}],
+            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
             'unit': '°C',
         },
     }
@@ -1055,10 +1055,10 @@ async def test_get_trends_districts(
         'data': {
             'supported_ids': ['District 1', 'District 2'],
             'trends': [
-                {'District 1': 13.25, 'measured_at': '2024-08-01T11:00:00'},
-                {'District 1': 16.0, 'measured_at': '2024-08-02T11:00:00'},
-                {'District 2': 14.25, 'measured_at': '2024-08-01T11:00:00'},
-                {'District 2': 17.5, 'measured_at': '2024-08-02T11:00:00'},
+                {'District 1': 13.25, 'measured_at': '2024-08-01T11:00:00Z'},
+                {'District 1': 16.0, 'measured_at': '2024-08-02T11:00:00Z'},
+                {'District 2': 14.25, 'measured_at': '2024-08-01T11:00:00Z'},
+                {'District 2': 17.5, 'measured_at': '2024-08-02T11:00:00Z'},
             ],
             'unit': '°C',
         },
@@ -1140,7 +1140,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
     assert resp.json() == {
         'data': {
             'supported_ids': ['Innenstadt'],
-            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00'}],
+            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
             'unit': unit,
         },
     }
@@ -1270,7 +1270,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
     assert resp.json() == {
         'data': {
             'supported_ids': ['Innenstadt'],
-            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00'}],
+            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
             'unit': unit,
         },
     }

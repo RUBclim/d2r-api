@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timezone
 from enum import StrEnum
 from typing import Generic
 from typing import Literal
@@ -305,7 +306,10 @@ class Trends(BaseModel):
         examples=[
             [
                 TrendValue(
-                    {'DEC005476': 855.1, 'measured_at': datetime(2024, 8, 1, 10, 0)},
+                    {
+                        'DEC005476': 855.1,
+                        'measured_at': datetime(2024, 8, 1, 10, 0, tzinfo=timezone.utc),
+                    },
                 ),
             ],
         ],

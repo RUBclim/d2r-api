@@ -12,11 +12,13 @@ from fastapi import Path
 from fastapi import Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import and_
+from sqlalchemy import cast
 from sqlalchemy import CompoundSelect
 from sqlalchemy import func
 from sqlalchemy import Function
 from sqlalchemy import Select
 from sqlalchemy import select
+from sqlalchemy import TIMESTAMP
 from sqlalchemy import WithinGroup
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -248,7 +250,7 @@ async def get_trends(
 
         # now get the data for the requested item_ids
         query = select(
-            BiometDataHourly.measured_at,
+            cast(BiometDataHourly.measured_at, TIMESTAMP(timezone=True)),
             BiometDataHourly.name.label('key'),
             column_biomet.label('value'),
         ).where(
@@ -273,7 +275,7 @@ async def get_trends(
             # now get the data for the requested item_ids. We label this as value, so we
             # can create key-value pairs later on
             query_temp_rh = select(
-                TempRHDataHourly.measured_at,
+                cast(TempRHDataHourly.measured_at, TIMESTAMP(timezone=True)),
                 TempRHDataHourly.name.label('key'),
                 column_temp_rh.label('value'),
             ).where(
@@ -305,7 +307,7 @@ async def get_trends(
 
         # start with the biomet, since this type supports all params
         biomet = select(
-            BiometDataHourly.measured_at,
+            cast(BiometDataHourly.measured_at, TIMESTAMP(timezone=True)),
             Station.district,
             column_biomet.label('value'),
         ).join(
@@ -332,7 +334,7 @@ async def get_trends(
             # since we have data from both station types, we have to combine
             # both datasets
             temp_rh = select(
-                TempRHDataHourly.measured_at,
+                cast(TempRHDataHourly.measured_at, TIMESTAMP(timezone=True)),
                 Station.district,
                 column_temp_rh.label('value'),
             ).join(Station, Station.name == TempRHDataHourly.name, isouter=True).where(
