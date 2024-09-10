@@ -16,7 +16,7 @@ attrs==24.2.0
     #   trio
 babel==2.16.0
     # via sphinx
-build==1.2.1
+build==1.2.2
     # via pip-tools
 certifi==2024.8.30
     # via
@@ -88,7 +88,7 @@ python-dateutil==2.9.0.post0
     # via freezegun
 requests==2.32.3
     # via pip-tools
-setuptools==74.0.0
+setuptools==74.1.2
     # via sphinx
 six==1.16.0
     # via python-dateutil
