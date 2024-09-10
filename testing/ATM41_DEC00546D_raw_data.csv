@@ -1,0 +1,5 @@
+air_temperature,relative_humidity,atmospheric_pressure,vapor_pressure,wind_speed,wind_direction,u_wind,v_wind,wind_speed_max,precipitation_sum,solar_radiation,lightning_average_distance,lightning_strike_count,sensor_temperature_internal,x_orientation_angle,y_orientation_angle,measured_at,name,battery_voltage,protocol_version
+12.5,87.1,99.69,1.26,1.66,207.8,-0.78,-1.47,3.13,0,5,0,0,12.1,-0.3,-0.6,2024-09-10 05:18:52.021037+00,DEC00546D,2.866,2
+12.4,87.5,99.69,1.26,1.44,205.5,-0.62,-1.3,2.39,0,3,0,0,11.9,0,-0.2,2024-09-10 05:13:52.955555+00,DEC00546D,2.866,2
+12.3,87.5,99.68,1.25,1.29,199.6,-0.43,-1.22,2.75,0,3,0,0,11.7,0.1,-0.2,2024-09-10 05:08:49.031927+00,DEC00546D,2.866,2
+12.1,89,99.68,1.25,1.04,186.5,-0.12,-1.03,1.64,0,2,0,0,11.7,0,-0.4,2024-09-10 05:03:47.458566+00,DEC00546D,2.866,2
