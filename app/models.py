@@ -273,6 +273,8 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
         nullable=True,
         comment='hPa',
     )
+    # we need this as an alias in the big biomet table
+    blg_battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
         back_populates='biomet_data',
@@ -476,7 +478,8 @@ class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
             dew_point,
             absolute_humidity,
             heat_index,
-            wet_bulb_temperature
+            wet_bulb_temperature,
+            blg_battery_voltage
         )
         WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
             SELECT
@@ -511,7 +514,8 @@ class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
                 AVG(dew_point),
                 AVG(absolute_humidity),
                 AVG(heat_index),
-                AVG(wet_bulb_temperature)
+                AVG(wet_bulb_temperature),
+                AVG(blg_battery_voltage)
             FROM biomet_data
             GROUP BY time_bucket('1hour', measured_at), name
     ''')

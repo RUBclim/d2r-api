@@ -56,8 +56,13 @@ repos:
     rev: v1.11.2
     hooks:
     -   id: mypy
+        # TODO: we also want the element-api in here, but it's still private
         additional_dependencies: [
+            'celery==5.4.0',
             'fastapi==0.112.1',
             'sqlalchemy[mypy]==2.0.32',
+            'psycopg[binary]==3.2.1',
             'alembic==1.13.2',
+            'pandas-stubs==2.2.2.240909',
+            'sqlmodel==0.0.21'
     ]

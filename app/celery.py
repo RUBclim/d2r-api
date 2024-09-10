@@ -20,11 +20,16 @@ R = TypeVar('R')
 def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task:
     # taken from: https://github.com/celery/celery/issues/6552
     def _decorator(func: Callable[P, Coroutine[Any, Any, R]]) -> Task:
+        # if we are running tests, we don't want this to be converted to a sync
+        # function
+        if 'PYTEST_VERSION' in os.environ:  # pragma: no branch
+            return func
+
         sync_call = sync.AsyncToSync(func)
 
         @app.task(*args, **kwargs)
         @wraps(func)
-        def _decorated(*args: P.args, **kwargs: P.kwargs) -> R:
+        def _decorated(*args: P.args, **kwargs: P.kwargs) -> R:  # pragma: no cover
             return sync_call(*args, **kwargs)
 
         return _decorated

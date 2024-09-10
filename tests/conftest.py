@@ -13,13 +13,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import sessionmanager
 from app.main import create_app
+from app.models import ATM41DataRaw
 from app.models import BiometData
 from app.models import BiometDataHourly
+from app.models import BLGDataRaw
 from app.models import LatestData
+from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataHourly
+
+
+@pytest.fixture(scope='session', autouse=True)
+async def create_dbs():
+    """this is needed so if we start with a test not involving the app fixture. The db
+    will be there.
+    """
+    app = create_app()
+    async with LifespanManager(app) as manager:
+        async with AsyncClient(
+            transport=ASGITransport(app=manager.app),
+            base_url='http://test',
+        ):
+            yield
 
 
 @pytest.fixture
@@ -27,6 +44,9 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     yield
     await db.execute(delete(BiometData))
     await db.execute(delete(TempRHData))
+    await db.execute(delete(SHT35DataRaw))
+    await db.execute(delete(ATM41DataRaw))
+    await db.execute(delete(BLGDataRaw))
     await db.execute(delete(Station))
     await db.commit()
     await LatestData.refresh(db=db)

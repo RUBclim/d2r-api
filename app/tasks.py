@@ -2,10 +2,15 @@ import os
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
+from typing import overload
+from typing import Union
 
+import numpy as np
 import pandas as pd
 from celery.schedules import crontab
 from element import ElementApi
+from numpy import floating
+from numpy.typing import NDArray
 from pythermalcomfort.models import heat_index
 from pythermalcomfort.models import utci
 from pythermalcomfort.psychrometrics import t_dp
@@ -30,9 +35,16 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataHourly
 
+# TODO: the pythermalcomfort imports are incredibly slow - we might as well just
+# vendor the functions we need or even use them in C/fortran as the original
+# ones
+
 
 @celery_app.on_after_configure.connect
-def setup_periodic_tasks(sender: Any, **kwargs: dict[str, Any]) -> None:
+def setup_periodic_tasks(
+        sender: Any,
+        **kwargs: dict[str, Any],
+) -> None:  # pragma: no cover
     sender.add_periodic_task(
         crontab(minute='*/5'),
         _sync_data_wrapper.s(),
@@ -65,12 +77,82 @@ KLIMA_MICHEL = {
 }
 
 
-def reduce_pressure(p: float, alt: float) -> float:
+def reduce_pressure(p: Union[float, 'pd.Series[float]'], alt: float) -> float:
     """Correct barometric pressure in **hPa** to sea level
     Wallace, J.M. and P.V. Hobbes. 197725 Atmospheric Science:
     An Introductory Survey. Academic Press
     """
     return p + 1013.25 * (1 - (1 - alt / 44307.69231)**5.25328)
+
+
+# autopep8: off
+
+
+@overload
+def abshum_from_sat_vap_press(
+        temp: float,
+        relhum: float,
+) -> float: ...
+
+
+@overload
+def abshum_from_sat_vap_press(
+        temp: 'pd.Series[float]',
+        relhum: 'pd.Series[float]',
+) -> 'pd.Series[float]': ...
+# autopep8: on
+
+
+def abshum_from_sat_vap_press(
+        temp: Union[float, 'pd.Series[float]'],
+        relhum: Union[float, 'pd.Series[float]'],
+) -> Union[float, 'pd.Series[float]', NDArray[floating[Any]]]:
+    '''Compute absolute humidity from relative humidity and temperature.
+    using an estimated saturation vapour pressure as calculated by
+    :func:`estimate_sat_vap_pressure`. Formula was taken from:
+    https://www.hatchability.com/Vaisala.pdf
+
+    :param temp: temperature in degrees celsius
+    :param relhum: relative humidity in %
+
+    :return: absolute humidity in ``g m^-3``
+    '''
+    C = 2.16679
+    temp_kelvin = temp + 273.15
+    sat_vap_pressure = estimate_sat_vap_pressure(temp)
+    vap_pressure = sat_vap_pressure * relhum
+    abshum = C * vap_pressure / temp_kelvin
+    return abshum
+
+# autopep8: off
+
+
+@overload
+def estimate_sat_vap_pressure(
+        temp: float,
+) -> float: ...
+
+
+@overload
+def estimate_sat_vap_pressure(
+        temp: 'pd.Series[float]',
+) -> NDArray[floating[Any]]: ...
+# autopep8: on
+
+
+def estimate_sat_vap_pressure(
+        temp: Union[float, 'pd.Series[float]'],
+) -> float | NDArray[floating[Any]]:
+    '''Estimate saturation vapour pressure (in Pa) at a given temperature
+    using the August-Roche-Magnus formula.
+    https://www.hatchability.com/Vaisala.pdf
+
+    :param temp: temperature in degrees celsius
+
+    :return: vapour pressure in Pa
+    '''
+    r = 6.1094 * np.exp(17.625 * temp / (temp + 243.04))
+    return r
 
 
 async def _download_data(
@@ -109,6 +191,11 @@ async def _download_data(
         start=start_date,
         as_dataframe=True,
     )
+    # we cannot trust the api, we need to double check that we don't pass too much data
+    # an cause an error when trying to insert into the database
+    if not data.empty:
+        data = data.loc[start_date:]  # type: ignore[misc]
+
     return station, data
 
 
@@ -126,6 +213,7 @@ async def download_temp_rh_data(name: str) -> None:
         if data.empty:
             return
 
+        data = data.copy()
         data['name'] = name
         data = data.rename(columns=RENAMER)
         data = data[[
@@ -158,30 +246,32 @@ async def download_biomet_data(name: str) -> None:
             target_table=ATM41DataRaw,
             con=sess,
         )
-        if data.empty:
-            return
-
-        data['name'] = name
-        data = data.rename(columns=RENAMER)
-        data = data[[
-            'air_temperature', 'relative_humidity', 'atmospheric_pressure',
-            'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind', 'v_wind',
-            'wind_speed_max', 'precipitation_sum', 'solar_radiation',
-            'lightning_average_distance', 'lightning_strike_count',
-            'sensor_temperature_internal', 'x_orientation_angle',
-            'y_orientation_angle', 'name', 'battery_voltage',
-            'protocol_version',
-        ]]
-        con = await sess.connection()
-        await con.run_sync(
-            lambda con: data.to_sql(
-                name=ATM41DataRaw.__tablename__,
-                con=con,
-                if_exists='append',
-                chunksize=1024,
-                method='multi',
-            ),
-        )
+        # if we have no data, simply skip this, but still try getting data for
+        # from the blackglobe. Either station may be unavailable at some point.
+        if not data.empty:
+            # yes, it's stupid, but the only way to silence the warnings in pandas
+            data = data.copy()
+            data.loc[:, 'name'] = name
+            data = data.rename(columns=RENAMER)
+            data = data[[
+                'air_temperature', 'relative_humidity', 'atmospheric_pressure',
+                'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind', 'v_wind',
+                'wind_speed_max', 'precipitation_sum', 'solar_radiation',
+                'lightning_average_distance', 'lightning_strike_count',
+                'sensor_temperature_internal', 'x_orientation_angle',
+                'y_orientation_angle', 'name', 'battery_voltage',
+                'protocol_version',
+            ]]
+            con = await sess.connection()
+            await con.run_sync(
+                lambda con: data.to_sql(
+                    name=ATM41DataRaw.__tablename__,
+                    con=con,
+                    if_exists='append',
+                    chunksize=1024,
+                    method='multi',
+                ),
+            )
         # now download the corresponding blackglobe data
         _, blg_data = await _download_data(
             name=station.blg_name,
@@ -191,6 +281,7 @@ async def download_biomet_data(name: str) -> None:
         if blg_data.empty:
             return
 
+        blg_data = blg_data.copy()
         blg_data['name'] = station.blg_name
         blg_data = blg_data.rename(columns=RENAMER)
         blg_data = blg_data[[
@@ -253,12 +344,19 @@ async def calculate_biomet(name: str) -> None:
                 con=con,
             ),
         )
+        # we cannot do anything if there is no biomet data
+        if atm41_data.empty:
+            return
+
         # 4. get the biomet data
         blg_data = await con.run_sync(
             lambda con: pd.read_sql(
                 sql=select(
                     BLGDataRaw.measured_at.label('measured_at_blg'),
                     BLGDataRaw.black_globe_temperature,
+                    BLGDataRaw.thermistor_resistance,
+                    BLGDataRaw.voltage_ratio,
+                    BLGDataRaw.battery_voltage.label('blg_battery_voltage'),
                 ).where(
                     (BLGDataRaw.name == station.blg_name) &
                     # we allow earlier blackglobe measurements to be able to tie
@@ -268,6 +366,11 @@ async def calculate_biomet(name: str) -> None:
                 con=con,
             ),
         )
+        # if we have no BLG data we cannot merge both and need to wait until new
+        # data comes up
+        if blg_data.empty:
+            return
+
         # 5. merge both with a tolerance of 5 minutes
         df_biomet = pd.merge_asof(
             left=atm41_data,
@@ -277,12 +380,16 @@ async def calculate_biomet(name: str) -> None:
             direction='nearest',
             tolerance=timedelta(minutes=5),
         )
-        # 6. remove the last rows if they don't have blackglobe data
+        # 6. remove the last rows if they don't have black globe data
         while (
             not df_biomet.empty and
             pd.isna(df_biomet.iloc[-1]['black_globe_temperature'])
         ):
             df_biomet = df_biomet.iloc[0:-1]
+
+        # we may end up with an empty data after removing empty black globe data
+        if df_biomet.empty:
+            return
 
         # save the time difference between black globe and atm 41 for future reference
         df_biomet['blg_time_offset'] = (
@@ -298,6 +405,11 @@ async def calculate_biomet(name: str) -> None:
         df_biomet['atmospheric_pressure_reduced'] = reduce_pressure(
             p=df_biomet['atmospheric_pressure'],
             alt=station.altitude,
+        )
+
+        df_biomet['absolute_humidity'] = abshum_from_sat_vap_press(
+            temp=df_biomet['air_temperature'],
+            relhum=df_biomet['relative_humidity'],
         )
 
         df_biomet['mrt'] = t_mrt(
@@ -360,8 +472,8 @@ async def calculate_biomet(name: str) -> None:
                 chunksize=1024,
                 method='multi',
                 dtype={
-                    'utci_category': _HeatStressCategories,
-                    'pet_category': _HeatStressCategories,
+                    'utci_category': _HeatStressCategories,  # type: ignore[dict-item]
+                    'pet_category': _HeatStressCategories,  # type: ignore[dict-item]
                 },
             ),
         )
@@ -399,17 +511,26 @@ async def calculate_temp_rh(name: str) -> None:
                 con=con,
             ),
         )
+        if data.empty:
+            return
+
         data = data.set_index('measured_at')
         # apply the calibration
         # also save the original values w/o calibration
         data['air_temperature_raw'] = data['air_temperature']
         data['relative_humidity_raw'] = data['relative_humidity']
-        # now add the offset
+        # now add the offset for the calibration
         data['air_temperature'] = data['air_temperature_raw'] + \
             float(station.temp_calib_offset)
         data['relative_humidity'] = data['relative_humidity_raw'] + \
             float(station.relhum_calib_offset)
-
+        # if we reach a relhum > 100 after calibration, simply set it to 100
+        data.loc[data['relative_humidity'] > 100, 'relative_humidity'] = 100
+        # calculate derivates
+        data['absolute_humidity'] = abshum_from_sat_vap_press(
+            temp=data['air_temperature'],
+            relhum=data['relative_humidity'],
+        )
         data['dew_point'] = t_dp(
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
