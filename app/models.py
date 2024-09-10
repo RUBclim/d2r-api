@@ -35,11 +35,31 @@ class HeatStressCategories(StrEnum):
     moderate_cold_stress = 'moderate cold stress'
     slight_cold_stress = 'slight cold stress'
     no_thermal_stress = 'no thermal stress'
+    slight_heat_stress = 'slight heat stress'  # only PET has this?
     moderate_heat_stress = 'moderate heat stress'
     strong_heat_stress = 'strong heat stress'
     very_strong_heat_stress = 'very strong heat stress'
     extreme_heat_stress = 'extreme heat stress'
 
+
+# this was taken and adapted from PythermalComfort
+# https://www.researchgate.net/publication/233759000_Another_kind_of_environmental_stress_Thermal_stress
+# http://dx.doi.org/10.1007/s00484-013-0738-8
+# https://www.dwd.de/DE/leistungen/klimastatusbericht/publikationen/ksb2009_pdf/artikel11.pdf?__blob=publicationFile&v=1
+# TODO (LW): validate this mapping for PET. There might be limitations depending on the
+# activity. We have to make sure that this matches the Klima-Michel
+
+PET_STRESS_CATEGORIES: dict[float, HeatStressCategories] = {
+    4.0: HeatStressCategories.extreme_cold_stress,
+    8.0: HeatStressCategories.strong_cold_stress,
+    13.0: HeatStressCategories.moderate_cold_stress,
+    18.0: HeatStressCategories.slight_cold_stress,
+    23.0: HeatStressCategories.no_thermal_stress,
+    29.0: HeatStressCategories.slight_heat_stress,
+    35.0: HeatStressCategories.moderate_heat_stress,
+    41.0: HeatStressCategories.strong_heat_stress,
+    1000.0: HeatStressCategories.extreme_heat_stress,
+}
 
 # we need this for pandas to be able to insert enums via .to_sql
 _HeatStressCategories = ENUM(HeatStressCategories)

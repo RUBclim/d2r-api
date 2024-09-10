@@ -750,7 +750,10 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.relative_humidity) == 87.1
     assert float(d.utci) == pytest.approx(12.00, abs=10e-2)
     assert d.utci_category == HeatStressCategories.no_thermal_stress
-    # TODO: PET
+
+    assert float(d.pet) == 9.9
+    assert d.pet_category == HeatStressCategories.moderate_cold_stress
+
     assert float(d.atmospheric_pressure) == 996.9
     assert float(d.atmospheric_pressure_reduced) == pytest.approx(1014.79, abs=1e-2)
     assert float(d.vapor_pressure) == 12.6
@@ -764,7 +767,6 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.lightning_average_distance) == 0
     assert float(d.lightning_strike_count) == 0
     assert float(d.sensor_temperature_internal) == 12.1
-
     assert float(d.x_orientation_angle) == -0.3
     assert float(d.y_orientation_angle) == -0.6
     assert float(d.black_globe_temperature) == pytest.approx(12.57, abs=1e-2)

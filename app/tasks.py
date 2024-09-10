@@ -12,10 +12,12 @@ from element import ElementApi
 from numpy import floating
 from numpy.typing import NDArray
 from pythermalcomfort.models import heat_index
+from pythermalcomfort.models import pet_steady
 from pythermalcomfort.models import utci
 from pythermalcomfort.psychrometrics import t_dp
 from pythermalcomfort.psychrometrics import t_mrt
 from pythermalcomfort.psychrometrics import t_wb
+from pythermalcomfort.utilities import mapping
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +31,7 @@ from app.models import BiometData
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
+from app.models import PET_STRESS_CATEGORIES
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
@@ -444,25 +447,36 @@ async def calculate_biomet(name: str) -> None:
         )
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
-        # TODO (LW): validate this
-        # TODO: This does not work on a dataframe?
-        # pet = pet_steady(
-        #     tdb=df_biomet['air_temperature'],
-        #     tr=df_biomet['mrt'],
-        #     v=df_biomet['wind_speed'],
-        #     rh=df_biomet['relative_humidity'],
-        #     met=KLIMA_MICHEL['activity'] / 58.2,
-        #     clo=KLIMA_MICHEL['clo'],
-        #     p_atm=df_biomet['atmospheric_pressure'],
-        #     # position of the individual
-        #     # (1=sitting, 2=standing, 3=standing, forced convection)
-        #     position=2,
-        #     age=KLIMA_MICHEL['age'],
-        #     sex=KLIMA_MICHEL['sex'],
-        #     weight=KLIMA_MICHEL['mbody'],
-        #     height=KLIMA_MICHEL['height'],
-        #     wme=0,  # external work, [W/(m2)]
-        # )
+        # TODO (LW): validate this with the Klima Michel
+        # this only seems to work a per-row basis, hence the apply along axis=1
+        df_biomet['pet'] = df_biomet[
+            [
+                'air_temperature', 'mrt', 'wind_speed',
+                'relative_humidity', 'atmospheric_pressure',
+            ]
+        ].apply(
+            lambda x: pet_steady(
+                tdb=x['air_temperature'],
+                tr=x['mrt'],
+                v=x['wind_speed'],
+                rh=x['relative_humidity'],
+                met=KLIMA_MICHEL['activity'] / 58.2,
+                clo=KLIMA_MICHEL['clo'],
+                p_atm=x['atmospheric_pressure'],
+                # position of the individual
+                # (1=sitting, 2=standing, 3=standing, forced convection)
+                position=2,
+                age=KLIMA_MICHEL['age'],
+                sex=KLIMA_MICHEL['sex'],
+                weight=KLIMA_MICHEL['mbody'],
+                height=KLIMA_MICHEL['height'],
+                wme=0,  # external work, [W/(m2)]
+            ),
+            axis=1,
+        )
+        # TODO: do the categories even apply to PET?
+        df_biomet['pet_category'] = mapping(df_biomet['pet'], PET_STRESS_CATEGORIES)
+
         con = await sess.connection()
         await con.run_sync(
             lambda con: df_biomet.to_sql(
