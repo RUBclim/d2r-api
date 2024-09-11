@@ -761,7 +761,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.wind_direction) == 207.8
     assert float(d.u_wind) == -0.78
     assert float(d.v_wind) == -1.47
-    assert float(d.wind_speed_max) == 3.13
+    assert float(d.maximum_wind_speed) == 3.13
     assert float(d.precipitation_sum) == 0
     assert float(d.solar_radiation) == 5
     assert float(d.lightning_average_distance) == 0

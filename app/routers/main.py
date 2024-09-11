@@ -13,6 +13,7 @@ from fastapi import Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import and_
 from sqlalchemy import cast
+from sqlalchemy import Column
 from sqlalchemy import CompoundSelect
 from sqlalchemy import func
 from sqlalchemy import Function
@@ -171,9 +172,11 @@ async def get_districts_latest_data(
     return Response(data=data.mappings().all())
 
 
-def get_aggregator(col: InstrumentedAttribute[Any]) -> Function[Any] | WithinGroup[Any]:
+def get_aggregator(
+        col: Column[Any] | InstrumentedAttribute[Any],
+) -> Function[Any] | WithinGroup[Any]:
     """choose an appropriate aggregator based on the column name"""
-    if '_max' in col.name:
+    if 'max' in col.name:
         return func.max(col)
     elif 'category' in col.name:
         return func.mode().within_group(col.asc())
@@ -357,7 +360,7 @@ async def get_trends(
             # we have no data from a temp_rh station, just query biomet
             biomet_subquery = biomet.subquery()
             agg_col: WithinGroup[Any] | Function[Any]
-            if '_max' in param:
+            if 'max' in param:
                 agg_col = func.max(biomet_subquery.c.value)
             elif 'category' in param:
                 agg_col = func.mode().within_group(biomet_subquery.c.value.asc())

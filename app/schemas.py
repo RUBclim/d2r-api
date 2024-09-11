@@ -55,7 +55,7 @@ UNIT_MAPPING: dict[str, Units] = {
     'wet_bulb_temperature': Units.deg_c,
     'wind_direction': Units.deg,
     'wind_speed': Units.ms,
-    'wind_speed_max': Units.ms,
+    'maximum_wind_speed': Units.ms,
 }
 
 
@@ -86,7 +86,7 @@ class PublicParams(StrEnum):
     wet_bulb_temperature = 'wet_bulb_temperature'
     wind_direction = 'wind_direction'
     wind_speed = 'wind_speed'
-    wind_speed_max = 'wind_speed_max'
+    maximum_wind_speed = 'maximum_wind_speed'
 
 
 T = TypeVar('T')
@@ -250,7 +250,7 @@ class Parameters(BaseModel):
         description='The wind speed in **m/s**',
         ge=0,
     )
-    wind_speed_max: float | None = Field(
+    maximum_wind_speed: float | None = Field(
         None,
         examples=[8.5],
         description=(

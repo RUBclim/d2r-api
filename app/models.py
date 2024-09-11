@@ -190,7 +190,7 @@ class _ATM41DataRawBase(_Data):
     wind_direction: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     u_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
     v_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    wind_speed_max: Mapped[Decimal] = mapped_column(
+    maximum_wind_speed: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='m/s',
     )
@@ -270,8 +270,8 @@ class _TempRHDerivatives(Base):
     )
 
 
-class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
-    __tablename__ = 'biomet_data'
+class _BiometDerivatives(Base):
+    __abstract__ = True
     blg_time_offset: Mapped[float] = mapped_column(
         nullable=True,
         comment='seconds',
@@ -295,6 +295,24 @@ class BiometData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     )
     # we need this as an alias in the big biomet table
     blg_battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+
+
+class _CalibrationDerivatives(Base):
+    __abstract__ = True
+    air_temperature_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+    )
+
+
+class BiometData(
+    _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+):
+    __tablename__ = 'biomet_data'
     # TODO: QC fields?
     station: Mapped[Station] = relationship(
         back_populates='biomet_data',
@@ -389,7 +407,7 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
             vapor_pressure,
             wind_direction,
             wind_speed,
-            wind_speed_max
+            maximum_wind_speed
         FROM biomet_data INNER JOIN station USING(name)
         ORDER BY name, measured_at DESC
     )
@@ -432,30 +450,118 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     ''')
 
 
-class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
+# START_GENERATED
+
+
+class BiometDataHourly(
+    _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
     """
     __tablename__ = 'biomet_data_hourly'
 
-    mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+    absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
-        comment='hPa',  # we've converted it to hPa in the meantime
+        comment='g/m3',
     )
-    atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
+    absolute_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/m3',
+    )
+    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    atmospheric_pressure_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+    )
+    atmospheric_pressure_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+    )
+    atmospheric_pressure_reduced_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
     )
-    vapor_pressure: Mapped[Decimal] = mapped_column(
+    atmospheric_pressure_reduced_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
     )
+    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    black_globe_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    black_globe_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    blg_battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+    blg_battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+    blg_time_offset_min: Mapped[float] = mapped_column(nullable=True, comment='seconds')
+    blg_time_offset_max: Mapped[float] = mapped_column(nullable=True, comment='seconds')
+    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    lightning_average_distance_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='km',
+    )
+    lightning_average_distance_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='km',
+    )
+    mrt_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    mrt_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    pet_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    pet_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    sensor_temperature_internal_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    sensor_temperature_internal_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    solar_radiation_min: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    solar_radiation_max: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    thermistor_resistance_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Ohms',
+    )
+    thermistor_resistance_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Ohms',
+    )
+    u_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    u_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    utci_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    utci_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    v_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    v_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    vapor_pressure_min: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
+    vapor_pressure_max: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
+    voltage_ratio_min: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    voltage_ratio_max: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    wind_speed_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    wind_speed_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    x_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
+    x_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
+    y_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
+    y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     station: Mapped[Station] = relationship(lazy=True)
 
     @classmethod
@@ -466,94 +572,235 @@ class BiometDataHourly(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
             )
 
     creation_sql = text('''\
-        CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly(
-            measured_at,
+    CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly(
+        measured_at,
+        name,
+        absolute_humidity,
+        absolute_humidity_min,
+        absolute_humidity_max,
+        air_temperature,
+        air_temperature_min,
+        air_temperature_max,
+        atmospheric_pressure,
+        atmospheric_pressure_min,
+        atmospheric_pressure_max,
+        atmospheric_pressure_reduced,
+        atmospheric_pressure_reduced_min,
+        atmospheric_pressure_reduced_max,
+        battery_voltage,
+        battery_voltage_min,
+        battery_voltage_max,
+        black_globe_temperature,
+        black_globe_temperature_min,
+        black_globe_temperature_max,
+        blg_battery_voltage,
+        blg_battery_voltage_min,
+        blg_battery_voltage_max,
+        blg_time_offset,
+        blg_time_offset_min,
+        blg_time_offset_max,
+        dew_point,
+        dew_point_min,
+        dew_point_max,
+        heat_index,
+        heat_index_min,
+        heat_index_max,
+        lightning_average_distance,
+        lightning_average_distance_min,
+        lightning_average_distance_max,
+        lightning_strike_count,
+        maximum_wind_speed,
+        mrt,
+        mrt_min,
+        mrt_max,
+        pet,
+        pet_min,
+        pet_max,
+        pet_category,
+        precipitation_sum,
+        relative_humidity,
+        relative_humidity_min,
+        relative_humidity_max,
+        sensor_temperature_internal,
+        sensor_temperature_internal_min,
+        sensor_temperature_internal_max,
+        solar_radiation,
+        solar_radiation_min,
+        solar_radiation_max,
+        thermistor_resistance,
+        thermistor_resistance_min,
+        thermistor_resistance_max,
+        u_wind,
+        u_wind_min,
+        u_wind_max,
+        utci,
+        utci_min,
+        utci_max,
+        utci_category,
+        v_wind,
+        v_wind_min,
+        v_wind_max,
+        vapor_pressure,
+        vapor_pressure_min,
+        vapor_pressure_max,
+        voltage_ratio,
+        voltage_ratio_min,
+        voltage_ratio_max,
+        wet_bulb_temperature,
+        wet_bulb_temperature_min,
+        wet_bulb_temperature_max,
+        wind_direction,
+        wind_speed,
+        wind_speed_min,
+        wind_speed_max,
+        x_orientation_angle,
+        x_orientation_angle_min,
+        x_orientation_angle_max,
+        y_orientation_angle,
+        y_orientation_angle_min,
+        y_orientation_angle_max
+    )
+    WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+        SELECT
+            time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
             name,
-            mrt,
-            utci,
-            utci_category,
-            pet,
-            pet_category,
-            atmospheric_pressure,
-            atmospheric_pressure_reduced,
-            vapor_pressure,
-            air_temperature,
-            relative_humidity,
-            wind_speed,
-            wind_direction,
-            u_wind,
-            v_wind,
-            wind_speed_max,
-            precipitation_sum,
-            solar_radiation,
-            lightning_average_distance,
-            lightning_strike_count,
-            sensor_temperature_internal,
-            x_orientation_angle,
-            y_orientation_angle,
-            black_globe_temperature,
-            thermistor_resistance,
-            voltage_ratio,
-            battery_voltage,
-            dew_point,
-            absolute_humidity,
-            heat_index,
-            wet_bulb_temperature,
-            blg_battery_voltage
-        )
-        WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
-            SELECT
-                time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
-                name,
-                AVG(mrt),
-                AVG(utci),
-                mode() WITHIN GROUP (ORDER BY utci_category),
-                AVG(pet),
-                mode() WITHIN GROUP (ORDER BY pet_category),
-                AVG(atmospheric_pressure),
-                AVG(atmospheric_pressure_reduced),
-                AVG(vapor_pressure),
-                AVG(air_temperature),
-                AVG(relative_humidity),
-                AVG(wind_speed),
-                avg_angle(wind_direction),
-                AVG(u_wind),
-                AVG(v_wind),
-                MAX(wind_speed_max),
-                SUM(precipitation_sum),
-                AVG(solar_radiation),
-                AVG(lightning_average_distance),
-                SUM(lightning_strike_count),
-                AVG(sensor_temperature_internal),
-                AVG(x_orientation_angle),
-                AVG(y_orientation_angle),
-                AVG(black_globe_temperature),
-                AVG(thermistor_resistance),
-                AVG(voltage_ratio),
-                AVG(battery_voltage),
-                AVG(dew_point),
-                AVG(absolute_humidity),
-                AVG(heat_index),
-                AVG(wet_bulb_temperature),
-                AVG(blg_battery_voltage)
-            FROM biomet_data
-            GROUP BY time_bucket('1hour', measured_at), name
-    ''')
+            avg(biomet_data.absolute_humidity) AS absolute_humidity,
+            avg(biomet_data.absolute_humidity) AS absolute_humidity_min,
+            avg(biomet_data.absolute_humidity) AS absolute_humidity_max,
+            avg(biomet_data.air_temperature) AS air_temperature,
+            avg(biomet_data.air_temperature) AS air_temperature_min,
+            avg(biomet_data.air_temperature) AS air_temperature_max,
+            avg(biomet_data.atmospheric_pressure) AS atmospheric_pressure,
+            avg(biomet_data.atmospheric_pressure) AS atmospheric_pressure_min,
+            avg(biomet_data.atmospheric_pressure) AS atmospheric_pressure_max,
+            avg(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced,
+            avg(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_min,
+            avg(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_max,
+            avg(biomet_data.battery_voltage) AS battery_voltage,
+            avg(biomet_data.battery_voltage) AS battery_voltage_min,
+            avg(biomet_data.battery_voltage) AS battery_voltage_max,
+            avg(biomet_data.black_globe_temperature) AS black_globe_temperature,
+            avg(biomet_data.black_globe_temperature) AS black_globe_temperature_min,
+            avg(biomet_data.black_globe_temperature) AS black_globe_temperature_max,
+            avg(biomet_data.blg_battery_voltage) AS blg_battery_voltage,
+            avg(biomet_data.blg_battery_voltage) AS blg_battery_voltage_min,
+            avg(biomet_data.blg_battery_voltage) AS blg_battery_voltage_max,
+            avg(biomet_data.blg_time_offset) AS blg_time_offset,
+            avg(biomet_data.blg_time_offset) AS blg_time_offset_min,
+            avg(biomet_data.blg_time_offset) AS blg_time_offset_max,
+            avg(biomet_data.dew_point) AS dew_point,
+            avg(biomet_data.dew_point) AS dew_point_min,
+            avg(biomet_data.dew_point) AS dew_point_max,
+            avg(biomet_data.heat_index) AS heat_index,
+            avg(biomet_data.heat_index) AS heat_index_min,
+            avg(biomet_data.heat_index) AS heat_index_max,
+            avg(biomet_data.lightning_average_distance) AS lightning_average_distance,
+            avg(biomet_data.lightning_average_distance) AS lightning_average_distance_min,
+            avg(biomet_data.lightning_average_distance) AS lightning_average_distance_max,
+            avg(biomet_data.lightning_strike_count) AS lightning_strike_count,
+            max(biomet_data.maximum_wind_speed) AS maximum_wind_speed,
+            avg(biomet_data.mrt) AS mrt,
+            avg(biomet_data.mrt) AS mrt_min,
+            avg(biomet_data.mrt) AS mrt_max,
+            avg(biomet_data.pet) AS pet,
+            avg(biomet_data.pet) AS pet_min,
+            avg(biomet_data.pet) AS pet_max,
+            mode() WITHIN GROUP (ORDER BY biomet_data.pet_category ASC) AS pet_category,
+            avg(biomet_data.precipitation_sum) AS precipitation_sum,
+            avg(biomet_data.relative_humidity) AS relative_humidity,
+            avg(biomet_data.relative_humidity) AS relative_humidity_min,
+            avg(biomet_data.relative_humidity) AS relative_humidity_max,
+            avg(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal,
+            avg(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal_min,
+            avg(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal_max,
+            avg(biomet_data.solar_radiation) AS solar_radiation,
+            avg(biomet_data.solar_radiation) AS solar_radiation_min,
+            avg(biomet_data.solar_radiation) AS solar_radiation_max,
+            avg(biomet_data.thermistor_resistance) AS thermistor_resistance,
+            avg(biomet_data.thermistor_resistance) AS thermistor_resistance_min,
+            avg(biomet_data.thermistor_resistance) AS thermistor_resistance_max,
+            avg(biomet_data.u_wind) AS u_wind,
+            avg(biomet_data.u_wind) AS u_wind_min,
+            avg(biomet_data.u_wind) AS u_wind_max,
+            avg(biomet_data.utci) AS utci,
+            avg(biomet_data.utci) AS utci_min,
+            avg(biomet_data.utci) AS utci_max,
+            mode() WITHIN GROUP (ORDER BY biomet_data.utci_category ASC) AS utci_category,
+            avg(biomet_data.v_wind) AS v_wind,
+            avg(biomet_data.v_wind) AS v_wind_min,
+            avg(biomet_data.v_wind) AS v_wind_max,
+            avg(biomet_data.vapor_pressure) AS vapor_pressure,
+            avg(biomet_data.vapor_pressure) AS vapor_pressure_min,
+            avg(biomet_data.vapor_pressure) AS vapor_pressure_max,
+            avg(biomet_data.voltage_ratio) AS voltage_ratio,
+            avg(biomet_data.voltage_ratio) AS voltage_ratio_min,
+            avg(biomet_data.voltage_ratio) AS voltage_ratio_max,
+            avg(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature,
+            avg(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature_min,
+            avg(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature_max,
+            avg_angle(biomet_data.wind_direction) AS wind_direction,
+            avg(biomet_data.wind_speed) AS wind_speed,
+            avg(biomet_data.wind_speed) AS wind_speed_min,
+            avg(biomet_data.wind_speed) AS wind_speed_max,
+            avg(biomet_data.x_orientation_angle) AS x_orientation_angle,
+            avg(biomet_data.x_orientation_angle) AS x_orientation_angle_min,
+            avg(biomet_data.x_orientation_angle) AS x_orientation_angle_max,
+            avg(biomet_data.y_orientation_angle) AS y_orientation_angle,
+            avg(biomet_data.y_orientation_angle) AS y_orientation_angle_min,
+            avg(biomet_data.y_orientation_angle) AS y_orientation_angle_max
+        FROM biomet_data
+        GROUP BY time_bucket('1hour', measured_at), name
+    ''')  # noqa: E501
 
 
-class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives):
+class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
     """
     __tablename__ = 'temp_rh_data_hourly'
-    air_temperature_raw: Mapped[Decimal] = mapped_column(
+
+    absolute_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/m3',
+    )
+    absolute_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/m3',
+    )
+    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
     )
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(
+    air_temperature_raw_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    relative_humidity_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='%',
+    )
+    relative_humidity_raw_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+    )
+    wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+    )
+    wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
     )
     station: Mapped[Station] = relationship(lazy=True)
 
@@ -565,37 +812,74 @@ class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives):
             )
 
     creation_sql = text('''\
-        CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly(
-            measured_at,
+    CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly(
+        measured_at,
+        name,
+        absolute_humidity,
+        absolute_humidity_min,
+        absolute_humidity_max,
+        air_temperature,
+        air_temperature_min,
+        air_temperature_max,
+        air_temperature_raw,
+        air_temperature_raw_min,
+        air_temperature_raw_max,
+        battery_voltage,
+        battery_voltage_min,
+        battery_voltage_max,
+        dew_point,
+        dew_point_min,
+        dew_point_max,
+        heat_index,
+        heat_index_min,
+        heat_index_max,
+        relative_humidity,
+        relative_humidity_min,
+        relative_humidity_max,
+        relative_humidity_raw,
+        relative_humidity_raw_min,
+        relative_humidity_raw_max,
+        wet_bulb_temperature,
+        wet_bulb_temperature_min,
+        wet_bulb_temperature_max
+    )
+    WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+        SELECT
+            time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
             name,
-            air_temperature_raw,
-            relative_humidity_raw,
-            air_temperature,
-            relative_humidity,
-            battery_voltage,
-            dew_point,
-            absolute_humidity,
-            heat_index,
-            wet_bulb_temperature
-        )
-        WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
-            SELECT
-                time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
-                name,
-                AVG(air_temperature_raw),
-                AVG(relative_humidity_raw),
-                AVG(air_temperature),
-                AVG(relative_humidity),
-                AVG(battery_voltage),
-                AVG(dew_point),
-                AVG(absolute_humidity),
-                AVG(heat_index),
-                AVG(wet_bulb_temperature)
-            FROM temp_rh_data
-            GROUP BY time_bucket('1hour', measured_at), name
+            avg(temp_rh_data.absolute_humidity) AS absolute_humidity,
+            avg(temp_rh_data.absolute_humidity) AS absolute_humidity_min,
+            avg(temp_rh_data.absolute_humidity) AS absolute_humidity_max,
+            avg(temp_rh_data.air_temperature) AS air_temperature,
+            avg(temp_rh_data.air_temperature) AS air_temperature_min,
+            avg(temp_rh_data.air_temperature) AS air_temperature_max,
+            avg(temp_rh_data.air_temperature_raw) AS air_temperature_raw,
+            avg(temp_rh_data.air_temperature_raw) AS air_temperature_raw_min,
+            avg(temp_rh_data.air_temperature_raw) AS air_temperature_raw_max,
+            avg(temp_rh_data.battery_voltage) AS battery_voltage,
+            avg(temp_rh_data.battery_voltage) AS battery_voltage_min,
+            avg(temp_rh_data.battery_voltage) AS battery_voltage_max,
+            avg(temp_rh_data.dew_point) AS dew_point,
+            avg(temp_rh_data.dew_point) AS dew_point_min,
+            avg(temp_rh_data.dew_point) AS dew_point_max,
+            avg(temp_rh_data.heat_index) AS heat_index,
+            avg(temp_rh_data.heat_index) AS heat_index_min,
+            avg(temp_rh_data.heat_index) AS heat_index_max,
+            avg(temp_rh_data.relative_humidity) AS relative_humidity,
+            avg(temp_rh_data.relative_humidity) AS relative_humidity_min,
+            avg(temp_rh_data.relative_humidity) AS relative_humidity_max,
+            avg(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw,
+            avg(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw_min,
+            avg(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw_max,
+            avg(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature,
+            avg(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature_min,
+            avg(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature_max
+        FROM temp_rh_data
+        GROUP BY time_bucket('1hour', measured_at), name
     ''')
 
 
+# END_GENERATED
 @event.listens_for(TempRHData.__table__, 'after_create')
 @event.listens_for(BiometData.__table__, 'after_create')
 @event.listens_for(ATM41DataRaw.__table__, 'after_create')

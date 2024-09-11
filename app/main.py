@@ -36,10 +36,10 @@ def create_app() -> FastAPI:
                 BiometDataHourly.__tablename__,
                 TempRHDataHourly.__tablename__,
             }
-            tables_to_creates = [
+            tables_to_create = [
                 v for k, v in Base.metadata.tables.items() if k not in excluded
             ]
-            await con.run_sync(Base.metadata.create_all, tables=tables_to_creates)
+            await con.run_sync(Base.metadata.create_all, tables=tables_to_create)
             await con.execute(text(angle_avg_funcs))
 
         # create the views which cannot be created as part of a transaction

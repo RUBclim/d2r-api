@@ -327,7 +327,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=360,
         air_temperature=10,
-        wind_speed_max=15,
+        maximum_wind_speed=15,
         utci_category=HeatStressCategories.no_thermal_stress,
     )
     db.add(data_station_0)
@@ -336,7 +336,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=10,
         air_temperature=20,
-        wind_speed_max=10,
+        maximum_wind_speed=10,
         utci_category=HeatStressCategories.no_thermal_stress,
     )
     db.add(data_station_1)
@@ -346,7 +346,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=180,
         air_temperature=40,
-        wind_speed_max=20,
+        maximum_wind_speed=20,
         utci_category=HeatStressCategories.extreme_heat_stress,
     )
     db.add(data_station_2)
@@ -367,7 +367,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=None,
         air_temperature=40,
-        wind_speed_max=None,
+        maximum_wind_speed=None,
         utci_category=None,
     )
     db.add(data_missing)
@@ -380,7 +380,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         '/v1/districts/latest_data',
         params={
             'param': [
-                'air_temperature', 'wind_direction', 'wind_speed_max', 'utci_category',
+                'air_temperature', 'wind_direction',
+                'maximum_wind_speed', 'utci_category',
             ],
         },
     )
@@ -392,7 +393,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
             # double check if a test is failing
             'wind_direction': pytest.approx(5),
             'air_temperature': 15.0,
-            'wind_speed_max': 15,
+            'maximum_wind_speed': 15,
             'utci_category': 'no thermal stress',
         }],
     }
@@ -855,7 +856,7 @@ async def test_get_trends_stations_does_not_provide_param(
         ('wet_bulb_temperature', '°C'),
         ('wind_direction', '°'),
         ('wind_speed', 'm/s'),
-        ('wind_speed_max', 'm/s'),
+        ('maximum_wind_speed', 'm/s'),
     ),
 )
 @pytest.mark.usefixtures('clean_db')
@@ -891,7 +892,7 @@ async def test_get_trends_stations_units_correctly_extracted(
         wet_bulb_temperature=3,
         wind_direction=3,
         wind_speed=3,
-        wind_speed_max=3,
+        maximum_wind_speed=3,
     )
     db.add(data)
     await db.commit()
@@ -1070,7 +1071,7 @@ async def test_get_trends_districts(
 @pytest.mark.parametrize(
     ('param', 'expected', 'unit'),
     (
-        ('wind_speed_max', 14, 'm/s'),
+        ('maximum_wind_speed', 14, 'm/s'),
         ('utci_category', 'extreme heat stress', '-'),
         ('wind_direction', 180, '°'),
         ('solar_radiation', 20, 'W/m²'),
@@ -1089,7 +1090,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         BiometData(
             name=stations[0].name,
             measured_at=datetime(2024, 8, 1, 10, 10),
-            wind_speed_max=10,
+            maximum_wind_speed=10,
             wind_direction=90,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=5,
@@ -1097,7 +1098,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         BiometData(
             name=stations[0].name,
             measured_at=datetime(2024, 8, 1, 10, 14),
-            wind_speed_max=5,
+            maximum_wind_speed=5,
             wind_direction=270,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=15,
@@ -1106,7 +1107,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         BiometData(
             name=stations[1].name,
             measured_at=datetime(2024, 8, 1, 10, 10),
-            wind_speed_max=12,
+            maximum_wind_speed=12,
             wind_direction=90,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=20,
@@ -1114,7 +1115,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         BiometData(
             name=stations[1].name,
             measured_at=datetime(2024, 8, 1, 10, 14),
-            wind_speed_max=14,
+            maximum_wind_speed=14,
             wind_direction=270,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=40,
@@ -1152,7 +1153,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
 @pytest.mark.parametrize(
     ('param', 'expected', 'unit'),
     (
-        ('wind_speed_max', 14, 'm/s'),
+        ('maximum_wind_speed', 14, 'm/s'),
         ('utci_category', 'extreme heat stress', '-'),
         ('wind_direction', 180, '°'),
         ('solar_radiation', 20, 'W/m²'),
@@ -1198,7 +1199,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         BiometData(
             name=stations[0].name,
             measured_at=datetime(2024, 8, 1, 10, 10),
-            wind_speed_max=10,
+            maximum_wind_speed=10,
             wind_direction=90,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=5,
@@ -1206,7 +1207,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         BiometData(
             name=stations[0].name,
             measured_at=datetime(2024, 8, 1, 10, 14),
-            wind_speed_max=5,
+            maximum_wind_speed=5,
             wind_direction=270,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=15,
@@ -1215,7 +1216,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         BiometData(
             name=stations[1].name,
             measured_at=datetime(2024, 8, 1, 10, 10),
-            wind_speed_max=12,
+            maximum_wind_speed=12,
             wind_direction=90,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=20,
@@ -1223,7 +1224,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         BiometData(
             name=stations[1].name,
             measured_at=datetime(2024, 8, 1, 10, 14),
-            wind_speed_max=14,
+            maximum_wind_speed=14,
             wind_direction=270,
             utci_category=HeatStressCategories.extreme_heat_stress,
             solar_radiation=40,

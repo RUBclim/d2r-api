@@ -65,7 +65,6 @@ RENAMER = {
     'air_humidity': 'relative_humidity',
     'east_wind_speed': 'u_wind',
     'north_wind_speed': 'v_wind',
-    'maximum_wind_speed': 'wind_speed_max',
     'precipitation': 'precipitation_sum',
     'temperature': 'black_globe_temperature',
 }
@@ -259,7 +258,7 @@ async def download_biomet_data(name: str) -> None:
             data = data[[
                 'air_temperature', 'relative_humidity', 'atmospheric_pressure',
                 'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind', 'v_wind',
-                'wind_speed_max', 'precipitation_sum', 'solar_radiation',
+                'maximum_wind_speed', 'precipitation_sum', 'solar_radiation',
                 'lightning_average_distance', 'lightning_strike_count',
                 'sensor_temperature_internal', 'x_orientation_angle',
                 'y_orientation_angle', 'name', 'battery_voltage',
