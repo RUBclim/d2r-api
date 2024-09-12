@@ -448,7 +448,8 @@ async def calculate_biomet(name: str) -> None:
         )
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
-        # TODO (LW): validate this with the Klima Michel
+        # TODO (LW): validate this with the Klima Michel, we need to also
+        # somehow filter this annoying warning, it floods our logs with nonsense
         # this only seems to work a per-row basis, hence the apply along axis=1
         df_biomet['pet'] = df_biomet[
             [
