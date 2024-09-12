@@ -36,26 +36,56 @@ class Units(StrEnum):
 # this includes every param of PublicParams
 UNIT_MAPPING: dict[str, Units] = {
     'absolute_humidity': Units.g_m3,
+    'absolute_humidity_max': Units.g_m3,
+    'absolute_humidity_min': Units.g_m3,
     'atmospheric_pressure': Units.hpa,
+    'atmospheric_pressure_max': Units.hpa,
+    'atmospheric_pressure_min': Units.hpa,
     'atmospheric_pressure_reduced': Units.hpa,
+    'atmospheric_pressure_reduced_max': Units.hpa,
+    'atmospheric_pressure_reduced_min': Units.hpa,
     'air_temperature': Units.deg_c,
+    'air_temperature_max': Units.deg_c,
+    'air_temperature_min': Units.deg_c,
     'dew_point': Units.deg_c,
+    'dew_point_max': Units.deg_c,
+    'dew_point_min': Units.deg_c,
     'heat_index': Units.deg_c,
+    'heat_index_max': Units.deg_c,
+    'heat_index_min': Units.deg_c,
     'lightning_average_distance': Units.km,
     'lightning_strike_count': Units.unitless,
     'mrt': Units.deg_c,
+    'mrt_max': Units.deg_c,
+    'mrt_min': Units.deg_c,
     'pet': Units.deg_c,
+    'pet_max': Units.deg_c,
+    'pet_min': Units.deg_c,
     'pet_category': Units.unitless,
     'precipitation_sum': Units.mm,
     'relative_humidity': Units.perc,
+    'relative_humidity_max': Units.perc,
+    'relative_humidity_min': Units.perc,
     'solar_radiation': Units.wm2,
+    'solar_radiation_max': Units.wm2,
+    'solar_radiation_min': Units.wm2,
     'utci': Units.deg_c,
+    'utci_max': Units.deg_c,
+    'utci_min': Units.deg_c,
     'utci_category': Units.unitless,
     'vapor_pressure': Units.hpa,
+    'vapor_pressure_max': Units.hpa,
+    'vapor_pressure_min': Units.hpa,
     'wet_bulb_temperature': Units.deg_c,
+    'wet_bulb_temperature_max': Units.deg_c,
+    'wet_bulb_temperature_min': Units.deg_c,
     'wind_direction': Units.deg,
     'wind_speed': Units.ms,
+    'wind_speed_max': Units.ms,
+    'wind_speed_min': Units.ms,
     'maximum_wind_speed': Units.ms,
+    'maximum_wind_speed_max': Units.ms,
+    'maximum_wind_speed_min': Units.ms,
 }
 
 
@@ -87,6 +117,71 @@ class PublicParams(StrEnum):
     wind_direction = 'wind_direction'
     wind_speed = 'wind_speed'
     maximum_wind_speed = 'maximum_wind_speed'
+
+
+class PublicParamsAggregates(StrEnum):
+    """Parameters that are publicly available and data from those parameters can be
+    requested via the API. Not every station supports all of these parameters. Stations
+    of type `StationType.biomet` support all parameters, stations of type
+    `StationType.temprh` only support a subset of parameters, that can be
+    derived from `air_temperature` and `relative_humidity`.
+
+    This schema also contains extreme values derived from aggregating instantaneous
+    measurements across a time span (e.g. hourly or daily values).
+    """
+    absolute_humidity = 'absolute_humidity'
+    absolute_humidity_max = 'absolute_humidity_max'
+    absolute_humidity_min = 'absolute_humidity_min'
+    atmospheric_pressure = 'atmospheric_pressure'
+    atmospheric_pressure_max = 'atmospheric_pressure_max'
+    atmospheric_pressure_min = 'atmospheric_pressure_min'
+    atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
+    atmospheric_pressure_reduced_max = 'atmospheric_pressure_reduced_max'
+    atmospheric_pressure_reduced_min = 'atmospheric_pressure_reduced_min'
+    air_temperature = 'air_temperature'
+    air_temperature_max = 'air_temperature_max'
+    air_temperature_min = 'air_temperature_min'
+    dew_point = 'dew_point'
+    dew_point_max = 'dew_point_max'
+    dew_point_min = 'dew_point_min'
+    heat_index = 'heat_index'
+    heat_index_max = 'heat_index_max'
+    heat_index_min = 'heat_index_min'
+    lightning_average_distance = 'lightning_average_distance'
+    lightning_average_distance_max = 'lightning_average_distance_max'
+    lightning_average_distance_min = 'lightning_average_distance_min'
+    lightning_strike_count = 'lightning_strike_count'
+    mrt = 'mrt'
+    mrt_max = 'mrt_max'
+    mrt_min = 'mrt_min'
+    pet = 'pet'
+    pet_max = 'pet_max'
+    pet_min = 'pet_min'
+    pet_category = 'pet_category'
+    precipitation_sum = 'precipitation_sum'
+    relative_humidity = 'relative_humidity'
+    relative_humidity_max = 'relative_humidity_max'
+    relative_humidity_min = 'relative_humidity_min'
+    solar_radiation = 'solar_radiation'
+    solar_radiation_max = 'solar_radiation_max'
+    solar_radiation_min = 'solar_radiation_min'
+    utci = 'utci'
+    utci_max = 'utci_max'
+    utci_min = 'utci_min'
+    utci_category = 'utci_category'
+    vapor_pressure = 'vapor_pressure'
+    vapor_pressure_max = 'vapor_pressure_max'
+    vapor_pressure_min = 'vapor_pressure_min'
+    wet_bulb_temperature = 'wet_bulb_temperature'
+    wet_bulb_temperature_max = 'wet_bulb_temperature_max'
+    wet_bulb_temperature_min = 'wet_bulb_temperature_min'
+    wind_direction = 'wind_direction'
+    wind_speed = 'wind_speed'
+    wind_speed_max = 'wind_speed_max'
+    wind_speed_min = 'wind_speed_min'
+    maximum_wind_speed = 'maximum_wind_speed'
+    maximum_wind_speed_max = 'maximum_wind_speed_max'
+    maximum_wind_speed_min = 'maximum_wind_speed_min'
 
 
 T = TypeVar('T')

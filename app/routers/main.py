@@ -34,6 +34,7 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataHourly
 from app.schemas import PublicParams
+from app.schemas import PublicParamsAggregates
 from app.schemas import Response
 from app.schemas import Trends
 from app.schemas import TrendValue
@@ -197,7 +198,7 @@ def get_aggregator(
     tags=['districts', 'stations'],
 )
 async def get_trends(
-        param: PublicParams = Path(
+        param: PublicParamsAggregates = Path(
             description=(
                 'The parameter to get data for. Only data from districts that provide '
                 'the value are returned.'
