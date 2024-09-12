@@ -695,7 +695,7 @@ class BiometDataHourly(
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance,
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance_min,
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance_max,
-            count(biomet_data.lightning_strike_count) AS lightning_strike_count,
+            sum(biomet_data.lightning_strike_count) AS lightning_strike_count,
             max(biomet_data.maximum_wind_speed) AS maximum_wind_speed,
             avg(biomet_data.mrt) AS mrt,
             avg(biomet_data.mrt) AS mrt_min,

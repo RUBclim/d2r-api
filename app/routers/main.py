@@ -183,10 +183,8 @@ def get_aggregator(
         return func.mode().within_group(col.asc())
     elif 'direction' in col.name:
         return func.avg_angle(col)
-    elif 'sum' in col.name and not area_average:
+    elif ('sum' in col.name or 'count' in col.name) and not area_average:
         return func.sum(col)
-    elif 'count' in col.name and not area_average:
-        return func.count(col)
     else:
         return func.avg(col)
 

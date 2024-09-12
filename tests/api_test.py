@@ -612,6 +612,79 @@ async def test_get_trends_stations_only_biomet(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize('stations', [2], indirect=True)
+@pytest.mark.usefixtures('clean_db')
+async def test_get_trends_stations_only_biomet_counts_become_sums(
+        app: AsyncClient,
+        stations: list[Station],
+        db: AsyncSession,
+) -> None:
+    # we need to create some data and this way we can also check that the materialized
+    # view works as expected
+    data = [
+        # station 0
+        # data before our requested range
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 8, 0),
+            lightning_strike_count=10,
+        ),
+        # data that will be aggregated by the materialized view
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 9, 10),
+            lightning_strike_count=10,
+        ),
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 9, 20),
+            lightning_strike_count=11,
+        ),
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 9, 30),
+            lightning_strike_count=15,
+        ),
+        # data after our requested range
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 10, 30),
+            lightning_strike_count=16,
+        ),
+        # a station that we don't request, but it theoretically would be supported!
+        BiometData(
+            name=stations[1].name,
+            measured_at=datetime(2024, 8, 1, 9, 30),
+            lightning_strike_count=15,
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await BiometDataHourly.refresh()
+
+    resp = await app.get(
+        '/v1/trends/lightning_strike_count',
+        params={
+            'item_type': 'stations',
+            'item_ids': 'DEC1',
+            'start_date': datetime(2024, 8, 1, 0, 0),
+            'end_date': datetime(2024, 8, 2, 23, 0),
+            'hour': 10,
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        'data': {
+            'supported_ids': ['DEC1', 'DEC2'],
+            'trends': [{'DEC1': 36, 'measured_at': '2024-08-01T10:00:00Z'}],
+            'unit': '-',
+        },
+    }
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize('stations', [1], indirect=True)
 @pytest.mark.usefixtures('clean_db')
 async def test_get_trends_stations_only_temprh(
