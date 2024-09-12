@@ -451,8 +451,6 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
 
 
 # START_GENERATED
-
-
 class BiometDataHourly(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
 ):
@@ -697,7 +695,7 @@ class BiometDataHourly(
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance,
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance_min,
             avg(biomet_data.lightning_average_distance) AS lightning_average_distance_max,
-            avg(biomet_data.lightning_strike_count) AS lightning_strike_count,
+            count(biomet_data.lightning_strike_count) AS lightning_strike_count,
             max(biomet_data.maximum_wind_speed) AS maximum_wind_speed,
             avg(biomet_data.mrt) AS mrt,
             avg(biomet_data.mrt) AS mrt_min,
@@ -706,7 +704,7 @@ class BiometDataHourly(
             avg(biomet_data.pet) AS pet_min,
             avg(biomet_data.pet) AS pet_max,
             mode() WITHIN GROUP (ORDER BY biomet_data.pet_category ASC) AS pet_category,
-            avg(biomet_data.precipitation_sum) AS precipitation_sum,
+            sum(biomet_data.precipitation_sum) AS precipitation_sum,
             avg(biomet_data.relative_humidity) AS relative_humidity,
             avg(biomet_data.relative_humidity) AS relative_humidity_min,
             avg(biomet_data.relative_humidity) AS relative_humidity_max,
@@ -877,9 +875,9 @@ class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDeriva
         FROM temp_rh_data
         GROUP BY time_bucket('1hour', measured_at), name
     ''')
-
-
 # END_GENERATED
+
+
 @event.listens_for(TempRHData.__table__, 'after_create')
 @event.listens_for(BiometData.__table__, 'after_create')
 @event.listens_for(ATM41DataRaw.__table__, 'after_create')

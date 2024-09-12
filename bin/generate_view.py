@@ -66,7 +66,7 @@ REFRESH_TS_TEMPLATE = '''\
 async def refresh(cls) -> None:
     async with sessionmanager.connect(as_transaction=False) as sess:
         await sess.execute(
-            text("CALL refresh_continuous_aggregate('{view_name}', NULL, NULL)"),
+            text("CALL refresh_continuous_aggregate('{view_name}', NULL, NULL)"),  # noqa: E501
         )'''
 
 CLASS_TEMPLATE = """\
@@ -79,7 +79,7 @@ class {view_name}{inherits}:
 {refresh_method}
 
     creation_sql = text('''\\{creation_sql}
-    ''')
+    '''){noqa}
 """
 
 
@@ -247,14 +247,24 @@ def generate_sqlalchemy_class(
     # we need to add a relationship at the end of each view
     py_cols = [i.py_repr for i in cols if i.py_repr]
     py_cols.append('station: Mapped[Station] = relationship(lazy=True)')
+    inherit_str = f"({', '.join(inherits)})" if inherits else ''
+    if inherits and len(inherit_str) + len(table.__name__) + 5 > 88:
+        inherit_str = f'({textwrap.indent(f"\n{', '.join(inherits)}", ' ' * 4)},\n)'
+
+    creation_sql = textwrap.indent(view_def, ' '*4)
+    sql_too_long = any(len(i) > 88 for i in creation_sql.splitlines())
+    if sql_too_long:
+        noqa = '  # noqa: E501'
+    else:
+        noqa = ''
 
     # finally combine everything and generate the full class
     class_def = CLASS_TEMPLATE.format(
         view_name=f'{table.__name__}{target_agg.title()}',
         docstring=f'\"""{docstring}\n    \"""' if docstring else '',
         table_name=view_name,
-        inherits=f"({', '.join(inherits)})" if inherits else '',
-        creation_sql=textwrap.indent(view_def, ' '*4),
+        inherits=inherit_str,
+        creation_sql=creation_sql,
         attributes=textwrap.indent(
             text='\n'.join(py_cols), prefix=' ' * 4,
         ),
@@ -262,6 +272,7 @@ def generate_sqlalchemy_class(
             refresh_method.format(view_name=view_name),
             prefix=' ' * 4,
         ),
+        noqa=noqa,
     )
     return class_def
 
@@ -273,7 +284,7 @@ def insert_generated(path: str, generated: str) -> None:
     PATTERN = re.compile(r'#\s(?:START_GENERATED|END_GENERATED)')
     before, _, after, = re.split(PATTERN, content)
     new = f'''\
-{before}# START_GENERATED\n{generated}
+{before}# START_GENERATED\n{generated.strip()}
 # END_GENERATED{after}\
 '''
     with open(path, 'w') as f:
@@ -285,7 +296,7 @@ def main() -> int:
     This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.'''.lstrip()
-    generated_code = ''
+    generated_code = '\n\n'
     biomet_hourly = generate_sqlalchemy_class(
         table=BiometData,
         docstring=docstring,
@@ -298,7 +309,7 @@ def main() -> int:
         avgs_defined_by_inheritance=True,
         target_agg='hourly',
     )
-    generated_code += biomet_hourly
+    generated_code += f'\n\n{biomet_hourly}'
 
     temp_rh_hourly = generate_sqlalchemy_class(
         table=TempRHData,
@@ -311,7 +322,7 @@ def main() -> int:
         avgs_defined_by_inheritance=True,
         target_agg='hourly',
     )
-    generated_code += temp_rh_hourly
+    generated_code += f'\n\n{temp_rh_hourly}'
     insert_generated(path='app/models.py', generated=generated_code)
     return 0
 

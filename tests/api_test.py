@@ -329,6 +329,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         air_temperature=10,
         maximum_wind_speed=15,
         utci_category=HeatStressCategories.no_thermal_stress,
+        precipitation_sum=3,
+        lightning_strike_count=10,
     )
     db.add(data_station_0)
     data_station_1 = BiometData(
@@ -338,6 +340,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         air_temperature=20,
         maximum_wind_speed=10,
         utci_category=HeatStressCategories.no_thermal_stress,
+        precipitation_sum=2,
+        lightning_strike_count=20,
     )
     db.add(data_station_1)
     # the data is too old, hence omitted from the calculation
@@ -348,6 +352,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         air_temperature=40,
         maximum_wind_speed=20,
         utci_category=HeatStressCategories.extreme_heat_stress,
+        precipitation_sum=1,
+        lightning_strike_count=15,
     )
     db.add(data_station_2)
     station_with_missing_data = Station(
@@ -369,6 +375,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         air_temperature=40,
         maximum_wind_speed=None,
         utci_category=None,
+        precipitation_sum=None,
+        lightning_strike_count=None,
     )
     db.add(data_missing)
     await db.commit()
@@ -382,6 +390,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
             'param': [
                 'air_temperature', 'wind_direction',
                 'maximum_wind_speed', 'utci_category',
+                'precipitation_sum', 'lightning_strike_count',
             ],
         },
     )
@@ -395,6 +404,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
             'air_temperature': 15.0,
             'maximum_wind_speed': 15,
             'utci_category': 'no thermal stress',
+            'precipitation_sum': 2.5,
+            'lightning_strike_count': 15,
         }],
     }
 

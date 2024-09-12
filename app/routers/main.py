@@ -158,7 +158,7 @@ async def get_districts_latest_data(
     not_null_conditions = []
     for p in param:
         column: InstrumentedAttribute[Any] = getattr(LatestData, p)
-        query_part = get_aggregator(col=column).label(p)
+        query_part = get_aggregator(col=column, area_average=True).label(p)
         not_null_conditions.append(column.isnot(None))
         query_parts.append(query_part)
 
@@ -174,6 +174,7 @@ async def get_districts_latest_data(
 
 def get_aggregator(
         col: Column[Any] | InstrumentedAttribute[Any],
+        area_average: bool = False,
 ) -> Function[Any] | WithinGroup[Any]:
     """choose an appropriate aggregator based on the column name"""
     if 'max' in col.name:
@@ -182,6 +183,10 @@ def get_aggregator(
         return func.mode().within_group(col.asc())
     elif 'direction' in col.name:
         return func.avg_angle(col)
+    elif 'sum' in col.name and not area_average:
+        return func.sum(col)
+    elif 'count' in col.name and not area_average:
+        return func.count(col)
     else:
         return func.avg(col)
 
