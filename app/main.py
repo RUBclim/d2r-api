@@ -11,8 +11,10 @@ from sqlalchemy import text
 from app.database import angle_avg_funcs
 from app.database import Base
 from app.database import sessionmanager
+from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import LatestData
+from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.routers import main
 
@@ -28,25 +30,30 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         async with sessionmanager.connect() as con:
-            # we need to exclude tables that actually represent a views
-            # we trick sqlalchemy into thinking this was a table, but of course
+            # we need to exclude tables that actually represent views.
+            # We trick sqlalchemy into thinking this was a table, but of course
             # we must prevent it trying to create it.
-            excluded = {
-                LatestData.__tablename__,
-                BiometDataHourly.__tablename__,
-                TempRHDataHourly.__tablename__,
+
+            views: set[
+                type[
+                    LatestData | BiometDataHourly | BiometDataDaily | TempRHDataHourly |
+                    TempRHDataDaily
+                ]
+            ] = {
+                LatestData, BiometDataHourly, BiometDataDaily, TempRHDataHourly,
+                TempRHDataDaily,
             }
+            view_names = {n.__tablename__ for n in views}
             tables_to_create = [
-                v for k, v in Base.metadata.tables.items() if k not in excluded
+                v for k, v in Base.metadata.tables.items() if k not in view_names
             ]
             await con.run_sync(Base.metadata.create_all, tables=tables_to_create)
             await con.execute(text(angle_avg_funcs))
 
         # create the views which cannot be created as part of a transaction
         async with sessionmanager.connect(as_transaction=False) as con:
-            await con.execute(BiometDataHourly.creation_sql)
-            await con.execute(LatestData.creation_sql)
-            await con.execute(TempRHDataHourly.creation_sql)
+            for v in views:
+                await con.execute(v.creation_sql)
         yield
         await sessionmanager.close()
 

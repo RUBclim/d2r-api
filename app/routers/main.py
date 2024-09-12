@@ -179,6 +179,8 @@ def get_aggregator(
     """choose an appropriate aggregator based on the column name"""
     if 'max' in col.name:
         return func.max(col)
+    elif 'min' in col.name:
+        return func.min(col)
     elif 'category' in col.name:
         return func.mode().within_group(col.asc())
     elif 'direction' in col.name:

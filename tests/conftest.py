@@ -15,6 +15,7 @@ from app.database import sessionmanager
 from app.main import create_app
 from app.models import ATM41DataRaw
 from app.models import BiometData
+from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
@@ -22,6 +23,7 @@ from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 
 
@@ -51,7 +53,9 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.commit()
     await LatestData.refresh(db=db)
     await BiometDataHourly.refresh()
+    await BiometDataDaily.refresh(db=db)
     await TempRHDataHourly.refresh()
+    await TempRHDataDaily.refresh(db=db)
     await db.commit()
 
 

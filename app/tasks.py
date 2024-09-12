@@ -28,6 +28,7 @@ from app.database import sessionmanager
 from app.models import _HeatStressCategories
 from app.models import ATM41DataRaw
 from app.models import BiometData
+from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
@@ -36,6 +37,7 @@ from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 
 # TODO: the pythermalcomfort imports are incredibly slow - we might as well just
@@ -492,6 +494,7 @@ async def calculate_biomet(name: str) -> None:
         )
         await LatestData.refresh(db=sess)
         await BiometDataHourly.refresh()
+        await BiometDataDaily.refresh(db=sess)
         await sess.commit()
 
 
@@ -570,4 +573,5 @@ async def calculate_temp_rh(name: str) -> None:
         )
         await LatestData.refresh(db=sess)
         await TempRHDataHourly.refresh()
+        await TempRHDataDaily.refresh(db=sess)
         await sess.commit()

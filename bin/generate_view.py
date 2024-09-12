@@ -5,6 +5,9 @@ from typing import Literal
 from typing import NamedTuple
 
 from sqlalchemy import Column
+from sqlalchemy import func
+from sqlalchemy import Function
+from sqlalchemy import WithinGroup
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.models import _ATM41DataRawBase
@@ -16,7 +19,6 @@ from app.models import _SHT35DataRawBase
 from app.models import _TempRHDerivatives
 from app.models import BiometData
 from app.models import TempRHData
-from app.routers.main import get_aggregator
 
 # definition of template strings for generating SQL code
 VIEW_TEMPLATE_DAILY = '''
@@ -26,8 +28,8 @@ SELECT
     name,
 {columns}
 FROM {target_table}
-GROUP BY measured_at, name
-ORDER BY name, measured_at'''
+GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, name
+ORDER BY measured_at, name'''
 
 VIEW_TEMPLATE_HOURLY = '''
 CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name}(
@@ -101,7 +103,20 @@ class Col(NamedTuple):
     @property
     def sql_repr(self) -> str:
         """generate a SQL definition for this column"""
-        agg_func = str(get_aggregator(self.sqlalchemy_col).compile())
+        agg_func: Function[Any] | WithinGroup[Any]
+        if 'max' in self.full_name:
+            agg_func = func.max(self.sqlalchemy_col)
+        elif '_min' in self.full_name:
+            agg_func = func.min(self.sqlalchemy_col)
+        elif 'category' in self.full_name:
+            agg_func = func.mode().within_group(self.sqlalchemy_col.asc())
+        elif 'direction' in self.full_name:
+            agg_func = func.avg_angle(self.sqlalchemy_col)
+        elif ('sum' in self.full_name or 'count' in self.full_name):
+            agg_func = func.sum(self.sqlalchemy_col)
+        else:
+            agg_func = func.avg(self.sqlalchemy_col)
+
         if self.threshold > 0:
             template = COL_TEMPLATE
         else:
@@ -323,6 +338,35 @@ def main() -> int:
         target_agg='hourly',
     )
     generated_code += f'\n\n{temp_rh_hourly}'
+
+    biomet_daily = generate_sqlalchemy_class(
+        table=BiometData,
+        docstring=docstring,
+        inherits=[
+            _ATM41DataRawBase.__name__,
+            _BLGDataRawBase.__name__,
+            _TempRHDerivatives.__name__,
+            _BiometDerivatives.__name__,
+        ],
+        avgs_defined_by_inheritance=True,
+        target_agg='daily',
+        threshold=0.7,
+    )
+    generated_code += f'\n\n{biomet_daily}'
+
+    temp_rh_daily = generate_sqlalchemy_class(
+        table=TempRHData,
+        docstring=docstring,
+        inherits=[
+            _SHT35DataRawBase.__name__,
+            _TempRHDerivatives.__name__,
+            _CalibrationDerivatives.__name__,
+        ],
+        avgs_defined_by_inheritance=True,
+        target_agg='daily',
+        threshold=0.7,
+    )
+    generated_code += f'\n\n{temp_rh_daily}'
     insert_generated(path='app/models.py', generated=generated_code)
     return 0
 
