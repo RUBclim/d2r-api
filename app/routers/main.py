@@ -43,6 +43,12 @@ from app.schemas import UNIT_MAPPING
 router = APIRouter()
 
 
+@router.api_route('/healthcheck', include_in_schema=False, methods=['GET', 'HEAD'])
+async def is_healthy(db: AsyncSession = Depends(get_db_session)) -> Any:
+    await db.execute(select(1))
+    return {'message': "I'm healthy!"}
+
+
 @router.get(
     '/stations/metadata',
     response_model=Response[list[schemas.StationMetadata]],

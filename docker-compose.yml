@@ -8,17 +8,17 @@ services:
         PG_VERSION: 16
         ANGLE_AVG_VERSION: "0.1.1"
     volumes:
-      # TODO: add properly tuned postgres conf
       - pgdata:/home/postgres/pgdata/data
     environment:
       # we need to set this, so ordering is case insensitive
       POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
+      TIMESCALEDB_TELEMETRY: "off"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --dbname=${POSTGRES_DB} --username=${POSTGRES_USER} || exit 1"]
       interval: 30s
       timeout: 30s
       retries: 5
-      start_period: 60s
+      start_period: 30s
 
   app:
     build:
@@ -27,16 +27,20 @@ services:
       args:
         GH_PAT: ${GH_PAT}
     image: d2r-api
+    user: nobody
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://localhost:5000 || exit 1"]
+      test: ["CMD-SHELL", "wget --spider http://localhost:5000/v1/healthcheck || exit 1"]
       interval: 30s
       timeout: 30s
       retries: 5
       start_period: 30s
+    depends_on:
+      - db
 
   redis:
     image: redis:latest
     container_name: redis
+    user: nobody
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
       interval: 30s
@@ -49,6 +53,7 @@ services:
     hostname: celery
     # TODO: maybe build a separate image
     image: d2r-api
+    user: nobody
     healthcheck:
       test: ["CMD-SHELL", "/usr/src/app/venv/bin/celery -A app inspect ping || exit 1"]
       interval: 30s
@@ -78,8 +83,6 @@ services:
       start_period: 60s
     depends_on:
       - app
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
 
 volumes:
   pgdata:

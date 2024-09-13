@@ -17,6 +17,19 @@ from app.models import TempRHDataHourly
 
 
 @pytest.mark.anyio
+async def test_get_healthcheck(app: AsyncClient) -> None:
+    resp = await app.get('/v1/healthcheck')
+    assert resp.status_code == 200
+    assert resp.json() == {'message': "I'm healthy!"}
+
+
+@pytest.mark.anyio
+async def test_head_healthcheck(app: AsyncClient) -> None:
+    resp = await app.head('/v1/healthcheck')
+    assert resp.headers == {'content-length': '26', 'content-type': 'application/json'}
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize('stations', [2], indirect=True)
 async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -> None:
     resp = await app.get('/v1/stations/metadata')

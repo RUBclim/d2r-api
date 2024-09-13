@@ -9,6 +9,7 @@ services:
     env_file:
       - .env.dev
     command: [
+      wait-for-it, "db:5432", --,
       /usr/src/app/venv/bin/uvicorn,
       "app.main:app",
       "--reload",
@@ -17,7 +18,7 @@ services:
       "--log-level", "debug",
     ]
     ports:
-      - "5000-5002:5000"
+      - "5000:5000"
     volumes:
       - ./app:/usr/src/app/app:ro
 
@@ -26,14 +27,14 @@ services:
       - "6379:6379"
 
   celery:
+    restart: always
     env_file:
       - .env.dev
     command: [
       /usr/src/app/venv/bin/celery, -A, app.celery, worker,
       --prefetch-multiplier=1,
       --concurrency=2,
-      --loglevel, DEBUG,
-      -B
+      --loglevel, INFO,
     ]
     volumes:
       - ./app:/usr/src/app/app:ro
@@ -46,8 +47,12 @@ services:
       --loglevel, INFO,
       --schedule, /tmp/celerybeat-schedule.db
     ]
+    volumes:
+      - ./app:/usr/src/app/app:ro
 
 
   nginx:
     ports:
       - "8080:8080"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/conf.d/nginx.conf:ro
