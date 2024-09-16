@@ -355,6 +355,177 @@ class Parameters(BaseModel):
         ge=0,
     )
 
+# TODO: we may also generate these at some point from either the enums or the basic
+# schema without extreme values
+
+
+class ParametersAgg(BaseModel):
+    """Extreme values aggregated to a lower temporal resolution"""
+    absolute_humidity_min: float | None = Field(
+        None,
+        examples=[11.1],
+        description='The minimum absolute humidity in **g/m³**',
+    )
+    absolute_humidity_max: float | None = Field(
+        None,
+        examples=[11.9],
+        description='The maximum Absolute humidity in **g/m³**',
+    )
+    atmospheric_pressure_min: float | None = Field(
+        None,
+        examples=[1013.1],
+        description='The minimum atmospheric pressure at the station in **hPa**',
+    )
+    atmospheric_pressure_max: float | None = Field(
+        None,
+        examples=[1013.9],
+        description='The maximum atmospheric pressure at the station in **hPa**',
+    )
+    atmospheric_pressure_reduced_min: float | None = Field(
+        None,
+        examples=[1020.9],
+        description='The minimum atmospheric pressure reduced to sea-level in **hPa**',
+    )
+    atmospheric_pressure_reduced_max: float | None = Field(
+        None,
+        examples=[1020.9],
+        description='The maximum atmospheric pressure reduced to sea-level in **hPa**',
+    )
+    air_temperature_min: float | None = Field(
+        None,
+        examples=[12.1],
+        description='The minimum air temperature in **°C**',
+    )
+    air_temperature_max: float | None = Field(
+        None,
+        examples=[12.9],
+        description='The maximum air temperature in **°C**',
+    )
+    dew_point_min: float | None = Field(
+        None,
+        examples=[7.1],
+        description='The minimum dew point temperature in **°C**',
+    )
+    dew_point_max: float | None = Field(
+        None,
+        examples=[7.9],
+        description='The maximum dew point temperature in **°C**',
+    )
+    heat_index_min: float | None = Field(
+        None,
+        examples=[25.1],
+        description=(
+            'The minimum heat index derived from relative humidity and air temperature '
+            'in **°C**'
+        ),
+    )
+    heat_index_max: float | None = Field(
+        None,
+        examples=[25.9],
+        description=(
+            'The maximum heat index derived from relative humidity and air temperature '
+            'in **°C**'
+        ),
+    )
+    lightning_average_distance_min: float | None = Field(
+        None,
+        examples=[3.1],
+        description='The minimum distance of lightning strikes in **km**',
+    )
+    lightning_average_distance_max: float | None = Field(
+        None,
+        examples=[3.9],
+        description='The maximum distance of lightning strikes in **km**',
+    )
+    mrt_min: float | None = Field(
+        None,
+        examples=[64.1],
+        description='The minimum mean radiant temperature in **°C**',
+    )
+    mrt_max: float | None = Field(
+        None,
+        examples=[64.9],
+        description='The maximum mean radiant temperature in **°C**',
+    )
+    pet_min: float | None = Field(
+        None,
+        examples=[35.1],
+        description='The minimum physiological equivalent temperature in **°C**',
+    )
+    pet_max: float | None = Field(
+        None,
+        examples=[35.9],
+        description='The maximum physiological equivalent temperature in **°C**',
+    )
+    relative_humidity_min: float | None = Field(
+        None,
+        ge=0,
+        le=100,
+        examples=[73.1],
+        description='The minimum relative humidity in **%**',
+    )
+    relative_humidity_max: float | None = Field(
+        None,
+        ge=0,
+        le=100,
+        examples=[73.9],
+        description='The maximum relative humidity in **%**',
+    )
+    solar_radiation: float | None = Field(
+        None,
+        examples=[860.1],
+        ge=0,
+        description='The minimum incoming shortwave solar radiation in **W/m²**',
+    )
+    solar_radiation_max: float | None = Field(
+        None,
+        examples=[860.9],
+        ge=0,
+        description='The maximum incoming shortwave solar radiation in **W/m²**',
+    )
+    utci_min: float | None = Field(
+        None,
+        examples=[38.1],
+        description='The minimum universal thermal climate index in **°C**',
+    )
+    utci_max: float | None = Field(
+        None,
+        examples=[38.0],
+        description='The maximum universal thermal climate index in **°C**',
+    )
+    vapor_pressure_min: float | None = Field(
+        None,
+        examples=[19.1],
+        description='The minimum vapor pressure in **hPa**',
+    )
+    vapor_pressure_max: float | None = Field(
+        None,
+        examples=[19.9],
+        description='The maximum vapor pressure in **hPa**',
+    )
+    wet_bulb_temperature_min: float | None = Field(
+        None,
+        examples=[13.1],
+        description='The minimum wet bulb temperature in **°C*',
+    )
+    wet_bulb_temperature_max: float | None = Field(
+        None,
+        examples=[13.9],
+        description='The maximum wet bulb temperature in **°C*',
+    )
+    wind_speed_min: float | None = Field(
+        None,
+        examples=[3.1],
+        description='The minimum average wind speed in **m/s**',
+        ge=0,
+    )
+    wind_speed_max: float | None = Field(
+        None,
+        examples=[3.9],
+        description='The maximum average wind speed in **m/s**',
+        ge=0,
+    )
+
 
 class StationParams(StationMetadata, Parameters):
     """Parameters provided by a station"""
@@ -374,6 +545,14 @@ class DistrictParams(Parameters):
 
 class StationData(Parameters):
     """Data from a single station"""
+    measured_at: datetime = Field(
+        examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
+        description='The exact time the value was measured in **UTC**',
+    )
+
+
+class StationDataAgg(ParametersAgg, Parameters):
+    """Aggregated data from a single station (this contains `_min` and `_max` values)"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
         description='The exact time the value was measured in **UTC**',

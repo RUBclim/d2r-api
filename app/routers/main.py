@@ -4,6 +4,7 @@ from datetime import timezone
 from typing import Annotated
 from typing import Any
 from typing import Literal
+from typing import TypedDict
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -27,11 +28,13 @@ from sqlalchemy.orm import InstrumentedAttribute
 from app import schemas
 from app.database import get_db_session
 from app.models import BiometData
+from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import LatestData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.schemas import PublicParams
 from app.schemas import PublicParamsAggregates
@@ -424,10 +427,68 @@ async def get_stats(
 ) -> Any:
     return f'/trends/{param}'
 
+# we need this strongly typed, so the type checking works when switching
+# between tables and params in get_data
+
+
+class DataMappingMax(TypedDict):
+    table: type[BiometData | TempRHData]
+    allowed_params: type[PublicParams]
+
+
+class DataMappingHourly(TypedDict):
+    table: type[BiometDataHourly | TempRHDataHourly]
+    allowed_params: type[PublicParamsAggregates]
+
+
+class DataMappingDaily(TypedDict):
+    table: type[BiometDataDaily | TempRHDataDaily]
+    allowed_params: type[PublicParamsAggregates]
+
+
+class TableMapping(TypedDict):
+    max: DataMappingMax
+    hourly: DataMappingHourly
+    daily: DataMappingDaily
+
+
+TABLE_MAPPING: dict[StationType, TableMapping] = {
+    StationType.temprh: {
+        'max': {
+            'table': TempRHData,
+            'allowed_params': PublicParams,
+        },
+        'hourly': {
+            'table': TempRHDataHourly,
+            'allowed_params': PublicParamsAggregates,
+        },
+        'daily': {
+            'table': TempRHDataDaily,
+            'allowed_params': PublicParamsAggregates,
+        },
+    },
+    StationType.biomet: {
+        'max': {
+            'table': BiometData,
+            'allowed_params': PublicParams,
+        },
+        'hourly': {
+            'table': BiometDataHourly,
+            'allowed_params': PublicParamsAggregates,
+        },
+        'daily': {
+            'table': BiometDataDaily,
+            'allowed_params': PublicParamsAggregates,
+        },
+    },
+}
+
 
 @router.get(
     '/data/{name}',
-    response_model=Response[list[schemas.StationData]],
+    response_model=Response[
+        list[schemas.StationData]
+    ] | Response[list[schemas.StationDataAgg]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
@@ -441,45 +502,101 @@ async def get_data(
         end_date: datetime = Query(
             description='the end date of the data in UTC',
         ),
-        param: list[PublicParams] = Query(
+        param: list[PublicParamsAggregates] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from districts that provide both values is '
-                'returned.'
+                'specified. `_min` and `_max` parameters are only available for '
+                'aggregates i.e. `hourly` and `daily`, but not `max`. Set `scale` '
+                'accordingly.'
+            ),
+        ),
+        scale: Literal['max', 'hourly', 'daily'] = Query(
+            'max',
+            description=(
+                'The temporal scale to get data for. If using anything other than '
+                '`max`, additional `_min` and `_max` values will be available.'
             ),
         ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the data from any station for any time-span. A
-    maximum of 30 days can be requested at once. If you need more data, please
+    maximum (31 days at 5-minute resolution, 365 days at hourly resolution and 3650 days
+    at daily resolution) can be requested at once. If you need more data, please
     paginate your requests.
+
+    **Note:** When requesting, you have to take the station type into account, not every
+    `StationType` supports all parameters. So the combination of `scale` and
+    `StationType` determines the values you are able to request. It is important to
+    check the Error responses (`422`) for the correct subset. Generally `_min` and
+    `_max` parameters are available when using `scale` as `daily` or `hourly`. Stations
+    of type `StationType.temprh` only have parameters that can be derived from
+    air-temperature and relative humidity measurements. Stations of type
+    `StationType.biomet` will support the full set of parameters.
     """
     if start_date > end_date:
         raise HTTPException(
             status_code=422,
             detail='start_date must not be > end_date',
         )
+    # we allow dynamic maximums depending on the scale to not try sending too much data
+    if scale == 'max':
+        delta = timedelta(days=31)
+    elif scale == 'hourly':
+        delta = timedelta(days=365)
+    else:
+        delta = timedelta(days=365*10)
 
-    if end_date - start_date > timedelta(days=30):
+    if end_date - start_date > delta:
         raise HTTPException(
             status_code=422,
-            detail='a maximum of 30 days is allowed per request',
+            detail=(
+                f'a maximum of {delta.total_seconds() / 60 / 60 / 24:.0f} '
+                f'days is allowed per request'
+            ),
         )
 
     station = (
         await db.execute(select(Station).where(Station.name == name))
     ).scalar_one_or_none()
     if station:
-        table: type[BiometData | TempRHData]
-        if station.station_type == StationType.biomet:
-            table = BiometData
-        else:
-            table = TempRHData
+        table_info = TABLE_MAPPING[station.station_type][scale]
+        table = table_info['table']
+        allowed_params = table_info['allowed_params']
+
+        for idx, p in enumerate(param):
+            if p not in allowed_params or not hasattr(table, p):
+                # try to mimic the usual validation error response
+                allowed_vals = sorted(
+                    {e.name for e in allowed_params} & {
+                        i.key for i in table.__table__.columns
+                    },
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=[{
+                        'type': 'enum',
+                        'loc': ['query', 'param', idx],
+                        'msg': (
+                            f'This station is of type "{station.station_type}", hence '
+                            f"the input should be: {', '.join(list(allowed_vals))}"
+                        ),
+                        'input': p,
+                        'ctx': {
+                            'expected': f"{', '.join(list(allowed_vals))}",
+                        },
+                    }],
+                )
 
         columns = [getattr(table, i) for i in param]
         data = (
             await db.execute(
-                select(table.measured_at, *columns).where(
+                # we need to cast to TIMESTAMPTZ here, since the view is in UTC but
+                # timescale cannot keep it timezone aware AND make it right-labelled
+                # + 1 hour
+                select(
+                    cast(table.measured_at, TIMESTAMP(timezone=True)),
+                    *columns,
+                ).where(
                     table.measured_at.between(start_date, end_date) &
                     (table.name == station.name),
                 ).order_by(table.measured_at),

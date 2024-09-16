@@ -13,6 +13,7 @@ from app.models import LatestData
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 
 
@@ -1389,17 +1390,31 @@ async def test_get_data_start_greater_end_date(app: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
-async def test_get_data_period_too_long(app: AsyncClient) -> None:
+@pytest.mark.parametrize(
+    ('scale', 'end_date', 'days'),
+    (
+        pytest.param('max', datetime(2024, 9, 1, 15, 0), 31, id='scale: max'),
+        pytest.param('hourly', datetime(2025, 9, 1, 14, 0), 365, id='scale: hourly'),
+        pytest.param('daily', datetime(2035, 7, 30, 15, 0), 3650, id='scale: daily'),
+    ),
+)
+async def test_get_data_period_too_long(
+        app: AsyncClient,
+        scale: str,
+        end_date: datetime,
+        days: int,
+) -> None:
     resp = await app.get(
         '/v1/data/DEC1234',
         params={
             'start_date': datetime(2024, 8, 1, 14, 0),
-            'end_date': datetime(2024, 9, 1, 13, 0),
+            'end_date': end_date,
             'param': 'air_temperature',
+            'scale': scale,
         },
     )
     assert resp.status_code == 422
-    assert resp.json() == {'detail': 'a maximum of 30 days is allowed per request'}
+    assert resp.json() == {'detail': f'a maximum of {days} days is allowed per request'}
 
 
 @pytest.mark.anyio
@@ -1536,6 +1551,169 @@ async def test_get_temp_rh_data_multiple_params(
                 'air_temperature': 15.0,
                 'measured_at': '2024-08-01T10:30:00Z',
                 'relative_humidity': 60.0,
+            },
+        ],
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_temp_rh_data_daily_multiple_params(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    # generate some data for the station
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+    )
+    db.add(station)
+    await db.commit()
+    data = [
+        TempRHData(
+            name=station.name,
+            measured_at=datetime(2024, 8, 1, 10, minute),
+            air_temperature=minute/2,
+            relative_humidity=minute*2,
+        ) for minute in range(0, 40, 10)
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataDaily.refresh(db=db)
+    await db.commit()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 0, 0),
+            'end_date': datetime(2024, 8, 1, 0, 0),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'daily',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        'data': [
+            {
+                'air_temperature': None,
+                'measured_at': '2024-08-01T00:00:00Z',
+                'relative_humidity': None,
+            },
+        ],
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_temp_rh_data_scale_hourly_multiple_params(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    # generate some data for the station
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+    )
+    db.add(station)
+    await db.commit()
+    data = [
+        TempRHData(
+            name=station.name,
+            measured_at=datetime(2024, 8, 1, 10, minute),
+            air_temperature=minute/2,
+            relative_humidity=minute*2,
+        ) for minute in range(0, 40, 10)
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataHourly.refresh()
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 10, 0),
+            'end_date': datetime(2024, 8, 1, 11, 0),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'hourly',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        'data': [
+            {
+                'air_temperature': 7.5,
+                'measured_at': '2024-08-01T11:00:00Z',
+                'relative_humidity': 30.0,
+            },
+        ],
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_temp_rh_data_scale_max_param_not_found(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    # generate some data for the station
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+    )
+    db.add(station)
+    await db.commit()
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 10, 0),
+            'end_date': datetime(2024, 8, 1, 11, 0),
+            # this is a valid param, however not available with scale max
+            'param': ['air_temperature', 'relative_humidity_max'],
+            'scale': 'max',
+        },
+    )
+    assert resp.status_code == 422
+    assert resp.json() == {
+        'detail': [
+            {
+                'ctx': {
+                    'expected': (
+                        'absolute_humidity, air_temperature, dew_point, heat_index, '
+                        'relative_humidity, wet_bulb_temperature'
+                    ),
+                },
+                'input': 'relative_humidity_max',
+                'loc': ['query', 'param', 1],
+                'msg': (
+                    'This station is of type "temprh", hence the input should be: '
+                    'absolute_humidity, air_temperature, dew_point, heat_index, '
+                    'relative_humidity, wet_bulb_temperature'
+                ),
+                'type': 'enum',
             },
         ],
     }
