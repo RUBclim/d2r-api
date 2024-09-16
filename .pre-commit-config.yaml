@@ -13,6 +13,18 @@ repos:
     -   id: requirements-txt-fixer
     -   id: double-quote-string-fixer
     -   id: check-merge-conflict
+-   repo: local
+    hooks:
+    -   id: check-views-match-tables
+        name: check views match tables
+        description: check that all views are up-to-date and match the tables
+        entry: env DB_PROVIDER=postgresql+psycopg POSTGRES_USER= POSTGRES_PASSWORD= DB_HOST= DB_PORT=5432 POSTGRES_DB= python -m bin.generate_view --only-show-diff
+        language: python
+        types: [python]
+        files: ^app/models.py
+        additional_dependencies:
+            - sqlalchemy
+            - psycopg[binary] > 3.2.0
 -   repo: https://github.com/pycqa/flake8
     rev: 7.1.1
     hooks:

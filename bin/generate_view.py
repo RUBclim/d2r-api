@@ -1,5 +1,10 @@
+#! /usr/bin/env python3
+import argparse
+import difflib
+import os
 import re
 import textwrap
+from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 from typing import NamedTuple
@@ -292,26 +297,22 @@ def generate_sqlalchemy_class(
     return class_def
 
 
-def insert_generated(path: str, generated: str) -> None:
-    with open(path) as f:
-        content = f.read()
-
-    PATTERN = re.compile(r'#\s(?:START_GENERATED|END_GENERATED)')
-    before, _, after, = re.split(PATTERN, content)
-    new = f'''\
-{before}# START_GENERATED\n{generated.strip()}
-# END_GENERATED{after}\
-'''
-    with open(path, 'w') as f:
-        f.write(new)
+class Namespace(argparse.Namespace):
+    filename: str
+    only_show_diff: bool
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    parser.add_argument('--only-show-diff', action='store_true')
+    args = parser.parse_args(argv, namespace=Namespace())
+
     docstring = '''\
     This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.'''.lstrip()
-    generated_code = '\n\n'
+    generated_code = ''
     biomet_hourly = generate_sqlalchemy_class(
         table=BiometData,
         docstring=docstring,
@@ -324,7 +325,7 @@ def main() -> int:
         avgs_defined_by_inheritance=True,
         target_agg='hourly',
     )
-    generated_code += f'\n\n{biomet_hourly}'
+    generated_code += f'{biomet_hourly}\n\n'
 
     temp_rh_hourly = generate_sqlalchemy_class(
         table=TempRHData,
@@ -337,7 +338,7 @@ def main() -> int:
         avgs_defined_by_inheritance=True,
         target_agg='hourly',
     )
-    generated_code += f'\n\n{temp_rh_hourly}'
+    generated_code += f'{temp_rh_hourly}\n\n'
 
     biomet_daily = generate_sqlalchemy_class(
         table=BiometData,
@@ -352,7 +353,7 @@ def main() -> int:
         target_agg='daily',
         threshold=0.7,
     )
-    generated_code += f'\n\n{biomet_daily}'
+    generated_code += f'{biomet_daily}\n\n'
 
     temp_rh_daily = generate_sqlalchemy_class(
         table=TempRHData,
@@ -366,9 +367,29 @@ def main() -> int:
         target_agg='daily',
         threshold=0.7,
     )
-    generated_code += f'\n\n{temp_rh_daily}'
-    insert_generated(path='app/models.py', generated=generated_code)
-    return 0
+    generated_code += f'{temp_rh_daily}\n\n'
+    with open(args.filename) as f:
+        content = f.read()
+
+    PATTERN = re.compile(r'#\s(?:START_GENERATED|END_GENERATED)')
+    before, _, after, = re.split(PATTERN, content)
+    new = f'{before}# START_GENERATED\n{generated_code.strip()}\n# END_GENERATED{after}'
+
+    if args.only_show_diff:
+        diff = difflib.unified_diff(new.splitlines(), content.splitlines())
+        diff_rows = list(diff)
+        if diff_rows:
+            print('\n'.join(diff_rows))
+            c = f'python -m {os.path.relpath(__file__).strip('.py').replace('/', '.')}'
+            print(
+                f'views may not be up to date? Generated differs from current!\n'
+                f'run: {c} {args.filename} to fix it',
+            )
+    else:
+        with open(args.filename, 'w') as f:
+            f.write(new)
+
+    return content != new
 
 
 if __name__ == '__main__':
