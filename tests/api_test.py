@@ -77,7 +77,6 @@ async def test_get_station_latest_data(
 ) -> None:
     resp = await app.get('/v1/stations/latest_data', params={'param': 'utci'})
     assert resp.status_code == 200
-    # something is fucked with refreshing the materialized view...
     assert resp.json() == {
         'data': [
             {
@@ -112,7 +111,6 @@ async def test_get_station_latest_data(
 async def test_get_station_latest_data_no_data(app: AsyncClient) -> None:
     resp = await app.get('/v1/stations/latest_data', params={'param': 'utci'})
     assert resp.status_code == 200
-    # something is fucked with refreshing the materialized view...
     assert resp.json() == {'data': []}
 
 

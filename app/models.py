@@ -89,16 +89,12 @@ class Station(Base):
     leuchtennummer: Mapped[int] = mapped_column(nullable=False)
     district: Mapped[str] = mapped_column(nullable=False)
     comment: Mapped[str] = mapped_column(nullable=True)
-    setup_date: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
+    setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     # TODO: add more station metadata
     lcz: Mapped[str] = mapped_column(nullable=True)
     svf: Mapped[Decimal] = mapped_column(nullable=True)
     temp_calib_offset: Mapped[Decimal] = mapped_column(
-        nullable=False,
-        default=0,
+        nullable=False, default=0,
         server_default='0',
     )
     relhum_calib_offset: Mapped[Decimal] = mapped_column(
@@ -139,97 +135,52 @@ class _Data(Base):
         ForeignKey('station.name'),
         primary_key=True,
     )
-    battery_voltage: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='Volts',
-    )
+    battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
     protocol_version: Mapped[int] = mapped_column(nullable=True)
 
 
 class _SHT35DataRawBase(_Data):
     __abstract__ = True
 
-    air_temperature: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°C',
-    )
-    relative_humidity: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='%',
-    )
+    air_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
 
 
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
-    station: Mapped[Station] = relationship(
-        back_populates='sht35_data_raw',
-        lazy=True,
-    )
+    station: Mapped[Station] = relationship(back_populates='sht35_data_raw', lazy=True)
 
 
 class _ATM41DataRawBase(_Data):
     __abstract__ = True
 
-    air_temperature: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°C',
-    )
-    relative_humidity: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='%',
-    )
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='kPa',
-    )
-    vapor_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='kPa',
-    )
+    air_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
+    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
     wind_speed: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
     wind_direction: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     u_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
     v_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    maximum_wind_speed: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='m/s',
-    )
-    precipitation_sum: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='mm',
-    )
-    solar_radiation: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='W/m2',
-    )
+    maximum_wind_speed: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
+    precipitation_sum: Mapped[Decimal] = mapped_column(nullable=True, comment='mm')
+    solar_radiation: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
     lightning_average_distance: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
     )
-    lightning_strike_count: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='-',
-    )
+    lightning_strike_count: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
     sensor_temperature_internal: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
     )
-    x_orientation_angle: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°',
-    )
-    y_orientation_angle: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°',
-    )
+    x_orientation_angle: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
+    y_orientation_angle: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
 
 
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
-    station: Mapped[Station] = relationship(
-        back_populates='atm41_data_raw',
-        lazy=True,
-    )
+    station: Mapped[Station] = relationship(back_populates='atm41_data_raw', lazy=True)
 
 
 class _BLGDataRawBase(_Data):
@@ -247,66 +198,41 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
-    name: Mapped[str] = mapped_column(
-        ForeignKey('station.blg_name'), primary_key=True,
-    )
-    station: Mapped[Station] = relationship(
-        back_populates='blg_data_raw',
-        lazy=True,
-    )
+    name: Mapped[str] = mapped_column(ForeignKey('station.blg_name'), primary_key=True)
+    station: Mapped[Station] = relationship(back_populates='blg_data_raw', lazy=True)
 
 
 class _TempRHDerivatives(Base):
     __abstract__ = True
     dew_point: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    absolute_humidity: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='g/m3',
-    )
+    absolute_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='g/m3')
     heat_index: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    wet_bulb_temperature: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°C',
-    )
+    wet_bulb_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
 
 
 class _BiometDerivatives(Base):
     __abstract__ = True
-    blg_time_offset: Mapped[float] = mapped_column(
-        nullable=True,
-        comment='seconds',
-    )
+    blg_time_offset: Mapped[float] = mapped_column(nullable=True, comment='seconds')
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
     pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='hPa',  # we've converted it to hPa in the meantime
-    )
+    # we've converted it to hPa in the meantime
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
     atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
     )
-    vapor_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='hPa',
-    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
     # we need this as an alias in the big biomet table
     blg_battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
 
 
 class _CalibrationDerivatives(Base):
     __abstract__ = True
-    air_temperature_raw: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°C',
-    )
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='%',
-    )
+    air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
 
 
 class BiometData(
@@ -314,27 +240,15 @@ class BiometData(
 ):
     __tablename__ = 'biomet_data'
     # TODO: QC fields?
-    station: Mapped[Station] = relationship(
-        back_populates='biomet_data',
-        lazy=True,
-    )
+    station: Mapped[Station] = relationship(back_populates='biomet_data', lazy=True)
 
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     __tablename__ = 'temp_rh_data'
-    air_temperature_raw: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='°C',
-    )
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='%',
-    )
+    air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
     # TODO: QC fields?
-    station: Mapped[Station] = relationship(
-        back_populates='temp_rh_data',
-        lazy=True,
-    )
+    station: Mapped[Station] = relationship(back_populates='temp_rh_data', lazy=True)
 
 
 class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
@@ -357,18 +271,13 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
     pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='hPa',  # we've converted it to hPa in the meantime
-    )
+    # we've converted it to hPa in the meantime
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
     atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
     )
-    vapor_pressure: Mapped[Decimal] = mapped_column(
-        nullable=True,
-        comment='hPa',
-    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
 
     @classmethod
     async def refresh(cls, db: AsyncSession) -> None:

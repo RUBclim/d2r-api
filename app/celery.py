@@ -54,9 +54,7 @@ def init_sentry(**_kwargs: Any) -> None:  # pragma: no cover
     sentry_sdk.init(
         dsn=os.environ.get('MONITOR_SENTRY_DSN'),
         integrations=[CeleryIntegration()],
-        traces_sample_rate=float(
-            os.environ.get('MONITOR_SENTRY_SAMPLE_RATE', 0.0),
-        ),
+        traces_sample_rate=float(os.environ.get('MONITOR_SENTRY_SAMPLE_RATE', 0.0)),
     )
 
 

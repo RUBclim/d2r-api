@@ -110,9 +110,7 @@ async def get_stations_latest_data(
     if max_age.total_seconds() < 0:
         raise HTTPException(status_code=422, detail='max_age must be positive')
 
-    columns: list[InstrumentedAttribute[Any]] = [
-        getattr(LatestData, i) for i in param
-    ]
+    columns: list[InstrumentedAttribute[Any]] = [getattr(LatestData, i) for i in param]
     not_null_conditions = [c.isnot(None) for c in columns]
     query = select(
         LatestData.name,
@@ -173,9 +171,8 @@ async def get_districts_latest_data(
         query_parts.append(query_part)
 
     query = select(LatestData.district, *query_parts).where(
-        (LatestData.measured_at > datetime.now(tz=timezone.utc) - max_age) & (
-            LatestData.district.isnot(None)
-        ),
+        (LatestData.measured_at > datetime.now(tz=timezone.utc) - max_age) &
+        (LatestData.district.isnot(None)),
         and_(*not_null_conditions),
     ).group_by(LatestData.district).order_by(LatestData.district)
     data = await db.execute(query)
@@ -230,11 +227,7 @@ async def get_trends(
                 'for one exact date.'
             ),
         ),
-        hour: int = Query(
-            ge=0,
-            le=23,
-            description='The hour (UTC) to get data for',
-        ),
+        hour: int = Query(ge=0, le=23, description='The hour (UTC) to get data for'),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """Get data for either districts or stations for one selected hour across a time
@@ -496,12 +489,8 @@ async def get_data(
         name: str = Path(
             description='The unique name of the station e.g. `DEC005476`',
         ),
-        start_date: datetime = Query(
-            description='the start date of the data in UTC',
-        ),
-        end_date: datetime = Query(
-            description='the end date of the data in UTC',
-        ),
+        start_date: datetime = Query(description='the start date of the data in UTC'),
+        end_date: datetime = Query(description='the end date of the data in UTC'),
         param: list[PublicParamsAggregates] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
@@ -534,10 +523,7 @@ async def get_data(
     `StationType.biomet` will support the full set of parameters.
     """
     if start_date > end_date:
-        raise HTTPException(
-            status_code=422,
-            detail='start_date must not be > end_date',
-        )
+        raise HTTPException(status_code=422, detail='start_date must not be > end_date')
     # we allow dynamic maximums depending on the scale to not try sending too much data
     if scale == 'max':
         delta = timedelta(days=31)

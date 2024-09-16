@@ -33,7 +33,6 @@ def create_app() -> FastAPI:
             # we need to exclude tables that actually represent views.
             # We trick sqlalchemy into thinking this was a table, but of course
             # we must prevent it trying to create it.
-
             views: set[
                 type[
                     LatestData | BiometDataHourly | BiometDataDaily | TempRHDataHourly |

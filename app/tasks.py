@@ -93,10 +93,7 @@ def reduce_pressure(p: Union[float, 'pd.Series[float]'], alt: float) -> float:
 
 
 @overload
-def abshum_from_sat_vap_press(
-        temp: float,
-        relhum: float,
-) -> float: ...
+def abshum_from_sat_vap_press(temp: float, relhum: float) -> float: ...
 
 
 @overload
@@ -132,15 +129,11 @@ def abshum_from_sat_vap_press(
 
 
 @overload
-def estimate_sat_vap_pressure(
-        temp: float,
-) -> float: ...
+def estimate_sat_vap_pressure(temp: float) -> float: ...
 
 
 @overload
-def estimate_sat_vap_pressure(
-        temp: 'pd.Series[float]',
-) -> NDArray[floating[Any]]: ...
+def estimate_sat_vap_pressure(temp: 'pd.Series[float]') -> NDArray[floating[Any]]: ...
 # autopep8: on
 
 
@@ -168,10 +161,7 @@ async def _download_data(
         # one of which has to be present. The "name" should be unique across all
         # devices
         await con.execute(
-            select(Station).where(
-                (Station.name == name) |
-                (Station.blg_name == name),
-            ),
+            select(Station).where((Station.name == name) | (Station.blg_name == name)),
         )
     ).scalar_one()
 
@@ -203,17 +193,10 @@ async def _download_data(
     return station, data
 
 
-@async_task(
-    app=celery_app,
-    name='download_temp_rh_data',
-)
+@async_task(app=celery_app, name='download_temp_rh_data')
 async def download_temp_rh_data(name: str) -> None:
     async with sessionmanager.session() as sess:
-        _, data = await _download_data(
-            name=name,
-            target_table=SHT35DataRaw,
-            con=sess,
-        )
+        _, data = await _download_data(name=name, target_table=SHT35DataRaw, con=sess)
         if data.empty:
             return
 
@@ -239,10 +222,7 @@ async def download_temp_rh_data(name: str) -> None:
         calculate_temp_rh.delay(name)
 
 
-@async_task(
-    app=celery_app,
-    name='download-biomet-data',
-)
+@async_task(app=celery_app, name='download-biomet-data')
 async def download_biomet_data(name: str) -> None:
     async with sessionmanager.session() as sess:
         station, data = await _download_data(
