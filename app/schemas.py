@@ -569,7 +569,7 @@ class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | N
 class Trends(BaseModel):
     """Trends for a station or a district"""
     supported_ids: list[str] = Field(
-        examples=['DEC005476'],
+        examples=[['DEC005476']],
         description='Either names of stations or names of districts',
     )
     unit: Units = Field(
