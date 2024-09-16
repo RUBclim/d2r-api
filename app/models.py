@@ -87,8 +87,7 @@ class Station(Base):
     number: Mapped[str] = mapped_column(nullable=True)
     plz: Mapped[int] = mapped_column(nullable=True)
     leuchtennummer: Mapped[int] = mapped_column(nullable=False)
-    # TODO: this should eventually become not nullable
-    district: Mapped[str] = mapped_column(nullable=True)
+    district: Mapped[str] = mapped_column(nullable=False)
     comment: Mapped[str] = mapped_column(nullable=True)
     setup_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
