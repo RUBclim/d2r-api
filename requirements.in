@@ -3,8 +3,10 @@ asgiref
 celery[redis]
 fastapi
 git+https://${GH_TOKEN}@github.com/RUBclim/element-api
+gunicorn
 psycopg[binary] > 3.2.0
 pythermalcomfort
 sentry_sdk[fastapi]
 sqlmodel
 uvicorn
+uvicorn-worker

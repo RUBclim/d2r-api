@@ -43,7 +43,7 @@ httpcore==1.0.5
     # via httpx
 httpx==0.27.2
     # via -r requirements-dev.in
-idna==3.8
+idna==3.10
     # via
     #   anyio
     #   httpx
@@ -78,7 +78,7 @@ pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
-pytest==8.3.2
+pytest==8.3.3
     # via
     #   -r requirements-dev.in
     #   pytest-randomly
@@ -88,7 +88,7 @@ python-dateutil==2.9.0.post0
     # via freezegun
 requests==2.32.3
     # via pip-tools
-setuptools==74.1.2
+setuptools==75.1.0
     # via sphinx
 six==1.16.0
     # via python-dateutil
@@ -118,7 +118,7 @@ sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 trio==0.26.2
     # via -r requirements-dev.in
-urllib3==2.2.2
+urllib3==2.2.3
     # via requests
 wheel==0.44.0
     # via pip-tools

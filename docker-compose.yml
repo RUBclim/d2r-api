@@ -40,7 +40,6 @@ services:
   redis:
     image: redis:latest
     container_name: redis
-    user: nobody
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
       interval: 30s

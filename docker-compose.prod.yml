@@ -1,0 +1,82 @@
+services:
+  db:
+    restart: always
+
+  app:
+    restart: always
+    env_file:
+      - .env.prod
+    # run two workers per container, and 2 replicas
+    command: [
+      wait-for-it, "db:5432", --,
+      /usr/src/app/venv/bin/gunicorn,
+      "--bind", "0.0.0.0:5000",
+      "--workers", "2",
+      "--log-level", "info",
+      "app.main:app",
+      "-k", "uvicorn_worker.UvicornWorker",
+    ]
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          memory: 350M
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  celery:
+    restart: always
+    env_file:
+      - .env.prod
+    command: [
+      /usr/src/app/venv/bin/celery, -A, app.celery, worker,
+      --prefetch-multiplier=2,
+      --concurrency=2,
+    ]
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 750M
+
+  celery-beat:
+    env_file:
+      - .env.prod
+    command: [
+      /usr/src/app/venv/bin/celery, -A, app.tasks, beat,
+      --loglevel, INFO,
+      --schedule, /tmp/celerybeat-schedule.db
+    ]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 200M
+
+  nginx:
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - ${NGINX_CERT_DIR}:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          memory: 100M
