@@ -1,6 +1,9 @@
 services:
   db:
     restart: always
+    env_file:
+      - .env.prod
+
 
   app:
     restart: always
