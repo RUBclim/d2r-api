@@ -1,7 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Annotated
 from typing import Any
 from typing import Literal
 from typing import TypedDict
@@ -11,7 +10,6 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
-from fastapi.responses import RedirectResponse
 from sqlalchemy import and_
 from sqlalchemy import cast
 from sqlalchemy import Column
@@ -402,23 +400,6 @@ async def get_trends(
         ),
     )
 
-
-@router.get(
-    '/stats/{param}',
-    response_class=RedirectResponse,
-    tags=['districts', 'stations'],
-)
-async def get_stats(
-        param: PublicParams,
-        item_type: Literal['stations', 'districts'],
-        item_id: str,
-        start_date: datetime,
-        end_date: datetime,
-        hour: Annotated[int, Query(ge=0, le=23)],
-        value_type: Literal['min', 'max', 'mean'],
-        db: AsyncSession = Depends(get_db_session),
-) -> Any:
-    return f'/trends/{param}'
 
 # we need this strongly typed, so the type checking works when switching
 # between tables and params in get_data
