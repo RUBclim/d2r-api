@@ -46,6 +46,9 @@ router = APIRouter()
 
 @router.api_route('/healthcheck', include_in_schema=False, methods=['GET', 'HEAD'])
 async def is_healthy(db: AsyncSession = Depends(get_db_session)) -> Any:
+    """API-endpoint to check whether the system is healthy. This is used by docker to
+    check the container health. A HEAD request will not trigger a db-query, only a GET
+    request will do that."""
     await db.execute(select(1))
     return {'message': "I'm healthy!"}
 
