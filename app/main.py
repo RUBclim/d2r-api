@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     # we want this as a router, so we can do easy url-versioning
-    app.include_router(router=main.router, prefix='/v1')
+    app.include_router(router=main.router)
     return app
 
 

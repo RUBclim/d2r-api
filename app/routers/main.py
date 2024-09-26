@@ -41,7 +41,7 @@ from app.schemas import Trends
 from app.schemas import TrendValue
 from app.schemas import UNIT_MAPPING
 
-router = APIRouter()
+router = APIRouter(prefix='/v1')
 
 
 @router.api_route('/healthcheck', include_in_schema=False, methods=['GET', 'HEAD'])

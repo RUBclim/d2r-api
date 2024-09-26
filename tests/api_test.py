@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from datetime import timezone
 
@@ -15,6 +16,32 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+
+VERSION_PATTERN = re.compile(r'^v(?:1\-git\+[a-f0-9]{7}|1\.\d\.\d)$')
+
+
+@pytest.mark.parametrize(
+    'endpoint',
+    (
+        '/v1/stations/metadata',
+        '/v1/stations/latest_data?param=air_temperature',
+        '/v1/trends/air_temperature?item_type=stations&item_ids=DEC1&start_date=2024-08-01&hour=3',  # noqa: E501
+        'v1/data/DEC1?start_date=2024-08-01&end_date=2024-08-02&param=air_temperature',
+    ),
+)
+@pytest.mark.parametrize('stations', [1], indirect=True)
+@freezegun.freeze_time('2024-08-01 01:00')
+@pytest.mark.anyio
+async def test_every_response_contains_timestamp_and_version(
+        app: AsyncClient,
+        endpoint: str,
+        stations: list[Station],
+) -> None:
+    resp = await app.get(endpoint)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['timestamp'] == 1722474000000
+    assert VERSION_PATTERN.match(data['version'])
 
 
 @pytest.mark.anyio
@@ -35,37 +62,35 @@ async def test_head_healthcheck(app: AsyncClient) -> None:
 async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -> None:
     resp = await app.get('/v1/stations/metadata')
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'altitude': 100.0,
-                'district': 'Innenstadt',
-                'latitude': 51.446,
-                'lcz': '2',
-                'long_name': 'test-station-1',
-                'longitude': 7.2627,
-                'name': 'DEC1',
-                'station_type': 'biomet',
-            },
-            {
-                'altitude': 100.0,
-                'district': 'Innenstadt',
-                'latitude': 51.446,
-                'lcz': '2',
-                'long_name': 'test-station-2',
-                'longitude': 7.2627,
-                'name': 'DEC2',
-                'station_type': 'biomet',
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-1',
+            'longitude': 7.2627,
+            'name': 'DEC1',
+            'station_type': 'biomet',
+        },
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-2',
+            'longitude': 7.2627,
+            'name': 'DEC2',
+            'station_type': 'biomet',
+        },
+    ]
 
 
 @pytest.mark.anyio
 async def test_get_station_metadata_no_stations(app: AsyncClient) -> None:
     resp = await app.get('/v1/stations/metadata')
     assert resp.status_code == 200
-    assert resp.json() == {'data': []}
+    assert resp.json()['data'] == []
 
 
 @pytest.mark.anyio
@@ -77,41 +102,39 @@ async def test_get_station_latest_data(
 ) -> None:
     resp = await app.get('/v1/stations/latest_data', params={'param': 'utci'})
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'altitude': 100.0,
-                'district': 'Innenstadt',
-                'latitude': 51.446,
-                'lcz': '2',
-                'long_name': 'test-station-1',
-                'longitude': 7.2627,
-                'name': 'DEC1',
-                'station_type': 'biomet',
-                'measured_at': '2024-08-01T00:15:00Z',
-                'utci': 35.5,
-            },
-            {
-                'altitude': 100.0,
-                'district': 'Innenstadt',
-                'latitude': 51.446,
-                'lcz': '2',
-                'long_name': 'test-station-2',
-                'longitude': 7.2627,
-                'name': 'DEC2',
-                'station_type': 'biomet',
-                'measured_at': '2024-08-01T00:15:00Z',
-                'utci': 35.5,
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-1',
+            'longitude': 7.2627,
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'measured_at': '2024-08-01T00:15:00Z',
+            'utci': 35.5,
+        },
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-2',
+            'longitude': 7.2627,
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'measured_at': '2024-08-01T00:15:00Z',
+            'utci': 35.5,
+        },
+    ]
 
 
 @pytest.mark.anyio
 async def test_get_station_latest_data_no_data(app: AsyncClient) -> None:
     resp = await app.get('/v1/stations/latest_data', params={'param': 'utci'})
     assert resp.status_code == 200
-    assert resp.json() == {'data': []}
+    assert resp.json()['data'] == []
 
 
 @pytest.mark.anyio
@@ -149,20 +172,18 @@ async def test_get_station_latest_data_data_of_one_station_too_old(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [{
-            'altitude': 100.0,
-            'district': 'Innenstadt',
-            'latitude': 51.446,
-            'lcz': '2',
-            'long_name': 'test-station-1',
-            'longitude': 7.2627,
-            'name': 'DEC1',
-            'station_type': 'biomet',
-            'measured_at': '2024-08-01T01:30:00Z',
-            'mrt': 69.69,
-        }],
-    }
+    assert resp.json()['data'] == [{
+        'altitude': 100.0,
+        'district': 'Innenstadt',
+        'latitude': 51.446,
+        'lcz': '2',
+        'long_name': 'test-station-1',
+        'longitude': 7.2627,
+        'name': 'DEC1',
+        'station_type': 'biomet',
+        'measured_at': '2024-08-01T01:30:00Z',
+        'mrt': 69.69,
+    }]
 
 
 @pytest.mark.anyio
@@ -194,20 +215,18 @@ async def test_get_station_latest_data_data_of_one_station_too_old_default(
 
     resp = await app.get('/v1/stations/latest_data', params={'param': 'mrt'})
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [{
-            'altitude': 100.0,
-            'district': 'Innenstadt',
-            'latitude': 51.446,
-            'lcz': '2',
-            'long_name': 'test-station-1',
-            'longitude': 7.2627,
-            'name': 'DEC1',
-            'station_type': 'biomet',
-            'measured_at': '2024-08-01T01:30:00Z',
-            'mrt': 69.69,
-        }],
-    }
+    assert resp.json()['data'] == [{
+        'altitude': 100.0,
+        'district': 'Innenstadt',
+        'latitude': 51.446,
+        'lcz': '2',
+        'long_name': 'test-station-1',
+        'longitude': 7.2627,
+        'name': 'DEC1',
+        'station_type': 'biomet',
+        'measured_at': '2024-08-01T01:30:00Z',
+        'mrt': 69.69,
+    }]
 
 
 @pytest.mark.anyio
@@ -255,22 +274,20 @@ async def test_get_station_latest_data_multiple_params(
         params={'param': ['mrt', 'utci', 'utci_category']},
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [{
-            'altitude': 100.0,
-            'district': 'Innenstadt',
-            'latitude': 51.446,
-            'lcz': '2',
-            'long_name': 'test-station-1',
-            'longitude': 7.2627,
-            'name': 'DEC1',
-            'station_type': 'biomet',
-            'measured_at': '2024-08-01T01:30:00Z',
-            'mrt': 69.69,
-            'utci': 45.0,
-            'utci_category': 'extreme heat stress',
-        }],
-    }
+    assert resp.json()['data'] == [{
+        'altitude': 100.0,
+        'district': 'Innenstadt',
+        'latitude': 51.446,
+        'lcz': '2',
+        'long_name': 'test-station-1',
+        'longitude': 7.2627,
+        'name': 'DEC1',
+        'station_type': 'biomet',
+        'measured_at': '2024-08-01T01:30:00Z',
+        'mrt': 69.69,
+        'utci': 45.0,
+        'utci_category': 'extreme heat stress',
+    }]
 
 
 @pytest.mark.anyio
@@ -407,19 +424,17 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [{
-            'district': 'Innenstadt',
-            # care, approx messes with the output if a dict key is missing so
-            # double check if a test is failing
-            'wind_direction': pytest.approx(5),
-            'air_temperature': 15.0,
-            'maximum_wind_speed': 15,
-            'utci_category': 'no thermal stress',
-            'precipitation_sum': 2.5,
-            'lightning_strike_count': 15,
-        }],
-    }
+    assert resp.json()['data'] == [{
+        'district': 'Innenstadt',
+        # care, approx messes with the output if a dict key is missing so
+        # double check if a test is failing
+        'wind_direction': pytest.approx(5),
+        'air_temperature': 15.0,
+        'maximum_wind_speed': 15,
+        'utci_category': 'no thermal stress',
+        'precipitation_sum': 2.5,
+        'lightning_strike_count': 15,
+    }]
 
 
 @pytest.mark.anyio
@@ -538,15 +553,13 @@ async def test_get_trends_stations_biomet_and_temprh(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1', 'DEC2', 'DEC4'],
-            'trends': [
-                {'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'},
-                {'DEC4': 11.0, 'measured_at': '2024-08-01T10:00:00Z'},
-            ],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1', 'DEC2', 'DEC4'],
+        'trends': [
+            {'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'},
+            {'DEC4': 11.0, 'measured_at': '2024-08-01T10:00:00Z'},
+        ],
+        'unit': '°C',
     }
 
 
@@ -614,12 +627,10 @@ async def test_get_trends_stations_only_biomet(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1', 'DEC2'],
-            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1', 'DEC2'],
+        'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'unit': '°C',
     }
 
 
@@ -687,12 +698,10 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1', 'DEC2'],
-            'trends': [{'DEC1': 36, 'measured_at': '2024-08-01T10:00:00Z'}],
-            'unit': '-',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1', 'DEC2'],
+        'trends': [{'DEC1': 36, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'unit': '-',
     }
 
 
@@ -774,12 +783,10 @@ async def test_get_trends_stations_only_temprh(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1', 'DEC4'],
-            'trends': [{'DEC4': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1', 'DEC4'],
+        'trends': [{'DEC4': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'unit': '°C',
     }
 
 
@@ -840,12 +847,10 @@ async def test_get_trends_stations_end_not_set(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1'],
-            'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1'],
+        'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'unit': '°C',
     }
 
 
@@ -861,12 +866,10 @@ async def test_get_trends_stations_no_data_available(app: AsyncClient) -> None:
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': [],
-            'trends': [],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': [],
+        'trends': [],
+        'unit': '°C',
     }
 
 
@@ -918,12 +921,10 @@ async def test_get_trends_stations_does_not_provide_param(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['DEC1'],
-            'trends': [],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['DEC1'],
+        'trends': [],
+        'unit': '°C',
     }
 
 
@@ -1148,17 +1149,15 @@ async def test_get_trends_districts(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['District 1', 'District 2'],
-            'trends': [
-                {'District 1': 13.25, 'measured_at': '2024-08-01T11:00:00Z'},
-                {'District 1': 16.0, 'measured_at': '2024-08-02T11:00:00Z'},
-                {'District 2': 14.25, 'measured_at': '2024-08-01T11:00:00Z'},
-                {'District 2': 17.5, 'measured_at': '2024-08-02T11:00:00Z'},
-            ],
-            'unit': '°C',
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['District 1', 'District 2'],
+        'trends': [
+            {'District 1': 13.25, 'measured_at': '2024-08-01T11:00:00Z'},
+            {'District 1': 16.0, 'measured_at': '2024-08-02T11:00:00Z'},
+            {'District 2': 14.25, 'measured_at': '2024-08-01T11:00:00Z'},
+            {'District 2': 17.5, 'measured_at': '2024-08-02T11:00:00Z'},
+        ],
+        'unit': '°C',
     }
 
 
@@ -1234,12 +1233,10 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['Innenstadt'],
-            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
-            'unit': unit,
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['Innenstadt'],
+        'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
+        'unit': unit,
     }
 
 
@@ -1364,12 +1361,10 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': {
-            'supported_ids': ['Innenstadt'],
-            'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
-            'unit': unit,
-        },
+    assert resp.json()['data'] == {
+        'supported_ids': ['Innenstadt'],
+        'trends': [{'Innenstadt': expected, 'measured_at': '2024-08-01T11:00:00Z'}],
+        'unit': unit,
     }
 
 
@@ -1460,30 +1455,28 @@ async def test_get_biomet_data_multiple_params(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'air_temperature': 0.0,
-                'measured_at': '2024-08-01T10:00:00Z',
-                'mrt': 0.0,
-            },
-            {
-                'air_temperature': 5.0,
-                'measured_at': '2024-08-01T10:10:00Z',
-                'mrt': 20.0,
-            },
-            {
-                'air_temperature': 10.0,
-                'measured_at': '2024-08-01T10:20:00Z',
-                'mrt': 40.0,
-            },
-            {
-                'air_temperature': 15.0,
-                'measured_at': '2024-08-01T10:30:00Z',
-                'mrt': 60.0,
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 0.0,
+            'measured_at': '2024-08-01T10:00:00Z',
+            'mrt': 0.0,
+        },
+        {
+            'air_temperature': 5.0,
+            'measured_at': '2024-08-01T10:10:00Z',
+            'mrt': 20.0,
+        },
+        {
+            'air_temperature': 10.0,
+            'measured_at': '2024-08-01T10:20:00Z',
+            'mrt': 40.0,
+        },
+        {
+            'air_temperature': 15.0,
+            'measured_at': '2024-08-01T10:30:00Z',
+            'mrt': 60.0,
+        },
+    ]
 
 
 @pytest.mark.anyio
@@ -1528,30 +1521,28 @@ async def test_get_temp_rh_data_multiple_params(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'air_temperature': 0.0,
-                'measured_at': '2024-08-01T10:00:00Z',
-                'relative_humidity': 0.0,
-            },
-            {
-                'air_temperature': 5.0,
-                'measured_at': '2024-08-01T10:10:00Z',
-                'relative_humidity': 20.0,
-            },
-            {
-                'air_temperature': 10.0,
-                'measured_at': '2024-08-01T10:20:00Z',
-                'relative_humidity': 40.0,
-            },
-            {
-                'air_temperature': 15.0,
-                'measured_at': '2024-08-01T10:30:00Z',
-                'relative_humidity': 60.0,
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 0.0,
+            'measured_at': '2024-08-01T10:00:00Z',
+            'relative_humidity': 0.0,
+        },
+        {
+            'air_temperature': 5.0,
+            'measured_at': '2024-08-01T10:10:00Z',
+            'relative_humidity': 20.0,
+        },
+        {
+            'air_temperature': 10.0,
+            'measured_at': '2024-08-01T10:20:00Z',
+            'relative_humidity': 40.0,
+        },
+        {
+            'air_temperature': 15.0,
+            'measured_at': '2024-08-01T10:30:00Z',
+            'relative_humidity': 60.0,
+        },
+    ]
 
 
 @pytest.mark.anyio
@@ -1599,15 +1590,13 @@ async def test_get_temp_rh_data_daily_multiple_params(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'air_temperature': None,
-                'measured_at': '2024-08-01T00:00:00Z',
-                'relative_humidity': None,
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': None,
+            'measured_at': '2024-08-01T00:00:00Z',
+            'relative_humidity': None,
+        },
+    ]
 
 
 @pytest.mark.anyio
@@ -1653,15 +1642,13 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
         },
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        'data': [
-            {
-                'air_temperature': 7.5,
-                'measured_at': '2024-08-01T11:00:00Z',
-                'relative_humidity': 30.0,
-            },
-        ],
-    }
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 7.5,
+            'measured_at': '2024-08-01T11:00:00Z',
+            'relative_humidity': 30.0,
+        },
+    ]
 
 
 @pytest.mark.anyio
