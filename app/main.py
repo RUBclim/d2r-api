@@ -17,6 +17,7 @@ from app.models import LatestData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.routers import main
+from app.schemas import get_current_version
 
 
 sentry_sdk.init(
@@ -67,7 +68,7 @@ def create_app() -> FastAPI:
             'url': 'https://climate.rub.de',
             'email': 'climate@rub.de',
         },
-        version='0.0.0',
+        version=get_current_version(),
         openapi_tags=[
             {
                 'name': 'stations',

@@ -1,6 +1,8 @@
+import subprocess
 from datetime import datetime
 from datetime import timezone
 from enum import StrEnum
+from functools import lru_cache
 from typing import Generic
 from typing import Literal
 from typing import TypeVar
@@ -187,10 +189,39 @@ class PublicParamsAggregates(StrEnum):
 T = TypeVar('T')
 
 
+@lru_cache(maxsize=1)
+def get_current_version(prefix: str = 'v1') -> str:
+    # TODO: we should first try getting the version from pyproject.toml check if this
+    # corresponds to a tag or sha, if not, return the git sha, otherwise return the
+    # vx.y.z format.
+    version = subprocess.check_output(('git', 'rev-parse', '--short', 'HEAD'))
+    return f'{prefix}-git+{version.decode().strip()}'
+
+
+def timestamp() -> int:
+    """return the current unix-timestamp (at UTC) in milliseconds"""
+    return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+
+
 class Response(BaseModel, Generic[T]):
     """Generic structure of an API response."""
     data: T = Field(
         description='array or object containing the requested data',
+    )
+    version: str = Field(
+        default=get_current_version(),
+        description=(
+            'The current API version in the format of `vx.y.z` or during development '
+            'v1-git+<7-digit commit sha>.'
+        ),
+    )
+    timestamp: int = Field(
+        default_factory=timestamp,
+        examples=['1727319765395'],
+        description=(
+            'The current time as a unix timestamp in UTC. This provides precise timing '
+            'information for the API-response.'
+        ),
     )
 
 
