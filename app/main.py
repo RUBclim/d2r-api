@@ -16,7 +16,7 @@ from app.models import BiometDataHourly
 from app.models import LatestData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
-from app.routers import main
+from app.routers import v1
 from app.schemas import get_current_version
 
 
@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     # we want this as a router, so we can do easy url-versioning
-    app.include_router(router=main.router)
+    app.include_router(router=v1.router)
     return app
 
 
