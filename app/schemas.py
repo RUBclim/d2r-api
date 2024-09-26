@@ -209,7 +209,7 @@ class Response(BaseModel, Generic[T]):
         description='array or object containing the requested data',
     )
     version: str = Field(
-        default=get_current_version(),
+        default='v1.0.0',
         description=(
             'The current API version in the format of `vx.y.z` or during development '
             'v1-git+<7-digit commit sha>.'
