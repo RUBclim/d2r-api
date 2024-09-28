@@ -1,11 +1,13 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import cast
 
 import sentry_sdk
 from fastapi import FastAPI
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+from sqlalchemy import Table
 from sqlalchemy import text
 
 from app.database import angle_avg_funcs
@@ -53,6 +55,10 @@ def create_app() -> FastAPI:
         async with sessionmanager.connect(as_transaction=False) as con:
             for v in views:
                 await con.execute(v.creation_sql)
+                # create indexes for views
+                view_table_obj = cast(Table, v.__table__)
+                for idx in view_table_obj.indexes:
+                    await con.run_sync(idx.create, checkfirst=True)
         yield
         await sessionmanager.close()
 

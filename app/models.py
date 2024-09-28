@@ -11,6 +11,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import event
 from sqlalchemy import ForeignKey
 from sqlalchemy import Table
+from sqlalchemy import Text
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,29 +70,29 @@ class Station(Base):
     """Representation of a station"""
     __tablename__ = 'station'
 
-    name: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
     device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    long_name: Mapped[str] = mapped_column(nullable=False)
+    long_name: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
     altitude: Mapped[float] = mapped_column(nullable=False)
     station_type: Mapped[StationType] = mapped_column(nullable=False)
     # the biomet stations have two components (ATM41 and BLG)
-    blg_name: Mapped[str] = mapped_column(unique=True, nullable=True)
+    blg_name: Mapped[str] = mapped_column(Text, unique=True, nullable=True)
     blg_device_id: Mapped[int] = mapped_column(
         BigInteger,
         unique=True,
         nullable=True,
     )
-    street: Mapped[str] = mapped_column(nullable=True)
-    number: Mapped[str] = mapped_column(nullable=True)
+    street: Mapped[str] = mapped_column(Text, nullable=True)
+    number: Mapped[str] = mapped_column(Text, nullable=True)
     plz: Mapped[int] = mapped_column(nullable=True)
     leuchtennummer: Mapped[int] = mapped_column(nullable=False)
-    district: Mapped[str] = mapped_column(nullable=False)
-    comment: Mapped[str] = mapped_column(nullable=True)
+    district: Mapped[str] = mapped_column(Text, nullable=False)
+    comment: Mapped[str] = mapped_column(Text, nullable=True)
     setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     # TODO: add more station metadata
-    lcz: Mapped[str] = mapped_column(nullable=True)
+    lcz: Mapped[str] = mapped_column(Text, nullable=True)
     svf: Mapped[Decimal] = mapped_column(nullable=True)
     temp_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False, default=0,
@@ -132,6 +133,7 @@ class _Data(Base):
         primary_key=True,
     )
     name: Mapped[str] = mapped_column(
+        Text,
         ForeignKey('station.name'),
         primary_key=True,
     )
@@ -198,7 +200,11 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
-    name: Mapped[str] = mapped_column(ForeignKey('station.blg_name'), primary_key=True)
+    name: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('station.blg_name'),
+        primary_key=True,
+    )
     station: Mapped[Station] = relationship(back_populates='blg_data_raw', lazy=True)
 
 
@@ -259,12 +265,13 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     The query for creating this materialized view is saved above.
     """
     __tablename__ = 'latest_data'
-    long_name: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
+    long_name: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
     altitude: Mapped[float] = mapped_column(nullable=False)
-    district: Mapped[str] = mapped_column(nullable=True)
-    lcz: Mapped[str] = mapped_column(nullable=True)
+    district: Mapped[str] = mapped_column(Text, nullable=True)
+    lcz: Mapped[str] = mapped_column(Text, nullable=True)
     station_type: Mapped[StationType] = mapped_column(nullable=False)
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
