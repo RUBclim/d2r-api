@@ -10,6 +10,7 @@ from sqlalchemy import Connection
 from sqlalchemy import DateTime
 from sqlalchemy import event
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import Table
 from sqlalchemy import Text
 from sqlalchemy import text
@@ -70,7 +71,7 @@ class Station(Base):
     """Representation of a station"""
     __tablename__ = 'station'
 
-    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
@@ -131,11 +132,13 @@ class _Data(Base):
     measured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         primary_key=True,
+        index=True,
     )
     name: Mapped[str] = mapped_column(
         Text,
         ForeignKey('station.name'),
         primary_key=True,
+        index=True,
     )
     battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
     protocol_version: Mapped[int] = mapped_column(nullable=True)
@@ -288,7 +291,7 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
 
     @classmethod
     async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW latest_data'))
+        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY latest_data'))
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
@@ -801,6 +804,14 @@ class BiometDataDaily(
     querying a proper table.
     """
     __tablename__ = 'biomet_data_daily'
+    __table_args__ = (
+        Index(
+            'ix_biomet_data_daily_name_measured_at',
+            'name',
+            'measured_at',
+            unique=True,
+        ),
+    )
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -906,7 +917,7 @@ class BiometDataDaily(
 
     @classmethod
     async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW biomet_data_daily'))
+        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY biomet_data_daily'))  # noqa: E501
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
@@ -1429,6 +1440,14 @@ class TempRHDataDaily(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivat
     querying a proper table.
     """
     __tablename__ = 'temp_rh_data_daily'
+    __table_args__ = (
+        Index(
+            'ix_temp_rh_data_daily_name_measured_at',
+            'name',
+            'measured_at',
+            unique=True,
+        ),
+    )
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -1476,7 +1495,7 @@ class TempRHDataDaily(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivat
 
     @classmethod
     async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW temp_rh_data_daily'))
+        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY temp_rh_data_daily'))  # noqa: E501
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS

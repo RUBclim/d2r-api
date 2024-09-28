@@ -5,10 +5,12 @@ from typing import cast
 
 import sentry_sdk
 from fastapi import FastAPI
+from psycopg.errors import DuplicateTable
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sqlalchemy import Table
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 
 from app.database import angle_avg_funcs
 from app.database import Base
@@ -58,7 +60,15 @@ def create_app() -> FastAPI:
                 # create indexes for views
                 view_table_obj = cast(Table, v.__table__)
                 for idx in view_table_obj.indexes:
-                    await con.run_sync(idx.create, checkfirst=True)
+                    try:
+                        await con.run_sync(idx.create, checkfirst=True)
+                    # timescale materialized views already have some indexes created by
+                    # default (i.e. on the temporal dimension)
+                    except ProgrammingError as e:
+                        if isinstance(e.orig, DuplicateTable):
+                            pass
+                        else:  # pragma: no cover
+                            raise
         yield
         await sessionmanager.close()
 

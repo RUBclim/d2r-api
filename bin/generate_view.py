@@ -12,6 +12,7 @@ from typing import NamedTuple
 from sqlalchemy import Column
 from sqlalchemy import func
 from sqlalchemy import Function
+from sqlalchemy import Index
 from sqlalchemy import WithinGroup
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -66,7 +67,7 @@ ATTR_TEMPLATE = '{attr_name}: Mapped[{attr_type}] = mapped_column({col_args})'
 REFRESH_PG_TEMPLATE = '''\
 @classmethod
 async def refresh(cls, db: AsyncSession) -> None:
-    await db.execute(text('REFRESH MATERIALIZED VIEW {view_name}'))'''
+    await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}'))  # noqa: E501'''
 
 REFRESH_TS_TEMPLATE = '''\
 @classmethod
@@ -79,7 +80,7 @@ async def refresh(cls) -> None:
 CLASS_TEMPLATE = """\
 class {view_name}{inherits}:
     {docstring}
-    __tablename__ = {table_name!r}
+    __tablename__ = {table_name!r}{table_args}
 
 {attributes}
 
@@ -198,6 +199,7 @@ def generate_sqlalchemy_class(
         table: type[_Data],
         target_agg: Literal['daily', 'hourly'],
         docstring: str | None = None,
+        table_args: tuple[Any | Index, ...] | None = None,
         inherits: list[str] | None = None,
         avgs_defined_by_inheritance: bool = False,
         threshold: float = 0.0,
@@ -278,6 +280,28 @@ def generate_sqlalchemy_class(
     else:
         noqa = ''
 
+    if table_args:
+        # do we need multiple lines?
+        if any(len(str(i)) > 66 for i in table_args) or len(table_args) >= 2:
+            # do we need to break it to separate lines?
+            new_parts = []
+            for a in table_args:
+                if len(str(a)) > 80:
+                    parts = re.split(r',?\s|\(|\)', str(a))
+                    new = f'{parts[0]}(\n{textwrap.indent(',\n'.join(parts[1:]), ' ' * 4)})'  # noqa: E501
+                    new_parts.append(new)
+                else:
+                    new_parts.append(str(a))
+            table_args_str = textwrap.indent(f"\n{',\n'.join(new_parts)},\n", ' ' * 4)
+        else:
+            table_args_str = f'{table_args[0]},'
+
+        table_args_str = textwrap.indent(
+            f'\n__table_args__ = ({table_args_str})', ' ' * 4,
+        )
+    else:
+        table_args_str = ''
+
     # finally combine everything and generate the full class
     class_def = CLASS_TEMPLATE.format(
         view_name=f'{table.__name__}{target_agg.title()}',
@@ -293,6 +317,7 @@ def generate_sqlalchemy_class(
             prefix=' ' * 4,
         ),
         noqa=noqa,
+        table_args=table_args_str,
     )
     return class_def
 
@@ -343,6 +368,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     biomet_daily = generate_sqlalchemy_class(
         table=BiometData,
         docstring=docstring,
+        table_args=(
+            Index(
+                'ix_biomet_data_daily_name_measured_at',
+                'name',
+                'measured_at',
+                unique=True,
+            ),
+        ),
         inherits=[
             _ATM41DataRawBase.__name__,
             _BLGDataRawBase.__name__,
@@ -358,6 +391,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     temp_rh_daily = generate_sqlalchemy_class(
         table=TempRHData,
         docstring=docstring,
+        table_args=(
+            Index(
+                'ix_temp_rh_data_daily_name_measured_at',
+                'name',
+                'measured_at',
+                unique=True,
+            ),
+        ),
         inherits=[
             _SHT35DataRawBase.__name__,
             _TempRHDerivatives.__name__,
