@@ -367,7 +367,7 @@ class Parameters(BaseModel):
         None,
         examples=[270.4],
         description='The wind direction in **°**',
-        gt=0,
+        ge=0,
         le=360,
     )
     wind_speed: float | None = Field(

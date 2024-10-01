@@ -273,7 +273,7 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
     altitude: Mapped[float] = mapped_column(nullable=False)
-    district: Mapped[str] = mapped_column(Text, nullable=True)
+    district: Mapped[str] = mapped_column(Text, nullable=True, index=True)
     lcz: Mapped[str] = mapped_column(Text, nullable=True)
     station_type: Mapped[StationType] = mapped_column(nullable=False)
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
