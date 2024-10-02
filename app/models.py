@@ -221,7 +221,7 @@ class _TempRHDerivatives(Base):
 
 class _BiometDerivatives(Base):
     __abstract__ = True
-    blg_time_offset: Mapped[float] = mapped_column(nullable=True, comment='seconds')
+    blg_time_offset: Mapped[Decimal] = mapped_column(nullable=True, comment='seconds')
     mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
@@ -417,8 +417,14 @@ class BiometDataHourly(
     )
     blg_battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
     blg_battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
-    blg_time_offset_min: Mapped[float] = mapped_column(nullable=True, comment='seconds')
-    blg_time_offset_max: Mapped[float] = mapped_column(nullable=True, comment='seconds')
+    blg_time_offset_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='seconds',
+    )
+    blg_time_offset_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='seconds',
+    )
     dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
@@ -851,8 +857,14 @@ class BiometDataDaily(
     )
     blg_battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
     blg_battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
-    blg_time_offset_min: Mapped[float] = mapped_column(nullable=True, comment='seconds')
-    blg_time_offset_max: Mapped[float] = mapped_column(nullable=True, comment='seconds')
+    blg_time_offset_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='seconds',
+    )
+    blg_time_offset_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='seconds',
+    )
     dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')

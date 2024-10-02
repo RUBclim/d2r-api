@@ -740,7 +740,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     # check offset is correct
     # atm41 date: 2024-09-10 05:18:52.021037
     # blg date: 2024-09-10 05:20:59.092966+00
-    assert d.blg_time_offset == -127.071929
+    assert float(d.blg_time_offset) == -127.071929
     # check the calculations
     assert float(d.black_globe_temperature) == pytest.approx(12.57, abs=10e-2)
     assert float(d.air_temperature) == 12.5
