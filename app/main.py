@@ -20,6 +20,7 @@ from app.models import BiometDataHourly
 from app.models import LatestData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.routers import general
 from app.routers import v1
 
 
@@ -98,6 +99,7 @@ def create_app() -> FastAPI:
     )
     # we want this as a router, so we can do easy url-versioning
     app.include_router(router=v1.router)
+    app.include_router(router=general.router)
     return app
 
 

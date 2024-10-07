@@ -1702,3 +1702,12 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
             },
         ],
     }
+
+
+@pytest.mark.anyio
+async def test_robots_txt(app: AsyncClient) -> None:
+    resp = await app.get('/robots.txt')
+    assert resp.text == '''\
+User-agent: *
+Disallow: /
+'''
