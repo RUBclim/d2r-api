@@ -361,7 +361,7 @@ class Parameters(BaseModel):
     wet_bulb_temperature: float | None = Field(
         None,
         examples=[13.4],
-        description='The wet bulb temperature in **°C*',
+        description='The wet bulb temperature in **°C**',
     )
     wind_direction: float | None = Field(
         None,
@@ -537,12 +537,12 @@ class ParametersAgg(BaseModel):
     wet_bulb_temperature_min: float | None = Field(
         None,
         examples=[13.1],
-        description='The minimum wet bulb temperature in **°C*',
+        description='The minimum wet bulb temperature in **°C**',
     )
     wet_bulb_temperature_max: float | None = Field(
         None,
         examples=[13.9],
-        description='The maximum wet bulb temperature in **°C*',
+        description='The maximum wet bulb temperature in **°C**',
     )
     wind_speed_min: float | None = Field(
         None,
@@ -598,10 +598,10 @@ class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | N
 
 
 class Trends(BaseModel):
-    """Trends for a station or a district"""
+    """Trends for a single or multiple stations/districts"""
     supported_ids: list[str] = Field(
         examples=[['DEC005476']],
-        description='Either names of stations or names of districts',
+        description='Either names of stations or names of districts.',
     )
     unit: Units = Field(
         examples=[Units.wm2],

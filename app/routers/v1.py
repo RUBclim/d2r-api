@@ -43,6 +43,21 @@ from app.schemas import UNIT_MAPPING
 
 router = APIRouter(prefix='/v1')
 
+MAX_AGE_DESCRIPTION = '''\
+The maximum age a measurement can have, until the station is omitted  from the results.
+Setting this to a short time span, you can avoid  spatial inhomogeneity due to old data
+when displaying values on a map.  The format is expected to be in
+[ISO 8601](https://en.wikipedia.org/wiki/ISO_8601#Durations)
+(see section 5.5.2 in the
+[ISO-norm](https://www.iso.org/iso-8601-date-and-time-format.html)).
+Which defines the format as:
+- `["P"][i]["Y"][i]["M"][i]["D"]["T"][i]["H"][i]["M"][i]["S"]`
+- `["P"][i]["W"]`
+
+E.g. 1 hour corresponds to `PT1H`, 10 minutes to `PT10M`, 5 seconds  to `PT10S` 3 days
+to `P3D`. For further explanation of the symbols see section 3.2 Symbols.
+'''
+
 
 @router.api_route('/healthcheck', include_in_schema=False, methods=['GET', 'HEAD'])
 async def is_healthy(db: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
@@ -92,14 +107,7 @@ async def get_stations_latest_data(
                 'returned.'
             ),
         ),
-        max_age: timedelta = Query(
-            timedelta(hours=1),
-            description=(
-                'The maximum age a measurement can have, until the station is omitted '
-                'from the results. Setting this to a short time span, you can avoid '
-                'spatial inhomogeneity when displaying values on a map.'
-            ),
-        ),
+        max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the latest data from all available stations. Only
@@ -143,18 +151,11 @@ async def get_districts_latest_data(
         param: list[PublicParams] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from districts that provide both values is '
+                'specified. Only data from districts that provide all values is '
                 'returned.'
             ),
         ),
-        max_age: timedelta = Query(
-            timedelta(hours=1),
-            description=(
-                'The maximum age a measurement can have, until the station is omitted '
-                'from the results. Setting this to a short time span, you can avoid '
-                'spatial inhomogeneity when displaying values on a map.'
-            ),
-        ),
+        max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the latest data on a per-district level. Only
@@ -218,17 +219,31 @@ async def get_trends(
             description='Either names of the districts or names of the stations',
         ),
         start_date: datetime = Query(
-            description='provide data only after this date and time (inclusive)',
+            description=(
+                'provide data only after this date and time (inclusive). The format '
+                'must follow the '
+                '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+                'standard.'
+            ),
         ),
         end_date: datetime | None = Query(
             None,
             description=(
                 'provide data only before this date and time (inclusive). If this is '
                 'not specified, it will be set to `start_date` hence returning data '
-                'for one exact date.'
+                'for one exact date.  The format must follow the '
+                '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+                'standard.'
             ),
         ),
-        hour: int = Query(ge=0, le=23, description='The hour (UTC) to get data for'),
+        hour: int = Query(
+            ge=0,
+            le=23,
+            description=(
+                'The hour (UTC) to get data for. Hours can be provided as an integer '
+                'with or without a leading zero.'
+            ),
+        ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """Get data for either districts or stations for one selected hour across a time
@@ -473,8 +488,16 @@ async def get_data(
         name: str = Path(
             description='The unique name of the station e.g. `DEC005476`',
         ),
-        start_date: datetime = Query(description='the start date of the data in UTC'),
-        end_date: datetime = Query(description='the end date of the data in UTC'),
+        start_date: datetime = Query(
+            description='the start date of the data in UTC. The format must follow the '
+            '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+            'standard.',
+        ),
+        end_date: datetime = Query(
+            description='the end date of the data in UTC. The format must follow the '
+            '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+            'standard.',
+        ),
         param: list[PublicParamsAggregates] = Query(
             description=(
                 'The parameter(s) to get data for. Multiple parameters can be '
