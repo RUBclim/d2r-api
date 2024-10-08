@@ -5,6 +5,7 @@ from typing import cast
 
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 from psycopg.errors import DuplicateTable
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -100,6 +101,8 @@ def create_app() -> FastAPI:
     # we want this as a router, so we can do easy url-versioning
     app.include_router(router=v1.router)
     app.include_router(router=general.router)
+    # compress (gzip) all responses larger than 1.5 kb
+    app.add_middleware(GZipMiddleware, minimum_size=1500)
     return app
 
 
