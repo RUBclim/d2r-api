@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Any
 from typing import overload
 from typing import Union
+from urllib.error import HTTPError
 
 import numpy as np
 import pandas as pd
@@ -157,6 +158,13 @@ async def _download_data(
         target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw],
         con: AsyncSession,
 ) -> tuple[Station, pd.DataFrame]:
+    """Download data for a station
+
+    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
+    :param target_table: The target table to insert the data into. This has to
+        correspond to the type of the station provided via ``name``.
+    :param con: A async database session
+    """
     station = (
         # one of which has to be present. The "name" should be unique across all
         # devices
@@ -193,8 +201,19 @@ async def _download_data(
     return station, data
 
 
-@async_task(app=celery_app, name='download_temp_rh_data')
+@async_task(
+    app=celery_app,
+    name='download_temp_rh_data',
+    autoretry_for=(HTTPError,),
+    max_retries=3,
+    default_retry_delay=20,
+)
 async def download_temp_rh_data(name: str) -> None:
+    """Download data from the a temp-rh station via the Element-Api. This task also
+    enqueues another task for calculating derived parameters for this station.
+
+    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
+    """
     async with sessionmanager.session() as sess:
         _, data = await _download_data(name=name, target_table=SHT35DataRaw, con=sess)
         if data.empty:
@@ -222,8 +241,19 @@ async def download_temp_rh_data(name: str) -> None:
         calculate_temp_rh.delay(name)
 
 
-@async_task(app=celery_app, name='download-biomet-data')
+@async_task(
+    app=celery_app,
+    name='download-biomet-data',
+    autoretry_for=(HTTPError,),
+    max_retries=3,
+    default_retry_delay=20,
+)
 async def download_biomet_data(name: str) -> None:
+    """Download data from the a biomet station via the Element-Api. This task also
+    enqueues another task for calculating derived parameters for this station.
+
+    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
+    """
     async with sessionmanager.session() as sess:
         station, data = await _download_data(
             name=name,
@@ -289,6 +319,9 @@ async def download_biomet_data(name: str) -> None:
 
 @async_task(app=celery_app, name='download-data')
 async def _sync_data_wrapper() -> None:
+    """This enqueues all individual tasks for downloading data from biomet and temp-rh
+    stations. The result of the task is no awaited and checked.
+    """
     async with sessionmanager.session() as sess:
         stations = (await sess.execute(select(Station))).scalars().all()
         for station in stations:
@@ -300,6 +333,26 @@ async def _sync_data_wrapper() -> None:
 
 @async_task(app=celery_app, name='calculate-biomet')
 async def calculate_biomet(name: str) -> None:
+    """Calculate derived parameters for a biomet station and insert the result into the
+    respective database table.
+
+    Currently the following parameters are calculated:
+
+    - ``blg_time_offset`` the time offset between the blackglobe measurement and the
+        atm41 measurement
+    - ``atmospheric_pressure``
+    - ``vapor_pressure``
+    - ``atmospheric_pressure_reduced``
+    - ``absolute_humidity``
+    - ``mrt``
+    - ``dew_point``
+    - ``wet_bulb_temperature``
+    - ``heat_index``
+    - ``utci``
+    - ``utci_category``
+    - ``pet``
+    - ``pet_category``
+    """
     async with sessionmanager.session() as sess:
         # 1. get information on the current station
         station = (
@@ -481,6 +534,16 @@ async def calculate_biomet(name: str) -> None:
 
 @async_task(app=celery_app, name='calculate-temp_rh')
 async def calculate_temp_rh(name: str) -> None:
+    """Calculate derived parameters for a temp-rh station and insert the result into the
+    respective database table.
+
+    Currently the following parameters are calculated:
+
+    - ``absolute_humidity``
+    - ``dew_point``
+    - ``wet_bulb_temperature``
+    - ``heat_index``
+    """
     async with sessionmanager.session() as sess:
         station = (
             await sess.execute(select(Station).where(Station.name == name))
