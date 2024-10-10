@@ -28,7 +28,7 @@ from app.routers import v1
 sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN'),
     integrations=[StarletteIntegration(), FastApiIntegration()],
-    traces_sample_rate=os.environ.get('SENTRY_SAMPLE_RATE', 0),
+    traces_sample_rate=float(os.environ.get('SENTRY_SAMPLE_RATE', 0.0)),
 )
 
 
