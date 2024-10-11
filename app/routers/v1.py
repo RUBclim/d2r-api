@@ -112,9 +112,17 @@ async def get_stations_latest_data(
 ) -> Any:
     """API-endpoint for getting the latest data from all available stations. Only
     stations that can provide all requested parameters are returned. The availability
-    depends on the `StationType`. Stations of type `StationType.biomet` support all
-    parameters, stations of type `StationType.temprh` only support a subset of
-    parameters, that can be derived from `air_temperature` and `relative_humidity`.
+    depends on the `StationType`. Stations of type `StationType.biomet` support **all**
+    parameters, stations of type `StationType.temprh` only support a **subset** of
+    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
     """
     if max_age.total_seconds() < 0:
         raise HTTPException(status_code=422, detail='max_age must be positive')
@@ -159,7 +167,22 @@ async def get_districts_latest_data(
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the latest data on a per-district level. Only
-    districts that can provide all parameters are returned.
+    districts that can provide all parameters are returned. The availability
+    depends on the `StationType`. Stations of type `StationType.biomet` support **all**
+    parameters, stations of type `StationType.temprh` only support a **subset** of
+    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
+
+    If biomet-specific parameters are requested, only biomet stations are included in
+    the spatial aggregate. If both station types support the parameter all station types
+    are used.
     """
     if max_age.total_seconds() < 0:
         raise HTTPException(status_code=422, detail='max_age must be positive')
@@ -529,9 +552,16 @@ async def get_data(
     `StationType` determines the values you are able to request. It is important to
     check the Error responses (`422`) for the correct subset. Generally `_min` and
     `_max` parameters are available when using `scale` as `daily` or `hourly`. Stations
+    of type `StationType.biomet` will support the full set of parameters. Stations
     of type `StationType.temprh` only have parameters that can be derived from
-    air-temperature and relative humidity measurements. Stations of type
-    `StationType.biomet` will support the full set of parameters.
+    air-temperature and relative humidity measurements, which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
     """
     if start_date > end_date:
         raise HTTPException(status_code=422, detail='start_date must not be > end_date')
