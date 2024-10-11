@@ -102,9 +102,9 @@ async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> A
 async def get_stations_latest_data(
         param: list[PublicParams] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from stations that provide both values is '
-                'returned.'
+                'The parameter(-s) to get data for. Multiple parameters can be '
+                'specified. Only data from stations that provide all specified values '
+                'will be returned.'
             ),
         ),
         max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
@@ -150,9 +150,9 @@ async def get_stations_latest_data(
 async def get_districts_latest_data(
         param: list[PublicParams] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from districts that provide all values is '
-                'returned.'
+                'The parameter(-s) to get data for. Multiple parameters can be '
+                'specified. Only data from districts that provide all specified values '
+                'will be returned.'
             ),
         ),
         max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
@@ -209,18 +209,21 @@ async def get_trends(
         param: PublicParamsAggregates = Path(
             description=(
                 'The parameter to get data for. Only data from districts that provide '
-                'the value are returned.'
+                'the value will be returned.'
             ),
         ),
         item_type: Literal['stations', 'districts'] = Query(
-            description='The type to get data for.',
+            description=(
+                'Whether to get data for specific stations or all stations in a '
+                'district, aggregating them spatially.'
+            ),
         ),
         item_ids: list[str] = Query(
             description='Either names of the districts or names of the stations',
         ),
         start_date: datetime = Query(
             description=(
-                'provide data only after this date and time (inclusive). The format '
+                'Provide data only after this date and time (inclusive). The format '
                 'must follow the '
                 '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
                 'standard.'
@@ -229,7 +232,7 @@ async def get_trends(
         end_date: datetime | None = Query(
             None,
             description=(
-                'provide data only before this date and time (inclusive). If this is '
+                'Provide data only before this date and time (inclusive). If this is '
                 'not specified, it will be set to `start_date` hence returning data '
                 'for one exact date.  The format must follow the '
                 '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
@@ -246,8 +249,9 @@ async def get_trends(
         ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
-    """Get data for either districts or stations for one selected hour across a time
-    span for one parameter. Data is selected from hourly aggregates.
+    """Retrieve hourly data for a specific parameter across a time period, choosing
+    either districts or stations. Data is based on hourly aggregates and refer to a
+    specific hour of the day.
     """
     if end_date is None:
         end_date = start_date
@@ -500,7 +504,7 @@ async def get_data(
         ),
         param: list[PublicParamsAggregates] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
+                'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. `_min` and `_max` parameters are only available for '
                 'aggregates i.e. `hourly` and `daily`, but not `max`. Set `scale` '
                 'accordingly.'

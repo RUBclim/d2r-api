@@ -322,7 +322,7 @@ class Parameters(BaseModel):
     pet_category: HeatStressCategories | None = Field(
         None,
         examples=['Moderate heat stress'],
-        description='The grade of physiological stress',
+        description='The category of physiological stress',
     )
     precipitation_sum: float | None = Field(
         None,
@@ -351,7 +351,7 @@ class Parameters(BaseModel):
     utci_category: HeatStressCategories | None = Field(
         None,
         examples=['Strong heat stress'],
-        description='The grade of physiological stress',
+        description='The category of physiological stress',
     )
     vapor_pressure: float | None = Field(
         None,
