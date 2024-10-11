@@ -212,7 +212,7 @@ async def get_trends(
                 'the value will be returned.'
             ),
         ),
-        item_type: Literal['stations', 'districts'] = Query(
+        spatial_level: Literal['stations', 'districts'] = Query(
             description=(
                 'Whether to get data for specific stations or all stations in a '
                 'district, aggregating them spatially.'
@@ -268,7 +268,7 @@ async def get_trends(
     # we need to to do this completely different depending on whether stations or
     # districts are requested
     query: Select[Any] | CompoundSelect
-    if item_type == 'stations':
+    if spatial_level == 'stations':
         # get the supported ids which are needed for the API return, probably for
         # possible comparison
         biomet_id_query = select(BiometDataHourly.name).distinct(
