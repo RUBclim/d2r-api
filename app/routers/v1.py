@@ -102,9 +102,9 @@ async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> A
 async def get_stations_latest_data(
         param: list[PublicParams] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from stations that provide both values is '
-                'returned.'
+                'The parameter(-s) to get data for. Multiple parameters can be '
+                'specified. Only data from stations that provide all specified values '
+                'will be returned.'
             ),
         ),
         max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
@@ -112,9 +112,17 @@ async def get_stations_latest_data(
 ) -> Any:
     """API-endpoint for getting the latest data from all available stations. Only
     stations that can provide all requested parameters are returned. The availability
-    depends on the `StationType`. Stations of type `StationType.biomet` support all
-    parameters, stations of type `StationType.temprh` only support a subset of
-    parameters, that can be derived from `air_temperature` and `relative_humidity`.
+    depends on the `StationType`. Stations of type `StationType.biomet` support **all**
+    parameters, stations of type `StationType.temprh` only support a **subset** of
+    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
     """
     if max_age.total_seconds() < 0:
         raise HTTPException(status_code=422, detail='max_age must be positive')
@@ -150,16 +158,31 @@ async def get_stations_latest_data(
 async def get_districts_latest_data(
         param: list[PublicParams] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
-                'specified. Only data from districts that provide all values is '
-                'returned.'
+                'The parameter(-s) to get data for. Multiple parameters can be '
+                'specified. Only data from districts that provide all specified values '
+                'will be returned.'
             ),
         ),
         max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the latest data on a per-district level. Only
-    districts that can provide all parameters are returned.
+    districts that can provide all parameters are returned. The availability
+    depends on the `StationType`. Stations of type `StationType.biomet` support **all**
+    parameters, stations of type `StationType.temprh` only support a **subset** of
+    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
+
+    If biomet-specific parameters are requested, only biomet stations are included in
+    the spatial aggregate. If both station types support the parameter all station types
+    are used.
     """
     if max_age.total_seconds() < 0:
         raise HTTPException(status_code=422, detail='max_age must be positive')
@@ -209,18 +232,21 @@ async def get_trends(
         param: PublicParamsAggregates = Path(
             description=(
                 'The parameter to get data for. Only data from districts that provide '
-                'the value are returned.'
+                'the value will be returned.'
             ),
         ),
-        item_type: Literal['stations', 'districts'] = Query(
-            description='The type to get data for.',
+        spatial_level: Literal['stations', 'districts'] = Query(
+            description=(
+                'Whether to get data for specific stations or all stations in a '
+                'district, aggregating them spatially.'
+            ),
         ),
         item_ids: list[str] = Query(
             description='Either names of the districts or names of the stations',
         ),
         start_date: datetime = Query(
             description=(
-                'provide data only after this date and time (inclusive). The format '
+                'Provide data only after this date and time (inclusive). The format '
                 'must follow the '
                 '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
                 'standard.'
@@ -229,7 +255,7 @@ async def get_trends(
         end_date: datetime | None = Query(
             None,
             description=(
-                'provide data only before this date and time (inclusive). If this is '
+                'Provide data only before this date and time (inclusive). If this is '
                 'not specified, it will be set to `start_date` hence returning data '
                 'for one exact date.  The format must follow the '
                 '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
@@ -246,8 +272,9 @@ async def get_trends(
         ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
-    """Get data for either districts or stations for one selected hour across a time
-    span for one parameter. Data is selected from hourly aggregates.
+    """Retrieve hourly data for a specific parameter across a time period, choosing
+    either districts or stations. Data is based on hourly aggregates and refer to a
+    specific hour of the day.
     """
     if end_date is None:
         end_date = start_date
@@ -264,7 +291,7 @@ async def get_trends(
     # we need to to do this completely different depending on whether stations or
     # districts are requested
     query: Select[Any] | CompoundSelect
-    if item_type == 'stations':
+    if spatial_level == 'stations':
         # get the supported ids which are needed for the API return, probably for
         # possible comparison
         biomet_id_query = select(BiometDataHourly.name).distinct(
@@ -500,7 +527,7 @@ async def get_data(
         ),
         param: list[PublicParamsAggregates] = Query(
             description=(
-                'The parameter(s) to get data for. Multiple parameters can be '
+                'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. `_min` and `_max` parameters are only available for '
                 'aggregates i.e. `hourly` and `daily`, but not `max`. Set `scale` '
                 'accordingly.'
@@ -525,9 +552,16 @@ async def get_data(
     `StationType` determines the values you are able to request. It is important to
     check the Error responses (`422`) for the correct subset. Generally `_min` and
     `_max` parameters are available when using `scale` as `daily` or `hourly`. Stations
+    of type `StationType.biomet` will support the full set of parameters. Stations
     of type `StationType.temprh` only have parameters that can be derived from
-    air-temperature and relative humidity measurements. Stations of type
-    `StationType.biomet` will support the full set of parameters.
+    air-temperature and relative humidity measurements, which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
     """
     if start_date > end_date:
         raise HTTPException(status_code=422, detail='start_date must not be > end_date')

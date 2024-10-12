@@ -25,7 +25,7 @@ VERSION_PATTERN = re.compile(r'^v(?:1\-git\+[a-f0-9]{7}|1\.\d\.\d)$')
     (
         '/v1/stations/metadata',
         '/v1/stations/latest_data?param=air_temperature',
-        '/v1/trends/air_temperature?item_type=stations&item_ids=DEC1&start_date=2024-08-01&hour=3',  # noqa: E501
+        '/v1/trends/air_temperature?spatial_level=stations&item_ids=DEC1&start_date=2024-08-01&hour=3',  # noqa: E501
         'v1/data/DEC1?start_date=2024-08-01&end_date=2024-08-02&param=air_temperature',
     ),
 )
@@ -545,7 +545,7 @@ async def test_get_trends_stations_biomet_and_temprh(
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': ['DEC1', 'DEC4'],
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
@@ -619,7 +619,7 @@ async def test_get_trends_stations_only_biomet(
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC1',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
@@ -690,7 +690,7 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
     resp = await app.get(
         '/v1/trends/lightning_strike_count',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC1',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
@@ -775,7 +775,7 @@ async def test_get_trends_stations_only_temprh(
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC4',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
@@ -840,7 +840,7 @@ async def test_get_trends_stations_end_not_set(
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC1',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
@@ -859,7 +859,7 @@ async def test_get_trends_stations_no_data_available(app: AsyncClient) -> None:
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC1',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
@@ -914,7 +914,7 @@ async def test_get_trends_stations_does_not_provide_param(
     resp = await app.get(
         '/v1/trends/mrt',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC4',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
@@ -998,7 +998,7 @@ async def test_get_trends_stations_units_correctly_extracted(
     resp = await app.get(
         f'/v1/trends/{param}',
         params={
-            'item_type': 'stations',
+            'spatial_level': 'stations',
             'item_ids': 'DEC1',
             'start_date': datetime(2024, 8, 1, 8, 0),
             'hour': 9,
@@ -1141,7 +1141,7 @@ async def test_get_trends_districts(
     resp = await app.get(
         '/v1/trends/air_temperature',
         params={
-            'item_type': 'districts',
+            'spatial_level': 'districts',
             'item_ids': ['District 2', 'District 1'],
             'start_date': datetime(2024, 8, 1, 1, 0),
             'end_date': datetime(2024, 8, 2, 13, 0),
@@ -1225,7 +1225,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
     resp = await app.get(
         f'/v1/trends/{param}',
         params={
-            'item_type': 'districts',
+            'spatial_level': 'districts',
             'item_ids': ['Innenstadt'],
             'start_date': datetime(2024, 8, 1, 1, 0),
             'end_date': datetime(2024, 8, 2, 13, 0),
@@ -1353,7 +1353,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
     resp = await app.get(
         f'/v1/trends/{param}',
         params={
-            'item_type': 'districts',
+            'spatial_level': 'districts',
             'item_ids': ['Innenstadt'],
             'start_date': datetime(2024, 8, 1, 1, 0),
             'end_date': datetime(2024, 8, 2, 13, 0),

@@ -96,7 +96,14 @@ class PublicParams(StrEnum):
     requested via the API. Not every station supports all of these parameters. Stations
     of type `StationType.biomet` support all parameters, stations of type
     `StationType.temprh` only support a subset of parameters, that can be
-    derived from `air_temperature` and `relative_humidity`.
+    derived from `air_temperature` and `relative_humidity` which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
     """
     absolute_humidity = 'absolute_humidity'
     atmospheric_pressure = 'atmospheric_pressure'
@@ -126,10 +133,18 @@ class PublicParamsAggregates(StrEnum):
     requested via the API. Not every station supports all of these parameters. Stations
     of type `StationType.biomet` support all parameters, stations of type
     `StationType.temprh` only support a subset of parameters, that can be
-    derived from `air_temperature` and `relative_humidity`.
+    derived from `air_temperature` and `relative_humidity` which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
 
     This schema also contains extreme values derived from aggregating instantaneous
-    measurements across a time span (e.g. hourly or daily values).
+    measurements across a time span (e.g. hourly or daily values). Parameters that
+    neither have `_max` nor a `_min` suffix represent averages.
     """
     absolute_humidity = 'absolute_humidity'
     absolute_humidity_max = 'absolute_humidity_max'
@@ -322,7 +337,7 @@ class Parameters(BaseModel):
     pet_category: HeatStressCategories | None = Field(
         None,
         examples=['Moderate heat stress'],
-        description='The grade of physiological stress',
+        description='The category of physiological stress',
     )
     precipitation_sum: float | None = Field(
         None,
@@ -351,7 +366,7 @@ class Parameters(BaseModel):
     utci_category: HeatStressCategories | None = Field(
         None,
         examples=['Strong heat stress'],
-        description='The grade of physiological stress',
+        description='The category of physiological stress',
     )
     vapor_pressure: float | None = Field(
         None,
