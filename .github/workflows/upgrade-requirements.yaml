@@ -23,6 +23,8 @@ jobs:
 
       - name: upgrade base requirements
         run: pip-compile --upgrade --allow-unsafe requirements.in
+        env:
+          GH_TOKEN: ${{ secrets.GH_ELEMENT_API_TOKEN }}
 
       - name: upgrade base dev-requirements
         run: pip-compile --upgrade --allow-unsafe requirements-dev.in
