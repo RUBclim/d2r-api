@@ -154,6 +154,7 @@ async def get_stations_latest_data(
     response_model=Response[list[schemas.DistrictParams]],
     response_model_exclude_unset=True,
     tags=['districts'],
+    deprecated=True,
 )
 async def get_districts_latest_data(
         param: list[PublicParams] = Query(
@@ -240,6 +241,7 @@ async def get_trends(
                 'Whether to get data for specific stations or all stations in a '
                 'district, aggregating them spatially.'
             ),
+            deprecated=True,
         ),
         item_ids: list[str] = Query(
             description='Either names of the districts or names of the stations',
