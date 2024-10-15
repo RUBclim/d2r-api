@@ -44,9 +44,13 @@ You can only run the web app without the queue and worker process
    ```bash
    export $(cat .env.dev | grep -Ev "^#" | xargs -L 1)
    ```
+1. start the database container
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d db
+   ```
 1. run the web app
    ```bash
-   uvicorn app.psm:app --reload
+   DB_HOST=localhost uvicorn app.main:app --reload
    ```
 
 ### run the entire system in development mode
@@ -58,7 +62,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.d
 ```
 
 - the setup is configured, so that the fastapi web app restarts if changes are made to
-  any of the Python code. The worker, however, needs to be restarted manually.
+  any of the Python code. The celery worker, however, needs to be restarted manually.
 
 ### run the tests
 
