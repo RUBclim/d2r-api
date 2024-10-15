@@ -5,6 +5,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from psycopg import sql
 from sqlalchemy import BigInteger
 from sqlalchemy import Connection
 from sqlalchemy import DateTime
@@ -15,7 +16,6 @@ from sqlalchemy import Table
 from sqlalchemy import Text
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import ENUM
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
@@ -260,7 +260,64 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     station: Mapped[Station] = relationship(back_populates='temp_rh_data', lazy=True)
 
 
-class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
+class MaterializedView(Base):
+    """Baseclass for a materialized view"""
+    __abstract__ = True
+    # is this a timescale continuous aggregate?
+    is_continuous_aggregate = False
+
+    @classmethod
+    async def refresh(
+            cls,
+            *,
+            concurrently: bool = True,
+            window_start: datetime | None = None,
+            window_end: datetime | None = None,
+    ) -> None:
+        """Refresh the materialized view.
+
+        This takes into account whether the view is a continuous aggregate or a vanilla
+        postgres materialized view. This needs to be done outside of a transaction.
+
+        :param concurrently: Whether to refresh the view concurrently. Refreshing
+            concurrently is slower, however no exclusive lock is acquired. This way
+            reads to the view can still be performed. This only applies to vanilla
+            postgres materialized views.
+        :param window_start: The start of the window that will be refreshed. This only
+            applies to continuous aggregates.
+        :param window_end: The end of the window that will be refreshed. This only
+            applies to continuous aggregates.
+        """
+        async with sessionmanager.connect(as_transaction=False) as sess:
+            if cls.is_continuous_aggregate is False:
+                # vanilla postgres
+                if concurrently is True:
+                    query = sql.SQL(
+                        'REFRESH MATERIALIZED VIEW CONCURRENTLY {name}',
+                    ).format(name=sql.Identifier(cls.__tablename__)).as_string()
+                else:
+                    query = sql.SQL('REFRESH MATERIALIZED VIEW {name}').format(
+                        name=sql.Identifier(cls.__tablename__),
+                    ).as_string()
+            else:
+                # timescale
+                query = sql.SQL(
+                    'CALL refresh_continuous_aggregate({name}, {start}, {end})',
+                ).format(
+                    name=cls.__tablename__,
+                    start=window_start,
+                    end=window_end,
+                ).as_string()
+
+            await sess.execute(text(query))
+
+
+class LatestData(
+    MaterializedView,
+    _ATM41DataRawBase,
+    _BLGDataRawBase,
+    _TempRHDerivatives,
+):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
@@ -288,10 +345,6 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
         comment='hPa',
     )
     vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
-
-    @classmethod
-    async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY latest_data'))
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
@@ -371,13 +424,18 @@ class LatestData(_ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives):
 
 # START_GENERATED
 class BiometDataHourly(
-    _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+    MaterializedView,
+    _ATM41DataRawBase,
+    _BLGDataRawBase,
+    _TempRHDerivatives,
+    _BiometDerivatives,
 ):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
     """
     __tablename__ = 'biomet_data_hourly'
+    is_continuous_aggregate = True
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -486,13 +544,6 @@ class BiometDataHourly(
     y_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     station: Mapped[Station] = relationship(lazy=True)
-
-    @classmethod
-    async def refresh(cls) -> None:
-        async with sessionmanager.connect(as_transaction=False) as sess:
-            await sess.execute(
-                text("CALL refresh_continuous_aggregate('biomet_data_hourly', NULL, NULL)"),  # noqa: E501
-            )
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly(
@@ -676,12 +727,18 @@ class BiometDataHourly(
     ''')  # noqa: E501
 
 
-class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
+class TempRHDataHourly(
+    MaterializedView,
+    _SHT35DataRawBase,
+    _TempRHDerivatives,
+    _CalibrationDerivatives,
+):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
     """
     __tablename__ = 'temp_rh_data_hourly'
+    is_continuous_aggregate = True
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -726,13 +783,6 @@ class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDeriva
         comment='°C',
     )
     station: Mapped[Station] = relationship(lazy=True)
-
-    @classmethod
-    async def refresh(cls) -> None:
-        async with sessionmanager.connect(as_transaction=False) as sess:
-            await sess.execute(
-                text("CALL refresh_continuous_aggregate('temp_rh_data_hourly', NULL, NULL)"),  # noqa: E501
-            )
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly(
@@ -803,7 +853,11 @@ class TempRHDataHourly(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDeriva
 
 
 class BiometDataDaily(
-    _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+    MaterializedView,
+    _ATM41DataRawBase,
+    _BLGDataRawBase,
+    _TempRHDerivatives,
+    _BiometDerivatives,
 ):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
@@ -926,10 +980,6 @@ class BiometDataDaily(
     y_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     station: Mapped[Station] = relationship(lazy=True)
-
-    @classmethod
-    async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY biomet_data_daily'))  # noqa: E501
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
@@ -1446,7 +1496,12 @@ class BiometDataDaily(
     ''')  # noqa: E501
 
 
-class TempRHDataDaily(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
+class TempRHDataDaily(
+    MaterializedView,
+    _SHT35DataRawBase,
+    _TempRHDerivatives,
+    _CalibrationDerivatives,
+):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
     querying a proper table.
@@ -1504,10 +1559,6 @@ class TempRHDataDaily(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivat
         comment='°C',
     )
     station: Mapped[Station] = relationship(lazy=True)
-
-    @classmethod
-    async def refresh(cls, db: AsyncSession) -> None:
-        await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY temp_rh_data_daily'))  # noqa: E501
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS

@@ -51,11 +51,11 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.execute(delete(BLGDataRaw))
     await db.execute(delete(Station))
     await db.commit()
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await BiometDataHourly.refresh()
-    await BiometDataDaily.refresh(db=db)
+    await BiometDataDaily.refresh()
     await TempRHDataHourly.refresh()
-    await TempRHDataDaily.refresh(db=db)
+    await TempRHDataDaily.refresh()
     await db.commit()
 
 
@@ -142,7 +142,7 @@ async def biomet_data(
             biomet_data_list.append(biomet_data)
 
     await db.commit()
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await BiometDataHourly.refresh()
     await db.commit()
     yield biomet_data_list
