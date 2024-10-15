@@ -526,9 +526,9 @@ async def calculate_biomet(name: str) -> None:
                 },
             ),
         )
-        await LatestData.refresh(db=sess)
+        await LatestData.refresh()
         await BiometDataHourly.refresh()
-        await BiometDataDaily.refresh(db=sess)
+        await BiometDataDaily.refresh()
         await sess.commit()
 
 
@@ -615,7 +615,7 @@ async def calculate_temp_rh(name: str) -> None:
                 method='multi',
             ),
         )
-        await LatestData.refresh(db=sess)
+        await LatestData.refresh()
         await TempRHDataHourly.refresh()
-        await TempRHDataDaily.refresh(db=sess)
+        await TempRHDataDaily.refresh()
         await sess.commit()

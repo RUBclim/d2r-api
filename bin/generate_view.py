@@ -24,6 +24,7 @@ from app.models import _Data
 from app.models import _SHT35DataRawBase
 from app.models import _TempRHDerivatives
 from app.models import BiometData
+from app.models import MaterializedView
 from app.models import TempRHData
 
 # definition of template strings for generating SQL code
@@ -64,27 +65,12 @@ COL_TEMPLATE_NO_TH = '{agg_func} AS {column_name}{col_suffix}'
 # definition of template strings for generating Python code
 ATTR_TEMPLATE = '{attr_name}: Mapped[{attr_type}] = mapped_column({col_args})'
 
-REFRESH_PG_TEMPLATE = '''\
-@classmethod
-async def refresh(cls, db: AsyncSession) -> None:
-    await db.execute(text('REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}'))  # noqa: E501'''
-
-REFRESH_TS_TEMPLATE = '''\
-@classmethod
-async def refresh(cls) -> None:
-    async with sessionmanager.connect(as_transaction=False) as sess:
-        await sess.execute(
-            text("CALL refresh_continuous_aggregate('{view_name}', NULL, NULL)"),  # noqa: E501
-        )'''
-
 CLASS_TEMPLATE = """\
 class {view_name}{inherits}:
     {docstring}
-    __tablename__ = {table_name!r}{table_args}
+    __tablename__ = {table_name!r}{table_args}{is_cagg}
 
 {attributes}
-
-{refresh_method}
 
     creation_sql = text('''\\{creation_sql}
     '''){noqa}
@@ -261,10 +247,6 @@ def generate_sqlalchemy_class(
         ),
         *sorted_cols,
     ]
-    if target_agg == 'hourly':
-        refresh_method = REFRESH_TS_TEMPLATE
-    else:
-        refresh_method = REFRESH_PG_TEMPLATE
 
     # we need to add a relationship at the end of each view
     py_cols = [i.py_repr for i in cols if i.py_repr]
@@ -272,6 +254,11 @@ def generate_sqlalchemy_class(
     inherit_str = f"({', '.join(inherits)})" if inherits else ''
     if inherits and len(inherit_str) + len(table.__name__) + 5 > 88:
         inherit_str = f'({textwrap.indent(f"\n{', '.join(inherits)}", ' ' * 4)},\n)'
+        # we need multiple lines
+        if inherits and len(inherit_str) + len(table.__name__) + 5 > 88:
+            inherit_str = (
+                f'({textwrap.indent(f"\n{',\n'.join(inherits)}", ' ' * 4)},\n)'
+            )
 
     creation_sql = textwrap.indent(view_def, ' '*4)
     sql_too_long = any(len(i) > 88 for i in creation_sql.splitlines())
@@ -302,6 +289,11 @@ def generate_sqlalchemy_class(
     else:
         table_args_str = ''
 
+    if target_agg == 'hourly':
+        cagg = textwrap.indent('\nis_continuous_aggregate = True',  ' ' * 4)
+    else:
+        cagg = ''
+
     # finally combine everything and generate the full class
     class_def = CLASS_TEMPLATE.format(
         view_name=f'{table.__name__}{target_agg.title()}',
@@ -309,15 +301,10 @@ def generate_sqlalchemy_class(
         table_name=view_name,
         inherits=inherit_str,
         creation_sql=creation_sql,
-        attributes=textwrap.indent(
-            text='\n'.join(py_cols), prefix=' ' * 4,
-        ),
-        refresh_method=textwrap.indent(
-            refresh_method.format(view_name=view_name),
-            prefix=' ' * 4,
-        ),
+        attributes=textwrap.indent(text='\n'.join(py_cols), prefix=' ' * 4),
         noqa=noqa,
         table_args=table_args_str,
+        is_cagg=cagg,
     )
     return class_def
 
@@ -342,6 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         table=BiometData,
         docstring=docstring,
         inherits=[
+            MaterializedView.__name__,
             _ATM41DataRawBase.__name__,
             _BLGDataRawBase.__name__,
             _TempRHDerivatives.__name__,
@@ -356,6 +344,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         table=TempRHData,
         docstring=docstring,
         inherits=[
+            MaterializedView.__name__,
             _SHT35DataRawBase.__name__,
             _TempRHDerivatives.__name__,
             _CalibrationDerivatives.__name__,
@@ -377,6 +366,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
         ),
         inherits=[
+            MaterializedView.__name__,
             _ATM41DataRawBase.__name__,
             _BLGDataRawBase.__name__,
             _TempRHDerivatives.__name__,
@@ -400,6 +390,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
         ),
         inherits=[
+            MaterializedView.__name__,
             _SHT35DataRawBase.__name__,
             _TempRHDerivatives.__name__,
             _CalibrationDerivatives.__name__,
