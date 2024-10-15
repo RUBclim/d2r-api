@@ -545,8 +545,8 @@ async def get_data(
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the data from any station for any time-span. A
-    maximum (31 days at 5-minute resolution, 365 days at hourly resolution and 3650 days
-    at daily resolution) can be requested at once. If you need more data, please
+    maximum of 31 days at 5-minute resolution, 365 days at hourly resolution and 3650
+    days at daily resolution can be requested at once. If you need more data, please
     paginate your requests.
 
     **Note:** When requesting, you have to take the station type into account, not every
@@ -564,6 +564,20 @@ async def get_data(
     - `absolute_humidity`
     - `heat_index`
     - `wet_bulb_temperature`
+
+    **Temporal Aggregation** (`scale` parameter): _Hourly_ values are **right**-labeled
+    aggregates. Values from `2024-01-01 10:00:00` until `2024-01-01 10:59:59.999999` are
+    labelled as `2024-01-01 11:00:00` and hence `start_date` and `end_date` have to take
+    that into account when being used with `scale=hourly`.
+
+    _Daily_ values are aggregated based on the **UTC+1** timezone, meaning a daily
+    average covers the period from `2024-01-10 23:00:00` to
+    `2024-01-11 22:59:59.999999`. This approach was chosen for (annual) consistency,
+    rather than aligning with true solar time.
+
+    `_min` and `_max` parameters are calculated upon aggregation, deriving the
+    minimum and maximum of each parameter from the raw data. This is done on a per-hour
+    basis as well as a on daily basis, always deriving extremes from the raw values.
     """
     if start_date > end_date:
         raise HTTPException(status_code=422, detail='start_date must not be > end_date')
