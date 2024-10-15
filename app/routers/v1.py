@@ -34,6 +34,7 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.schemas import NetworkValue
 from app.schemas import PublicParams
 from app.schemas import PublicParamsAggregates
 from app.schemas import Response
@@ -114,7 +115,7 @@ async def get_stations_latest_data(
     stations that can provide all requested parameters are returned. The availability
     depends on the `StationType`. Stations of type `StationType.biomet` support **all**
     parameters, stations of type `StationType.temprh` only support a **subset** of
-    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    parameters, that can be derived from `air_temperature` and `relative_humidity`
     which are:
 
     - `air_temperature`
@@ -171,7 +172,7 @@ async def get_districts_latest_data(
     districts that can provide all parameters are returned. The availability
     depends on the `StationType`. Stations of type `StationType.biomet` support **all**
     parameters, stations of type `StationType.temprh` only support a **subset** of
-    parameters, that can be derived from `air_temperature` and `relative_humidity` '
+    parameters, that can be derived from `air_temperature` and `relative_humidity`
     which are:
 
     - `air_temperature`
@@ -634,3 +635,104 @@ async def get_data(
         return Response(data=data.mappings().all())
     else:
         raise HTTPException(status_code=404, detail='Station not found')
+
+
+@router.get(
+    '/network-values',
+    response_model=Response[list[NetworkValue]],
+    response_model_exclude_unset=True,
+    tags=['stations'],
+)
+async def get_network_values(
+        param: list[PublicParamsAggregates] = Query(
+            description=(
+                'The parameter(-s) to get data for. Multiple parameters can be '
+                'specified.'
+            ),
+            examples=['air_temperature'],
+        ),
+        scale: Literal['hourly', 'daily'] = Query(
+            description='The temporal scale to get data for.',
+            examples=['hourly'],
+        ),
+        date: datetime = Query(
+            description=(
+                'The date (and time when `scale=hourly`) to get data for. The format '
+                'must follow the '
+                '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+                'standard. Everything provided above the hour precision is omitted, '
+                'meaning `2024-01-01 10:15:13.12345` becomes `2024-01-01 10:00`.'
+            ),
+            examples=[datetime(2024, 1, 1, 10, 0)],
+        ),
+        db: AsyncSession = Depends(get_db_session),
+) -> Any:
+    """API endpoint for getting network-wide data for one point in time.
+
+    You may specify multiple params. The availability of the param depends on the
+    `StationType`. Stations of type `StationType.biomet` support **all**
+    parameters, stations of type `StationType.temprh` only support a **subset** of
+    parameters, that can be derived from `air_temperature` and `relative_humidity`
+    which are:
+
+    - `air_temperature`
+    - `relative_humidity`
+    - `dew_point`
+    - `absolute_humidity`
+    - `heat_index`
+    - `wet_bulb_temperature`
+
+    Since `StationType.temprh` only supports a subset, the unsupported parameters are
+    set to `null` when multiple params are requested. If `StationType.temprh` does not
+    support any of the requested parameters, these stations are completely omitted from
+    the result.
+    """
+    # we remove any precision that exceeds "hour" since the max resolution is hourly
+    date = date.replace(minute=0, second=0, microsecond=0)
+
+    biomet_table: type[BiometDataHourly | BiometDataDaily]
+    tempr_rh_table: type[TempRHDataHourly | TempRHDataDaily]
+    if scale == 'hourly':
+        biomet_table = BiometDataHourly
+        tempr_rh_table = TempRHDataHourly
+    elif scale == 'daily':
+        biomet_table = BiometDataDaily
+        tempr_rh_table = TempRHDataDaily
+    else:
+        raise NotImplementedError('unknown scale')
+
+    # extract the column attributes
+    columns: list[InstrumentedAttribute[Any]] = [
+        getattr(biomet_table, i) for i in param
+    ]
+    # temp_rh is always a subset of biomet
+    columns_temp_rh: list[InstrumentedAttribute[Any] | None] = [
+        getattr(tempr_rh_table, i, None) for i in param
+    ]
+    query: Select[Any] | CompoundSelect
+    query = select(
+        biomet_table.measured_at,
+        biomet_table.name,
+        Station.station_type,
+        *columns,
+    ).join(
+        Station, Station.name == biomet_table.name,
+    ).where(biomet_table.measured_at == date).order_by(biomet_table.name)
+    # check that not all of the temp_rh columns are None, if so, just don't query
+    # them at all
+    if any(columns_temp_rh):
+        query = query.union_all(
+            select(
+                tempr_rh_table.measured_at,
+                tempr_rh_table.name,
+                Station.station_type,
+                *columns_temp_rh,
+            ).join(
+                Station, Station.name == tempr_rh_table.name,
+            ).where(
+                tempr_rh_table.measured_at == date,
+            ).order_by(tempr_rh_table.name),
+        )
+
+    data = (await db.execute(query)).mappings().all()
+    return Response(data=data)
