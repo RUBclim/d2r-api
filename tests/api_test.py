@@ -161,7 +161,7 @@ async def test_get_station_latest_data_data_of_one_station_too_old(
     db.add(too_old_data)
     await db.commit()
     # we need to refresh the views so we actually get the data
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await db.commit()
 
     resp = await app.get(
@@ -210,7 +210,7 @@ async def test_get_station_latest_data_data_of_one_station_too_old_default(
     db.add(too_old_data)
     await db.commit()
     # we need to refresh the views so we actually get the data
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await db.commit()
 
     resp = await app.get('/v1/stations/latest_data', params={'param': 'mrt'})
@@ -266,7 +266,7 @@ async def test_get_station_latest_data_multiple_params(
     db.add(null_data)
     await db.commit()
     # we need to refresh the views so we actually get the data
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await db.commit()
 
     resp = await app.get(
@@ -410,7 +410,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     db.add(data_missing)
     await db.commit()
     # we need to refresh the views so we actually get the data
-    await LatestData.refresh(db=db)
+    await LatestData.refresh()
     await db.commit()
 
     resp = await app.get(
@@ -1577,7 +1577,7 @@ async def test_get_temp_rh_data_daily_multiple_params(
         db.add(d)
 
     await db.commit()
-    await TempRHDataDaily.refresh(db=db)
+    await TempRHDataDaily.refresh()
     await db.commit()
 
     resp = await app.get(
