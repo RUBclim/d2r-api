@@ -5,6 +5,7 @@ from typing import cast
 
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from psycopg.errors import DuplicateTable
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -103,6 +104,12 @@ def create_app() -> FastAPI:
     app.include_router(router=general.router)
     # compress (gzip) all responses larger than 1.5 kb
     app.add_middleware(GZipMiddleware, minimum_size=1500)
+    # Allow cross-origin requests for development purposes from localhost and
+    # allow data2resilience.de and its subdomains
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r'https?://(.*\.)?(localhost(:\d{4})?|data2resilience\.de)',
+    )
     return app
 
 
