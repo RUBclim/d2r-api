@@ -634,3 +634,22 @@ class Trends(BaseModel):
             ],
         ],
     )
+
+
+class NetworkValue(Parameters, ParametersAgg):
+    """Values from all stations in the entire network"""
+    measured_at: datetime = Field(
+        examples=[datetime(2024, 8, 28, 18, 0, 0, 0)],
+        description='The exact time the value was aggregated to in **UTC**',
+    )
+    name: str = Field(
+        examples=['DEC005476'],
+        description='The unique identifier of the station',
+    )
+    station_type: StationType = Field(
+        examples=[StationType.biomet],
+        description=(
+            'The type of the station. Depending on the station type, a different set '
+            'of parameters is available.'
+        ),
+    )

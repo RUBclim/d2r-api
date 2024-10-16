@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from datetime import timedelta
 from datetime import timezone
 
 import freezegun
@@ -8,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import BiometData
+from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import HeatStressCategories
 from app.models import LatestData
@@ -1711,3 +1713,264 @@ async def test_robots_txt(app: AsyncClient) -> None:
 User-agent: *
 Disallow: /
 '''
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_network_values_hourly(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create some temp_rh stations
+    temp_rh_stations = []
+    for i in range(2):
+        station = Station(
+            name=f'DEC-temprh-{i}',
+            device_id=27,
+            long_name=f'DEC-temprh-{i}',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+        )
+        db.add(station)
+        temp_rh_stations.append(station)
+    await db.commit()
+
+    start_date = datetime(2024, 1, 1, 11, 55, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    for biomet_station, temp_rh_station in zip(stations, temp_rh_stations, strict=True):
+        for value in range(14):
+            # insert some values for biomet
+            biomet_data = BiometData(
+                measured_at=start_date + (step * value),
+                name=biomet_station.name,
+                air_temperature=value,
+                wind_speed=value / 2,
+            )
+            db.add(biomet_data)
+            # insert some values for temprh
+            temp_rh_data = TempRHData(
+                measured_at=start_date + (step * value),
+                name=temp_rh_station.name,
+                air_temperature=value,
+            )
+            db.add(temp_rh_data)
+
+    await db.commit()
+    await TempRHDataHourly.refresh()
+    await BiometDataHourly.refresh()
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'hourly',
+            'date': datetime(2024, 1, 1, 13),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 6.5,
+            'measured_at': '2024-01-01T13:00:00',
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 3.25,
+        },
+        {
+            'air_temperature': 6.5,
+            'measured_at': '2024-01-01T13:00:00',
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'wind_speed': 3.25,
+        },
+        {
+            'air_temperature': 6.5,
+            'measured_at': '2024-01-01T13:00:00',
+            'name': 'DEC-temprh-0',
+            'station_type': 'temprh',
+            # temprh supports no windspeed
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': 6.5,
+            'measured_at': '2024-01-01T13:00:00',
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_network_values_daily(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create some temp_rh stations
+    temp_rh_stations = []
+    for i in range(2):
+        station = Station(
+            name=f'DEC-temprh-{i}',
+            device_id=27,
+            long_name=f'DEC-temprh-{i}',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+        )
+        db.add(station)
+        temp_rh_stations.append(station)
+    await db.commit()
+
+    start_date = datetime(2024, 1, 1, 22, 0, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    for biomet_station, temp_rh_station in zip(stations, temp_rh_stations, strict=True):
+        # compile one day and two hours of values
+        for value in range((12 * 24) + (12 * 2)):
+            # insert some values for biomet
+            biomet_data = BiometData(
+                measured_at=start_date + (step * value),
+                name=biomet_station.name,
+                air_temperature=value,
+                wind_speed=value / 2,
+            )
+            db.add(biomet_data)
+            # insert some values for temprh
+            temp_rh_data = TempRHData(
+                measured_at=start_date + (step * value),
+                name=temp_rh_station.name,
+                air_temperature=value,
+            )
+            db.add(temp_rh_data)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+    await BiometDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'daily',
+            'date': datetime(2024, 1, 2, 0, 0),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 155.5,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 77.75,
+        },
+        {
+            'air_temperature': 155.5,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'wind_speed': 77.75,
+        },
+        {
+            'air_temperature': 155.5,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC-temprh-0',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': 155.5,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_network_values_daily_temprh_supports_no_param(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create some temp_rh stations
+    temp_rh_stations = []
+    for i in range(2):
+        station = Station(
+            name=f'DEC-temprh-{i}',
+            device_id=27,
+            long_name=f'DEC-temprh-{i}',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+        )
+        db.add(station)
+        temp_rh_stations.append(station)
+    await db.commit()
+
+    start_date = datetime(2024, 1, 1, 22, 0, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    for biomet_station, temp_rh_station in zip(stations, temp_rh_stations, strict=True):
+        # compile one day and two hours of values
+        for value in range((12 * 24) + (12 * 2)):
+            # insert some values for biomet
+            biomet_data = BiometData(
+                measured_at=start_date + (step * value),
+                name=biomet_station.name,
+                utci=value * 2,
+                wind_speed=value / 2,
+            )
+            db.add(biomet_data)
+            # insert some values for temprh (event though we don't request them)
+            temp_rh_data = TempRHData(
+                measured_at=start_date + (step * value),
+                name=temp_rh_station.name,
+            )
+            db.add(temp_rh_data)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+    await BiometDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['utci', 'wind_speed'],
+            'scale': 'daily',
+            'date': datetime(2024, 1, 2, 0, 0),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'utci': 311,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 77.75,
+        },
+        {
+            'utci': 311,
+            'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'wind_speed': 77.75,
+        },
+        # the other two stations are omitted
+    ]
