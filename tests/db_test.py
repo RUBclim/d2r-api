@@ -69,14 +69,22 @@ async def test_hourly_view_data_is_right_labelled(
         (BiometData, BiometDataDaily),
     ),
 )
+@pytest.mark.parametrize(
+    'month',
+    (
+        pytest.param(1, id='winter DST'),
+        pytest.param(6, id='summer DSG'),
+    ),
+)
 async def test_daily_view_threshold_and_timezone(
         data_table: type[TempRHData | BiometData],
         view: type[TempRHDataDaily | BiometDataDaily],
         db: AsyncSession,
         stations: list[Station],
+        month: int,
 ) -> None:
     station, = stations
-    start_date = datetime(2024, 1, 1, 22, 0, tzinfo=timezone.utc)
+    start_date = datetime(2024, month, 1, 22, 0, tzinfo=timezone.utc)
     step = timedelta(minutes=5)
     # compile one day and two hours of values
     for value in range((12 * 24) + (12 * 2)):
@@ -99,9 +107,9 @@ async def test_daily_view_threshold_and_timezone(
     # we need to make sure that the daily mean is calculated at UTC+1
     assert result == [
         # threshold not reached
-        (date(2024, 1, 1), None),
+        (date(2024, month, 1), None),
         # UTC+1 timezone is used
-        (date(2024, 1, 2), Decimal('155.5')),
+        (date(2024, month, 2), Decimal('155.5')),
         # threshold not reached
-        (date(2024, 1, 3), None),
+        (date(2024, month, 3), None),
     ]
