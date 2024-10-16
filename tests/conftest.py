@@ -111,7 +111,8 @@ async def stations(
         request: SubRequest,
         clean_db: None,
 ) -> AsyncGenerator[list[Station]]:
-    stations = _create_stations(n=request.param)
+    n = request.param if hasattr(request, 'param') else 1
+    stations = _create_stations(n)
     for station in stations:
         db.add(station)
     await db.commit()
