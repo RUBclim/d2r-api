@@ -638,12 +638,12 @@ async def get_data(
 
 
 @router.get(
-    '/network-values',
+    '/network-snapshot',
     response_model=Response[list[NetworkValue]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
-async def get_network_values(
+async def get_network_snapshot(
         param: list[PublicParamsAggregates] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
@@ -667,7 +667,7 @@ async def get_network_values(
         ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
-    """API endpoint for getting network-wide data for one point in time.
+    """API endpoint for retrieving data from all network stations at a specific time.
 
     You may specify multiple params. The availability of the param depends on the
     `StationType`. Stations of type `StationType.biomet` support **all**

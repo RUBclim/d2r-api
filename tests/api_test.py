@@ -1765,7 +1765,7 @@ async def test_get_network_values_hourly(
     await TempRHDataHourly.refresh()
     await BiometDataHourly.refresh()
     resp = await app.get(
-        '/v1/network-values',
+        '/v1/network-snapshot',
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'hourly',
@@ -1858,7 +1858,7 @@ async def test_get_network_values_daily(
     await BiometDataDaily.refresh()
 
     resp = await app.get(
-        '/v1/network-values',
+        '/v1/network-snapshot',
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'daily',
@@ -1949,7 +1949,7 @@ async def test_get_network_values_daily_temprh_supports_no_param(
     await BiometDataDaily.refresh()
 
     resp = await app.get(
-        '/v1/network-values',
+        '/v1/network-snapshot',
         params={
             'param': ['utci', 'wind_speed'],
             'scale': 'daily',
