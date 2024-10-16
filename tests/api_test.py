@@ -1716,6 +1716,13 @@ Disallow: /
 
 
 @pytest.mark.anyio
+async def test_index_redirects_to_docs(app: AsyncClient) -> None:
+    resp = await app.get('/')
+    assert resp.status_code == 301
+    assert resp.headers['location'] == '/docs'
+
+
+@pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
 @pytest.mark.parametrize('stations', [2], indirect=True)
 async def test_get_network_values_hourly(
