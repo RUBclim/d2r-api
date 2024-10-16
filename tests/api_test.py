@@ -1379,7 +1379,7 @@ async def test_get_data_start_greater_end_date(app: AsyncClient) -> None:
         },
     )
     assert resp.status_code == 422
-    assert resp.json() == {'detail': 'start_date must not be > end_date'}
+    assert resp.json() == {'detail': 'start_date must not be greater than end_date'}
 
 
 @pytest.mark.anyio
