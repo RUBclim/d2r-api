@@ -204,7 +204,7 @@ async def _download_data(
 @async_task(
     app=celery_app,
     name='download_temp_rh_data',
-    autoretry_for=(HTTPError,),
+    autoretry_for=(HTTPError, TimeoutError),
     max_retries=3,
     default_retry_delay=20,
 )
@@ -244,7 +244,7 @@ async def download_temp_rh_data(name: str) -> None:
 @async_task(
     app=celery_app,
     name='download-biomet-data',
-    autoretry_for=(HTTPError,),
+    autoretry_for=(HTTPError, TimeoutError),
     max_retries=3,
     default_retry_delay=20,
 )
