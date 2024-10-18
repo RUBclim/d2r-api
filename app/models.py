@@ -9,6 +9,7 @@ from psycopg import sql
 from sqlalchemy import BigInteger
 from sqlalchemy import Connection
 from sqlalchemy import DateTime
+from sqlalchemy import desc
 from sqlalchemy import event
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
@@ -248,12 +249,28 @@ class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
 ):
     __tablename__ = 'biomet_data'
+    __table_args__ = (
+        Index(
+            'ix_biomet_data_name_measured_at_desc',
+            'name',
+            desc('measured_at'),
+        ),
+    )
+
     # TODO: QC fields?
     station: Mapped[Station] = relationship(back_populates='biomet_data', lazy=True)
 
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
     __tablename__ = 'temp_rh_data'
+    __table_args__ = (
+        Index(
+            'ix_temp_rh_data_name_measured_at_desc',
+            'name',
+            desc('measured_at'),
+        ),
+    )
+
     air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
     # TODO: QC fields?
