@@ -1,0 +1,43 @@
+name: update-requirements
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  dependency-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install dependencies
+        run: python3 -m pip install uv pre-commit
+
+      - name: pre-commit autoupdate
+        run: pre-commit autoupdate
+
+      - name: upgrade base requirements
+        run: uv pip compile --upgrade --no-annotate requirements.in -o requirements.txt
+        env:
+          GH_TOKEN: ${{ secrets.GH_ELEMENT_API_TOKEN }}
+
+      - name: upgrade base dev-requirements
+        run: uv pip compile --upgrade --no-annotate requirements-dev.in -o requirements-dev.txt
+
+      - name: create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: update requirements
+          committer: Jonas Kittner [automated] <jonas.kittner@rub.de>
+          author: Jonas Kittner [automated] <jonas.kittner@rub.de>
+          title: update dependencies
+          body: |
+            - pre-commit autoupdate
+            - base requirements upgrade
+          branch: update-requirements

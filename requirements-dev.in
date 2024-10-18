@@ -3,8 +3,8 @@ covdefaults
 coverage
 freezegun
 httpx
-pip-tools
 pytest
 pytest-randomly
 sphinx
 trio
+uv
