@@ -50,6 +50,24 @@ services:
     volumes:
       - ./app:/usr/src/app/app:ro
 
+  terracotta-db:
+    env_file:
+      - .env.dev
+    ports:
+      - "5433:5432"
+
+  terracotta-server:
+    env_file:
+      - .env.dev
+    command: [
+      /usr/src/app/venv/bin/gunicorn,
+      "--bind", "0.0.0.0:5000",
+      "--workers", "1",
+      "--log-level", "debug",
+      "app.tc_app:app",
+    ]
+    ports:
+      - "5001:5000"
 
   nginx:
     ports:
