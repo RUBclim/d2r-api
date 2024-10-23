@@ -579,10 +579,10 @@ async def calculate_temp_rh(name: str) -> None:
         # also save the original values w/o calibration
         data['air_temperature_raw'] = data['air_temperature']
         data['relative_humidity_raw'] = data['relative_humidity']
-        # now add the offset for the calibration
-        data['air_temperature'] = data['air_temperature_raw'] + \
+        # now subtract the offset for the calibration
+        data['air_temperature'] = data['air_temperature_raw'] - \
             float(station.temp_calib_offset)
-        data['relative_humidity'] = data['relative_humidity_raw'] + \
+        data['relative_humidity'] = data['relative_humidity_raw'] - \
             float(station.relhum_calib_offset)
         # if we reach a relhum > 100 after calibration, simply set it to 100
         data.loc[data['relative_humidity'] > 100, 'relative_humidity'] = 100
