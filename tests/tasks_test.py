@@ -446,8 +446,10 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        # offset 1 means the station is 1 K too warm compared to the reference hence
+        # this has to be subtracted
         temp_calib_offset=1,
-        relhum_calib_offset=2,
+        relhum_calib_offset=-2,
     )
     db.add(station)
     # add some data where the calibration pushes the relative humidity > 100
@@ -511,7 +513,7 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     assert float(d.air_temperature_raw) == pytest.approx(12.47, abs=1e-2)
     assert float(d.relative_humidity_raw) == pytest.approx(85.62, abs=1e-2)
     # make sure the calibration offset is applied
-    assert float(d.air_temperature) == pytest.approx(13.47, abs=1e-2)
+    assert float(d.air_temperature) == pytest.approx(11.47, abs=1e-2)
     assert float(d.relative_humidity) == pytest.approx(87.62, abs=1e-2)
 
     # other simply passthrough values
@@ -519,10 +521,10 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     assert float(d.protocol_version) == 2
 
     # some applied calculations must be correct
-    assert float(d.dew_point) == pytest.approx(11.4, abs=1e-2)
-    assert float(d.absolute_humidity) == pytest.approx(10.21, abs=1e-2)
-    assert float(d.heat_index) == pytest.approx(22.2, abs=1e-2)
-    assert float(d.wet_bulb_temperature) == pytest.approx(12.1, abs=1e-2)
+    assert float(d.dew_point) == pytest.approx(9.5, abs=1e-2)
+    assert float(d.absolute_humidity) == pytest.approx(9.01, abs=1e-2)
+    assert float(d.heat_index) == pytest.approx(25.8, abs=1e-2)
+    assert float(d.wet_bulb_temperature) == pytest.approx(10.1, abs=1e-2)
 
     # the calibration would have pushed it > 100, make sure we manually set it back
     assert data[-1].relative_humidity == 100

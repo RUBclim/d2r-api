@@ -316,7 +316,7 @@ async def get_trends(
             (func.extract('hour', BiometDataHourly.measured_at) == hour),
         ).order_by(BiometDataHourly.name, column_biomet)
         # if column_temp_rh is None, the entire station type is not supported, hence we
-        # can start with a default of an empty list and change it if needed.
+        # can start with a default of an empty set and change it if needed.
         supported_temp_rh_ids = set()
         if column_temp_rh is not None:
             temp_rh_id_query = select(TempRHDataHourly.name).distinct(
@@ -348,7 +348,7 @@ async def get_trends(
         supported_ids = sorted(supported_biomet_ids | supported_temp_rh_ids)
         data = await db.execute(query)
     else:
-        # no the only other option are districts
+        # now the only other option are districts
         # get the supported district names
         biomet_districts_query = select(Station.district).distinct(
             Station.district,
