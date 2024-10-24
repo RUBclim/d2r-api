@@ -3,6 +3,7 @@ covdefaults
 coverage
 freezegun
 httpx
+locust
 pytest
 pytest-randomly
 sphinx
