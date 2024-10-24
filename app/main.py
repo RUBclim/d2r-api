@@ -122,7 +122,7 @@ def create_app() -> FastAPI:
         # https://data-2-resilience-fooo-vogelinos-projects.vercel.app
         # https://data-2-resilience.vercel.app
         allow_origin_regex=(
-            r'https?://([\w\-_]+\.)?(localhost|data2resilience|data\-2\-resilience(\-[\w\-_]+\-vogelinos\-projects)?\.vercel)(\.(de|app))?(:\d{2,4})?',  # noqa: E501
+            r'https?://([\w\-_]+\.)?(localhost|data2resilience|data\-2\-resilience(\-[\w\-_]+\-vogelinos\-projects)?\.vercel)(\.(de|app))?(:\d{2,4})?'  # noqa: E501
         ),
     )
     return app
