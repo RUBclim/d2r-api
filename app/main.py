@@ -108,7 +108,22 @@ def create_app() -> FastAPI:
     # allow data2resilience.de and its subdomains
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r'https?://(.*\.)?(localhost(:\d{4})?|data2resilience\.de)',
+        # this should match all sorts of things needed for development and production
+        # https://localhost:5000
+        # http://localhost:80
+        # http://localhost:443
+        # http://localhost
+        # https://dashboard.data2resilience.de
+        # https://dashboard-foo.data2resilience.de
+        # https://dashboard_foo-bar-123.data2resilience.de
+        # https://dashboard.data2resilience.app
+        # https://dashboard.data2resilience.app:8080
+        # https://data-2-resilience-fooo-vogelinos-projects.vercel.app
+        # https://data-2-resilience-fooo-vogelinos-projects.vercel.app
+        # https://data-2-resilience.vercel.app
+        allow_origin_regex=(
+            r'https?://([\w\-_]+\.)?(localhost|data2resilience|data\-2\-resilience(\-[\w\-_]+\-vogelinos\-projects)?\.vercel)(\.(de|app))?(:\d{2,4})?',  # noqa: E501
+        ),
     )
     return app
 
