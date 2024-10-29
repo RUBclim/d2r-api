@@ -5,8 +5,15 @@ fastapi
 git+https://${GH_TOKEN}@github.com/RUBclim/element-api
 gunicorn
 psycopg[binary] > 3.2.0
+psycopg2-binary
 pythermalcomfort
+# something is fucked in one of the depencies which makes us getting a very old version
+# so we are requesting them to be newer, but are not directly depending on them
+llvmlite>=0.43.0
+numba>=0.60.0
 sentry_sdk[fastapi]
 sqlmodel
+# we want the latest terracotta version, so we can use numpy > 2.0
+git+https://github.com/DHI/terracotta@657b64f4283518fdc21d1ba13b314bfa03ea866c
 uvicorn
 uvicorn-worker

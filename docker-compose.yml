@@ -53,6 +53,9 @@ services:
     # TODO: maybe build a separate image
     image: d2r-api
     user: nobody
+    # we need access to the host directory for the rasters
+    volumes:
+      - ./${DATA_DIRECTORY}:/usr/src/app/rasters:ro
     healthcheck:
       test: ["CMD-SHELL", "/usr/src/app/venv/bin/celery -A app inspect ping || exit 1"]
       interval: 30s
@@ -69,6 +72,40 @@ services:
     depends_on:
       - redis
 
+  terracotta-db:
+    container_name: terracotta-db
+    image: postgres:16-bookworm
+    volumes:
+      # TODO: add properly tuned postgres conf
+      - pgdata-terracotta:/var/lib/postgresql/data
+    environment:
+      # we need to set this, so ordering is case insensitive
+      POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname=${TC_DATABASE_NAME} --username=${POSTGRES_USER} || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+  terracotta-server:
+    image: d2r-api
+    user: nobody
+    environment:
+      TC_DRIVER_PATH: ${POSTGRES_USER}:${POSTGRES_PASSWORD}@${TC_DATABASE_HOST}/${TC_DATABASE_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider http://localhost:5000/keys || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    volumes:
+      # the folder containing the rasters in read-only mode
+      - ./${DATA_DIRECTORY}:/usr/src/app/data/rasters:ro
+    depends_on:
+      - terracotta-db
+
   nginx:
     container_name: nginx
     build:
@@ -82,6 +119,8 @@ services:
       start_period: 60s
     depends_on:
       - app
+      - terracotta-server
 
 volumes:
   pgdata:
+  pgdata-terracotta:

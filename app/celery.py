@@ -43,7 +43,7 @@ celery_app = Celery(
     task_soft_time_limit=os.environ['QUEUE_SOFT_TIME_LIMIT'],
     broker_pool_limit=0,
     broker_connection_retry_on_startup=True,
-    include=['app.tasks'],
+    include=['app.tasks', 'app.tc_ingester'],
 )
 celery_app.conf.timezone = 'UTC'
 celery_app.set_default()
