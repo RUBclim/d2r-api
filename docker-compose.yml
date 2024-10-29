@@ -55,7 +55,7 @@ services:
     user: nobody
     # we need access to the host directory for the rasters
     volumes:
-      - ./${DATA_DIRECTORY}:/usr/src/app/rasters:ro
+      - ${DATA_DIRECTORY}:/usr/src/app/rasters:ro
     healthcheck:
       test: ["CMD-SHELL", "/usr/src/app/venv/bin/celery -A app inspect ping || exit 1"]
       interval: 30s
@@ -102,7 +102,7 @@ services:
       start_period: 30s
     volumes:
       # the folder containing the rasters in read-only mode
-      - ./${DATA_DIRECTORY}:/usr/src/app/data/rasters:ro
+      - ${DATA_DIRECTORY}:/usr/src/app/data/rasters:ro
     depends_on:
       - terracotta-db
 
