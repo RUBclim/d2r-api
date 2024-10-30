@@ -1,3 +1,5 @@
+*.egg-info
+*.tif
 .coverage
 .env.prod
 .mypy_cache

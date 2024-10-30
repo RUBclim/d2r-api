@@ -23,8 +23,6 @@ jobs:
 
       - name: upgrade base requirements
         run: uv pip compile --upgrade --no-annotate requirements.in -o requirements.txt
-        env:
-          GH_TOKEN: ${{ secrets.GH_ELEMENT_API_TOKEN }}
 
       - name: upgrade base dev-requirements
         run: uv pip compile --upgrade --no-annotate requirements-dev.in -o requirements-dev.txt

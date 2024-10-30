@@ -26,5 +26,3 @@ jobs:
       run: pip install --upgrade tox
     - name: run tests in tox
       run: tox -e py
-      env:
-        GH_TOKEN: ${{ secrets.GH_ELEMENT_API_TOKEN }}

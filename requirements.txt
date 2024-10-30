@@ -20,7 +20,7 @@ click-plugins==1.1.1
 click-repl==0.3.0
 click-spinner==0.1.10
 cligj==0.7.2
-element-api @ git+https://${GH_TOKEN}@github.com/RUBclim/element-api@67fbcdaa1b07d44d1bafe6890b540a9ed59deaa5
+element-api @ git+https://github.com/RUBclim/element-api@69425fde33017b5b79316b8e2782492a696743ae
 fastapi==0.115.4
 flask==3.0.3
 flask-cors==5.0.0
