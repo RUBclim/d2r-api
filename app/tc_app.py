@@ -15,7 +15,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN'),
     integrations=[FlaskIntegration(), SqlalchemyIntegration()],
-    traces_sample_rate=float(os.environ.get('SENTRY_SAMPLE_RATE', 0.0)),
+    traces_sample_rate=float(os.environ.get('TC_SENTRY_SAMPLE_RATE', 0.0)),
 )
 
 settings = get_settings()
