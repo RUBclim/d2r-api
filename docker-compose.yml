@@ -24,8 +24,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        GH_PAT: ${GH_PAT}
     image: d2r-api
     user: nobody
     healthcheck:

@@ -3,6 +3,10 @@ services:
     restart: always
     env_file:
       - .env.prod
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
 
   app:
     restart: always
@@ -92,7 +96,7 @@ services:
     command: [
       /usr/src/app/venv/bin/gunicorn,
       "--bind", "0.0.0.0:5000",
-      "--workers", "2",
+      "--workers", "3",
       "--log-level", "info",
       "app.tc_app:app",
     ]
@@ -102,7 +106,7 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 750M
+          memory: 1536M
 
   nginx:
     restart: always

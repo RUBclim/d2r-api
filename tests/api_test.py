@@ -19,7 +19,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 
-VERSION_PATTERN = re.compile(r'^v(?:1\-git\+[a-f0-9]{7}|1\.\d\.\d)$')
+VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+\.d[0-9]{8}$')
 
 
 @pytest.mark.parametrize(

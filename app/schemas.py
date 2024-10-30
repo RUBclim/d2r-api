@@ -1,8 +1,8 @@
-import subprocess
 from datetime import datetime
 from datetime import timezone
 from enum import StrEnum
 from functools import lru_cache
+from importlib.metadata import version
 from typing import Generic
 from typing import Literal
 from typing import TypeVar
@@ -205,12 +205,8 @@ T = TypeVar('T')
 
 
 @lru_cache(maxsize=1)
-def get_current_version(prefix: str = 'v1') -> str:
-    # TODO: we should first try getting the version from pyproject.toml check if this
-    # corresponds to a tag or sha, if not, return the git sha, otherwise return the
-    # vx.y.z format.
-    version = subprocess.check_output(('git', 'rev-parse', '--short', 'HEAD'))
-    return f'{prefix}-git+{version.decode().strip()}'
+def get_current_version() -> str:
+    return version('d2r-api')
 
 
 def timestamp() -> int:
@@ -224,10 +220,11 @@ class Response(BaseModel, Generic[T]):
         description='array or object containing the requested data',
     )
     version: str = Field(
-        default='v1.0.0',
+        default_factory=get_current_version,
+        examples=['0.1.dev101+gbe39ace.d20241030'],
         description=(
-            'The current API version in the format of `vx.y.z` or during development '
-            'v1-git+<7-digit commit sha>.'
+            'The current API version in the format of '
+            '`{next_version}.dev{distance}+{scm letter}{revision hash}.dYYYYMMDD`'
         ),
     )
     timestamp: int = Field(
