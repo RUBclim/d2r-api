@@ -3,6 +3,22 @@
 
 # d2r-api
 
+## installation
+
+This is packaged and can be installed via:
+
+via https
+
+```bash
+pip install git+https://github.com/RUBclim/d2r-api
+```
+
+via ssh
+
+```bash
+pip install git+ssh://git@github.com/RUBclim/d2r-api
+```
+
 ## development
 
 ### setup the development environment
