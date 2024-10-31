@@ -8,6 +8,9 @@ from urllib.error import HTTPError
 
 import numpy as np
 import pandas as pd
+from celery import chain
+from celery import chord
+from celery import group
 from celery.schedules import crontab
 from element import ElementApi
 from numpy import floating
@@ -201,6 +204,20 @@ async def _download_data(
     return station, data
 
 
+@async_task(app=celery_app, name='refresh-all-views')
+async def refresh_all_views(*args: Any, **kwargs: Any) -> None:
+    """Refresh all views in the database. This is a task that is called after
+    all data was inserted. We need to accept any arguments, as the chord task
+    will pass the results of the individual tasks to this task. We don't care
+    about the results, but need to accept them.
+    """
+    await LatestData.refresh()
+    await BiometDataHourly.refresh()
+    await TempRHDataHourly.refresh()
+    await BiometDataDaily.refresh()
+    await TempRHDataDaily.refresh()
+
+
 @async_task(
     app=celery_app,
     name='download_temp_rh_data',
@@ -208,7 +225,7 @@ async def _download_data(
     max_retries=3,
     default_retry_delay=20,
 )
-async def download_temp_rh_data(name: str) -> None:
+async def download_temp_rh_data(name: str) -> str | None:
     """Download data from the a temp-rh station via the Element-Api. This task also
     enqueues another task for calculating derived parameters for this station.
 
@@ -217,7 +234,7 @@ async def download_temp_rh_data(name: str) -> None:
     async with sessionmanager.session() as sess:
         _, data = await _download_data(name=name, target_table=SHT35DataRaw, con=sess)
         if data.empty:
-            return
+            return None
 
         data = data.copy()
         data['name'] = name
@@ -237,8 +254,7 @@ async def download_temp_rh_data(name: str) -> None:
             ),
         )
         await sess.commit()
-        # now that we have data, calculate the derived parameters as a new task
-        calculate_temp_rh.delay(name)
+        return name
 
 
 @async_task(
@@ -248,7 +264,7 @@ async def download_temp_rh_data(name: str) -> None:
     max_retries=3,
     default_retry_delay=20,
 )
-async def download_biomet_data(name: str) -> None:
+async def download_biomet_data(name: str) -> str | None:
     """Download data from the a biomet station via the Element-Api. This task also
     enqueues another task for calculating derived parameters for this station.
 
@@ -293,7 +309,7 @@ async def download_biomet_data(name: str) -> None:
             con=sess,
         )
         if blg_data.empty:
-            return
+            return None
 
         blg_data = blg_data.copy()
         blg_data['name'] = station.blg_name
@@ -313,8 +329,8 @@ async def download_biomet_data(name: str) -> None:
             ),
         )
         await sess.commit()
-        # now that we have data, calculate the derived biomet parameters as a new task
-        calculate_biomet.delay(station.name)
+        # return the station name for the next task to be picked up
+        return station.name
 
 
 @async_task(app=celery_app, name='download-data')
@@ -324,15 +340,35 @@ async def _sync_data_wrapper() -> None:
     """
     async with sessionmanager.session() as sess:
         stations = (await sess.execute(select(Station))).scalars().all()
+        tasks = []
         for station in stations:
             if station.station_type == StationType.biomet:
-                download_biomet_data.delay(station.name)
+                tasks.append(
+                    chain(
+                        download_biomet_data.s(station.name),
+                        # we don't pass an arg here manually, as the task will return
+                        # the name of the station, which will be passed on
+                        calculate_biomet.s(),
+                    ),
+                )
             else:
-                download_temp_rh_data.delay(station.name)
+                tasks.append(
+                    chain(
+                        download_temp_rh_data.s(station.name),
+                        calculate_temp_rh.s(),
+                    ),
+                )
+        # we now have all tasks prepared and can create a group and run them in parallel
+        # the result ([None, ...]) will be passed to the refresh_all_views task, which
+        # makes it wait for them. This way we can ensure that the views are only
+        # refreshed once all data was inserted.
+        task_group = group(tasks)
+        task_chord = chord(task_group)
+        task_chord(refresh_all_views.s())
 
 
 @async_task(app=celery_app, name='calculate-biomet')
-async def calculate_biomet(name: str) -> None:
+async def calculate_biomet(name: str | None) -> None:
     """Calculate derived parameters for a biomet station and insert the result into the
     respective database table.
 
@@ -353,6 +389,9 @@ async def calculate_biomet(name: str) -> None:
     - ``pet``
     - ``pet_category``
     """
+    if name is None:
+        return
+
     async with sessionmanager.session() as sess:
         # 1. get information on the current station
         station = (
@@ -526,14 +565,11 @@ async def calculate_biomet(name: str) -> None:
                 },
             ),
         )
-        await LatestData.refresh()
-        await BiometDataHourly.refresh()
-        await BiometDataDaily.refresh()
         await sess.commit()
 
 
 @async_task(app=celery_app, name='calculate-temp_rh')
-async def calculate_temp_rh(name: str) -> None:
+async def calculate_temp_rh(name: str | None) -> None:
     """Calculate derived parameters for a temp-rh station and insert the result into the
     respective database table.
 
@@ -544,6 +580,9 @@ async def calculate_temp_rh(name: str) -> None:
     - ``wet_bulb_temperature``
     - ``heat_index``
     """
+    if name is None:
+        return
+
     async with sessionmanager.session() as sess:
         station = (
             await sess.execute(select(Station).where(Station.name == name))
@@ -615,7 +654,4 @@ async def calculate_temp_rh(name: str) -> None:
                 method='multi',
             ),
         )
-        await LatestData.refresh()
-        await TempRHDataHourly.refresh()
-        await TempRHDataDaily.refresh()
         await sess.commit()

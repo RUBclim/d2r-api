@@ -40,10 +40,12 @@ def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task:
 celery_app = Celery(
     'd2r-api',
     broker=os.environ['CELERY_BROKER_URL'],
+    backend=os.environ['CELERY_BROKER_URL'],
     task_soft_time_limit=os.environ['QUEUE_SOFT_TIME_LIMIT'],
     broker_pool_limit=0,
     broker_connection_retry_on_startup=True,
     include=['app.tasks', 'app.tc_ingester'],
+    result_expires=600,  # expire after 10 minutes
 )
 celery_app.conf.timezone = 'UTC'
 celery_app.set_default()

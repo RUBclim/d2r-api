@@ -1,3 +1,5 @@
+from collections.abc import Awaitable
+from collections.abc import Callable
 from datetime import datetime
 from datetime import timezone
 from unittest import mock
@@ -97,7 +99,6 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
 
     with (
         mock.patch.object(ElementApi, 'get_readings', return_value=mock_data) as rd,
-        mock.patch.object(app.tasks, 'calculate_temp_rh') as calc_temp_rh,
     ):
         await download_temp_rh_data('DEC0054A4')
         rd.assert_called_once()
@@ -108,7 +109,6 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
             start=None,
             as_dataframe=True,
         )
-        calc_temp_rh.delay.assert_called_once_with('DEC0054A4')
 
     # check if we have data in the database
     data_in_db = (
@@ -153,7 +153,6 @@ async def test_download_temp_rh(db: AsyncSession) -> None:
     )
     with (
         mock.patch.object(ElementApi, 'get_readings', return_value=mock_data) as rd,
-        mock.patch.object(app.tasks, 'calculate_temp_rh') as calc_temp_rh,
     ):
         await download_temp_rh_data('DEC0054A4')
         rd.assert_called_once()
@@ -164,7 +163,6 @@ async def test_download_temp_rh(db: AsyncSession) -> None:
             start=datetime(2024, 9, 9, 0, 30, 0, 1, tzinfo=timezone.utc),
             as_dataframe=True,
         )
-        calc_temp_rh.delay.assert_called_once_with('DEC0054A4')
     # check if we have data in the database
     data_in_db = (
         await db.execute(
@@ -275,7 +273,6 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
             'get_readings',
             side_effect=[mock_data_biomet, mock_data_blg],
         ) as rd,
-        mock.patch.object(app.tasks, 'calculate_biomet') as calc_biomet,
     ):
         await download_biomet_data('DEC00546D')
         assert rd.call_count == 2
@@ -315,7 +312,6 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
         datetime(2024, 9, 9, 0, 51, 2, 980163, tzinfo=timezone.utc),
         datetime(2024, 9, 9, 0, 56, 2, 416326, tzinfo=timezone.utc),
     ]
-    calc_biomet.delay.assert_called_once_with('DEC00546D')
 
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
@@ -366,7 +362,6 @@ async def test_download_biomet_data(db: AsyncSession) -> None:
             'get_readings',
             side_effect=[mock_data_biomet, mock_data_blg],
         ) as rd,
-        mock.patch.object(app.tasks, 'calculate_biomet') as calc_biomet,
     ):
         await download_biomet_data('DEC00546D')
         assert rd.call_count == 2
@@ -406,7 +401,6 @@ async def test_download_biomet_data(db: AsyncSession) -> None:
         (datetime(2024, 9, 9, 0, 51, 2, 980163, tzinfo=timezone.utc)),
         (datetime(2024, 9, 9, 0, 56, 2, 416326, tzinfo=timezone.utc)),
     ]
-    calc_biomet.delay.assert_called_once_with('DEC00546D')
 
 
 @pytest.mark.anyio
@@ -854,13 +848,28 @@ async def test_wrapper_for_update(db: AsyncSession) -> None:
     with (
         mock.patch.object(app.tasks, 'download_temp_rh_data') as dl_trh,
         mock.patch.object(app.tasks, 'download_biomet_data') as dl_bio,
+        mock.patch.object(app.tasks, 'refresh_all_views'),
+        mock.patch.object(app.tasks, 'chord') as chord,
+        mock.patch.object(app.tasks, 'chain'),
+        mock.patch.object(app.tasks, 'calculate_temp_rh'),
+        mock.patch.object(app.tasks, 'calculate_biomet'),
     ):
         # the underlying functions are never awaited, which causes a resource warning we
         # ignore here since it's not part of the test. AFAIK there is no way to avoid
         # this.
         await _sync_data_wrapper()
-        dl_trh.delay.assert_called_once_with('DEC0054A4')
-        dl_bio.delay.assert_called_once_with('DEC00546D')
+        dl_trh.s.assert_called_once_with('DEC0054A4')
+        dl_bio.s.assert_called_once_with('DEC00546D')
+        chord.assert_called_once()
+
+
+@pytest.mark.parametrize('c', (calculate_biomet, calculate_temp_rh))
+@pytest.mark.anyio
+async def test_calculation_task_none_passed(
+        c: Callable[[None | str], Awaitable[None | str]],
+) -> None:
+    res = await c(None)
+    assert res is None
 
 
 # TODO: check that views are refreshed!
