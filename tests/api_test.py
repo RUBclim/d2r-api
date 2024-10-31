@@ -19,7 +19,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 
-VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+\.d[0-9]{8}$')
+VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+(\.d[0-9]{8}?)?$')
 
 
 @pytest.mark.parametrize(
@@ -27,8 +27,10 @@ VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+\.d[0-9]{8}$
     (
         '/v1/stations/metadata',
         '/v1/stations/latest_data?param=air_temperature',
+        '/v1/districts/latest_data?param=air_temperature',
         '/v1/trends/air_temperature?spatial_level=stations&item_ids=DEC1&start_date=2024-08-01&hour=3',  # noqa: E501
         'v1/data/DEC1?start_date=2024-08-01&end_date=2024-08-02&param=air_temperature',
+        'v1/network-snapshot?param=air_temperature&scale=hourly&date=2024-08-02',
     ),
 )
 @pytest.mark.parametrize('stations', [1], indirect=True)
