@@ -56,7 +56,7 @@ sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
 trio==0.27.0
 urllib3==2.2.3
-uv==0.4.28
-werkzeug==3.0.6
+uv==0.4.29
+werkzeug==3.1.1
 zope-event==5.0
 zope-interface==7.1.1
