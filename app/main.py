@@ -14,6 +14,7 @@ from sqlalchemy import Table
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 
+from app import ALLOW_ORIGIN_REGEX
 from app.database import angle_avg_funcs
 from app.database import Base
 from app.database import sessionmanager
@@ -122,9 +123,7 @@ def create_app() -> FastAPI:
         # https://data-2-resilience-fooo-vogelinos-projects.vercel.app
         # https://data-2-resilience-fooo-vogelinos-projects.vercel.app
         # https://data-2-resilience.vercel.app
-        allow_origin_regex=(
-            r'https?://([\w\-_]+\.)?(localhost|data2resilience|data\-2\-resilience(\-[\w\-_]+\-vogelinos\-projects)?\.vercel)(\.(de|app))?(:\d{2,4})?'  # noqa: E501
-        ),
+        allow_origin_regex=ALLOW_ORIGIN_REGEX,
     )
     return app
 
