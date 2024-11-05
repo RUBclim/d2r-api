@@ -109,6 +109,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    volumes:
+      # cache directory for the raster tiles
+      - nginx-cache:/var/cache/nginx/tiles
     healthcheck:
       test: ["CMD-SHELL", "service nginx status || exit 1"]
       interval: 30s
@@ -120,5 +123,6 @@ services:
       - terracotta-server
 
 volumes:
+  nginx-cache:
   pgdata:
   pgdata-terracotta:

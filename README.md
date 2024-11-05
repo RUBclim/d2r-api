@@ -96,4 +96,4 @@ pytest tetsts/
 
 ### upgrade requirements
 
-We are using `pip-tools` to manage our requirements
+We are using `uv pip compile` to manage our requirements
