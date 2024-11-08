@@ -12,6 +12,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import Station
+from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
@@ -113,3 +114,72 @@ async def test_daily_view_threshold_and_timezone(
         # threshold not reached
         (date(2024, month, 3), None),
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_full_address_from_station() -> None:
+    station = Station(
+        name='test-station',
+        device_id=1,
+        long_name='test-station-1',
+        latitude=51.4460,
+        longitude=7.2627,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=100,
+        lcz='2',
+        street='Teststraße',
+        number='1a',
+        plz='12345',
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+    )
+    assert station.full_address == 'Teststraße 1a, 12345 Dortmund Innenstadt, Germany'
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_full_address_from_station_district_missing() -> None:
+    station = Station(
+        name='test-station',
+        device_id=1,
+        long_name='test-station-1',
+        latitude=51.4460,
+        longitude=7.2627,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=100,
+        lcz='2',
+        street='Teststraße',
+        number='1a',
+        plz='12345',
+        district='Scharnhorst',
+        city='Dortmund',
+        country='Germany',
+    )
+    assert station.full_address == 'Teststraße 1a, 12345 Dortmund Scharnhorst, Germany'
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_full_address_from_station_number_missing() -> None:
+    station = Station(
+        name='test-station',
+        device_id=1,
+        long_name='test-station-1',
+        latitude=51.4460,
+        longitude=7.2627,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=100,
+        lcz='2',
+        street='Teststraße',
+        number=None,
+        plz='12345',
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+    )
+    assert station.full_address == 'Teststraße, 12345 Dortmund Innenstadt, Germany'

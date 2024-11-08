@@ -399,6 +399,10 @@ async def test_get_districts_latest_data_aggregates_are_correct(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station_with_missing_data)
     data_missing = BiometData(
@@ -472,6 +476,10 @@ async def test_get_trends_stations_biomet_and_temprh(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station)
     await db.commit()
@@ -728,6 +736,10 @@ async def test_get_trends_stations_only_temprh(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station)
     await db.commit()
@@ -895,6 +907,10 @@ async def test_get_trends_stations_does_not_provide_param(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station)
     biomet_station, = stations
@@ -1030,6 +1046,10 @@ async def test_get_trends_districts(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='District 1',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station_1)
     temp_rh_station_2 = Station(
@@ -1042,6 +1062,10 @@ async def test_get_trends_districts(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='District 2',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station_2)
     biomet_station_1 = Station(
@@ -1054,6 +1078,10 @@ async def test_get_trends_districts(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='District 1',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(biomet_station_1)
     biomet_station_2 = Station(
@@ -1066,6 +1094,10 @@ async def test_get_trends_districts(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='District 2',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(biomet_station_2)
     # now create some data for each station
@@ -1276,6 +1308,10 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station_1)
     temp_rh_station_2 = Station(
@@ -1288,6 +1324,10 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station_2)
     await db.commit()
@@ -1500,6 +1540,10 @@ async def test_get_temp_rh_data_multiple_params(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -1566,6 +1610,10 @@ async def test_get_temp_rh_data_daily_multiple_params(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -1620,6 +1668,10 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -1672,6 +1724,10 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
         station_type=StationType.temprh,
         leuchtennummer=120,
         district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -1745,6 +1801,10 @@ async def test_get_network_values_hourly(
             station_type=StationType.temprh,
             leuchtennummer=120,
             district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
         )
         db.add(station)
         temp_rh_stations.append(station)
@@ -1836,6 +1896,10 @@ async def test_get_network_values_daily(
             station_type=StationType.temprh,
             leuchtennummer=120,
             district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
         )
         db.add(station)
         temp_rh_stations.append(station)
@@ -1928,6 +1992,10 @@ async def test_get_network_values_daily_temprh_supports_no_param(
             station_type=StationType.temprh,
             leuchtennummer=120,
             district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
         )
         db.add(station)
         temp_rh_stations.append(station)

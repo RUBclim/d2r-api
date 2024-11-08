@@ -303,6 +303,7 @@ async def download_biomet_data(name: str) -> str | None:
                 ),
             )
         # now download the corresponding blackglobe data
+        assert station.blg_name is not None
         _, blg_data = await _download_data(
             name=station.blg_name,
             target_table=BLGDataRaw,

@@ -99,6 +99,10 @@ def _create_stations(n: int) -> list[Station]:
             leuchtennummer=100,
             district='Innenstadt',
             lcz='2',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
         )
         stations.append(station)
 

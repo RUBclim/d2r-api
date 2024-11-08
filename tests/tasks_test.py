@@ -41,6 +41,10 @@ async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     station_data = SHT35DataRaw(
@@ -87,6 +91,10 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -137,6 +145,10 @@ async def test_download_temp_rh(db: AsyncSession) -> None:
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     # add some data to the database, so we can check when to start
@@ -193,6 +205,10 @@ async def test_download_biomet_data_blg_and_atm_no_new_data(db: AsyncSession) ->
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     station_data = ATM41DataRaw(
@@ -253,6 +269,10 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -330,6 +350,10 @@ async def test_download_biomet_data(db: AsyncSession) -> None:
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     # add some data to the database
@@ -416,6 +440,10 @@ async def test_calculate_temp_rh_no_data_in_db(db: AsyncSession) -> None:
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -427,6 +455,7 @@ async def test_calculate_temp_rh_no_data_in_db(db: AsyncSession) -> None:
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
 async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         db: AsyncSession,
 ) -> None:
@@ -440,6 +469,10 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
         # offset 1 means the station is 1 K too warm compared to the reference hence
         # this has to be subtracted
         temp_calib_offset=1,
@@ -464,6 +497,10 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station_2)
     # some data that should not be touched
@@ -528,6 +565,7 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
 async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         db: AsyncSession,
 ) -> None:
@@ -541,6 +579,10 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
         temp_calib_offset=1,
         relhum_calib_offset=2,
     )
@@ -556,6 +598,10 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station_2)
     data = TempRHData(
@@ -621,6 +667,10 @@ async def test_calculate_biomet_no_data_available(db: AsyncSession) -> None:
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -630,6 +680,7 @@ async def test_calculate_biomet_no_data_available(db: AsyncSession) -> None:
     assert len(data) == 0
 
 
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
 async def test_calculate_biomet_only_atm41_data_available(db: AsyncSession) -> None:
@@ -645,6 +696,10 @@ async def test_calculate_biomet_only_atm41_data_available(db: AsyncSession) -> N
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     await db.commit()
@@ -684,6 +739,10 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
     # add some data
@@ -779,6 +838,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
 async def test_calculate_biomet_blg_exceeds_join_tolerance(db: AsyncSession) -> None:
     station = Station(
         name='DEC00546D',
@@ -792,6 +852,10 @@ async def test_calculate_biomet_blg_exceeds_join_tolerance(db: AsyncSession) -> 
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(station)
 
@@ -826,6 +890,10 @@ async def test_wrapper_for_update(db: AsyncSession) -> None:
         station_type=StationType.temprh,
         leuchtennummer=0,
         district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(temp_rh_station)
     biomet_station = Station(
@@ -840,6 +908,10 @@ async def test_wrapper_for_update(db: AsyncSession) -> None:
         district='44139',
         blg_name='DEC005491',
         blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
     )
     db.add(biomet_station)
 

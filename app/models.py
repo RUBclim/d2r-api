@@ -72,30 +72,135 @@ class Station(Base):
     """Representation of a station"""
     __tablename__ = 'station'
 
+    # IDs
     name: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
     device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
-    latitude: Mapped[float] = mapped_column(nullable=False)
-    longitude: Mapped[float] = mapped_column(nullable=False)
-    altitude: Mapped[float] = mapped_column(nullable=False)
-    station_type: Mapped[StationType] = mapped_column(nullable=False)
     # the biomet stations have two components (ATM41 and BLG)
-    blg_name: Mapped[str] = mapped_column(Text, unique=True, nullable=True)
-    blg_device_id: Mapped[int] = mapped_column(
+    blg_name: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
+    blg_device_id: Mapped[int | None] = mapped_column(
         BigInteger,
         unique=True,
         nullable=True,
     )
-    street: Mapped[str] = mapped_column(Text, nullable=True)
-    number: Mapped[str] = mapped_column(Text, nullable=True)
-    plz: Mapped[int] = mapped_column(nullable=True)
-    leuchtennummer: Mapped[int] = mapped_column(nullable=False)
+    station_type: Mapped[StationType] = mapped_column(nullable=False)
+
+    # geographical position
+    latitude: Mapped[float] = mapped_column(nullable=False)
+    longitude: Mapped[float] = mapped_column(nullable=False)
+    altitude: Mapped[float] = mapped_column(nullable=False)
+
+    # address information
+    street: Mapped[str] = mapped_column(Text, nullable=False)
+    number: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plz: Mapped[int] = mapped_column(nullable=False)
+    city: Mapped[str] = mapped_column(Text, nullable=False)
+    country: Mapped[str] = mapped_column(Text, nullable=False)
     district: Mapped[str] = mapped_column(Text, nullable=False)
-    comment: Mapped[str] = mapped_column(Text, nullable=True)
-    setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    # TODO: add more station metadata
-    lcz: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # siting information
+    lcz: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dominant_land_use: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='e.g. residential, commercial, industrial, ...',
+    )
+    urban_atlas_class_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    urban_atlas_class_nr: Mapped[int | None] = mapped_column(nullable=True)
+    orographic_setting: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='e.g. Flat, Hilly',
+    )
     svf: Mapped[Decimal] = mapped_column(nullable=True)
+    artificial_heat_sources: Mapped[str] = mapped_column(
+        Text,
+        nullable=True,
+        comment='e.g. cars, buildings, ...',
+    )
+    proximity_to_building: Mapped[Decimal | None] = mapped_column(nullable=True)
+    proximity_to_parking: Mapped[Decimal | None] = mapped_column(nullable=True)
+    proximity_to_tree: Mapped[Decimal | None] = mapped_column(nullable=True)
+    surrounding_land_cover_description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='a text describing the surrounding land cover',
+    )
+
+    # mounting information
+    setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    mounting_type: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='the structure the sensor is mounted to e.g. black mast, building, ...',
+    )
+    leuchtennummer: Mapped[int] = mapped_column(nullable=False)
+    mounting_structure_material: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            'The material the structure the sensor is mounted to is made of e.g. '
+            'metal, wood, ...'
+        ),
+    )
+    mounting_structure_height_agl: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        comment='the total height of the mounting structure above ground level',
+    )
+    mounting_structure_diameter: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        comment='the diameter of the mounting structure at the mounting height',
+    )
+    mounting_structure_light_extension_offset: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        comment='when mounted to a lantern post, the overhang of the lantern',
+    )
+    sensor_height_agl: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        comment=(
+            'the mounting height of the main component of the station (ATM41 or SHT35)'
+        ),
+    )
+    sensor_distance_from_mounting_structure: Mapped[Decimal | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            'the distance of the main component of the station (ATM41 or SHT35) '
+            'from the mounting structure'
+        ),
+    )
+    sensor_orientation: Mapped[Decimal | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            'the orientation (-angle) of the arm of the main component of the station '
+            '(ATM41 or SHT35) from the mounting structure'
+        ),
+    )
+    blg_sensor_height_agl: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        comment=(
+            'the mounting height of the black globe sensor of the station'
+        ),
+    )
+    blg_sensor_distance_from_mounting_structure: Mapped[Decimal | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            'the distance of the black globe sensor of the station from the mounting '
+            'structure'
+        ),
+    )
+    blg_sensor_orientation: Mapped[Decimal | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            'the orientation (-angle) of the arm of the black globe sensor of the '
+            'station from the mounting structure'
+        ),
+    )
+
+    # calibration information
     temp_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False, default=0,
         server_default='0',
@@ -105,6 +210,10 @@ class Station(Base):
         default=0,
         server_default='0',
     )
+
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # relationships
     blg_data_raw: Mapped[list[BLGDataRaw]] = relationship(
         back_populates='station',
         lazy=True,
@@ -125,6 +234,19 @@ class Station(Base):
         back_populates='station',
         lazy=True,
     )
+
+    @property
+    def full_address(self) -> str:
+        address = [
+            self.street,
+            f' {self.number}' if self.number else '',
+            ', ',
+            f'{self.plz} ',
+            self.city,
+            f' {self.district}',
+            f', {self.country}',
+        ]
+        return ''.join(address)
 
 
 class _Data(Base):
