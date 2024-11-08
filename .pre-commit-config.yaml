@@ -30,8 +30,8 @@ repos:
     hooks:
     -   id: flake8
         additional_dependencies:
-            -   flake8-typing-imports==1.15.0
-            -   flake8-comprehensions==3.14.0
+            -   flake8-typing-imports==1.16.0
+            -   flake8-comprehensions==3.16.0
             -   flake8-noqa==1.4.0
             -   flake8-timeout==0.3.0
             -   flake8-ban-utcnow==0.2.0
@@ -57,7 +57,7 @@ repos:
     rev: v3.19.0
     hooks:
     -   id: pyupgrade
-        args: [--py311-plus]
+        args: [--py312-plus]
 -   repo: https://github.com/pre-commit/mirrors-prettier
     rev: 'v4.0.0-alpha.8'
     hooks:
@@ -68,13 +68,13 @@ repos:
     rev: v1.13.0
     hooks:
     -   id: mypy
-        # TODO: we also want the element-api in here, but it's still private
         additional_dependencies: [
             'celery==5.4.0',
-            'fastapi==0.112.1',
-            'sqlalchemy[mypy]==2.0.32',
-            'psycopg[binary]==3.2.1',
-            'alembic==1.13.2',
-            'pandas-stubs==2.2.2.240909',
-            'sqlmodel==0.0.21'
-    ]
+            'git+https://github.com/RUBclim/element-api@0.1.1',
+            'fastapi==0.115.4',
+            'sqlalchemy[mypy]==2.0.36',
+            'psycopg[binary]==3.2.3',
+            'alembic==1.13.3',
+            'pandas-stubs==2.2.3.241009',
+            'sqlmodel==0.0.22'
+        ]
