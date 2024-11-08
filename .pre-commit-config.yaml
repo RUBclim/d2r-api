@@ -35,7 +35,11 @@ repos:
             -   flake8-noqa==1.4.0
             -   flake8-timeout==0.3.0
             -   flake8-ban-utcnow==0.2.0
-        args: ["--min-python-version=3.12", "--max-line-length=88"]
+        args: [
+            "--min-python-version=3.12",
+            "--max-line-length=88",
+            "--per-file-ignores=app/alembic/*/*.py:E501",
+        ]
 -   repo: https://github.com/pre-commit/mirrors-autopep8
     rev: v2.0.4
     hooks:
