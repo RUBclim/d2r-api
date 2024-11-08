@@ -10,7 +10,7 @@ services:
       - .env.dev
     command: [
       wait-for-it, "db:5432", --,
-      /usr/src/app/venv/bin/uvicorn,
+      uvicorn,
       "app.main:app",
       "--reload",
       "--host", "0.0.0.0",
@@ -31,7 +31,7 @@ services:
     env_file:
       - .env.dev
     command: [
-      /usr/src/app/venv/bin/celery, -A, app.celery, worker,
+      celery, -A, app.celery, worker,
       --prefetch-multiplier=1,
       --concurrency=2,
       --loglevel, INFO,
@@ -43,7 +43,7 @@ services:
     env_file:
       - .env.dev
     command: [
-      /usr/src/app/venv/bin/celery, -A, app.tasks, beat,
+      celery, -A, app.tasks, beat,
       --loglevel, INFO,
       --schedule, /tmp/celerybeat-schedule.db
     ]
@@ -60,7 +60,7 @@ services:
     env_file:
       - .env.dev
     command: [
-      /usr/src/app/venv/bin/gunicorn,
+      gunicorn,
       "--bind", "0.0.0.0:5000",
       "--workers", "1",
       "--log-level", "debug",

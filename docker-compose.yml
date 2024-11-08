@@ -55,7 +55,7 @@ services:
     volumes:
       - ${DATA_DIRECTORY}:/usr/src/app/rasters:ro
     healthcheck:
-      test: ["CMD-SHELL", "/usr/src/app/venv/bin/celery -A app inspect ping || exit 1"]
+      test: ["CMD-SHELL", "celery -A app inspect ping || exit 1"]
       interval: 30s
       timeout: 30s
       retries: 5

@@ -15,7 +15,7 @@ services:
     # run two workers per container, and 2 replicas
     command: [
       wait-for-it, "db:5432", --,
-      /usr/src/app/venv/bin/gunicorn,
+      gunicorn,
       "--bind", "0.0.0.0:5000",
       "--workers", "2",
       "--log-level", "info",
@@ -52,7 +52,7 @@ services:
     env_file:
       - .env.prod
     command: [
-      /usr/src/app/venv/bin/celery, -A, app.celery, worker,
+      celery, -A, app.celery, worker,
       --prefetch-multiplier=2,
       --concurrency=2,
     ]
@@ -70,7 +70,7 @@ services:
     env_file:
       - .env.prod
     command: [
-      /usr/src/app/venv/bin/celery, -A, app.tasks, beat,
+      celery, -A, app.tasks, beat,
       --loglevel, INFO,
       --schedule, /tmp/celerybeat-schedule.db
     ]
@@ -94,7 +94,7 @@ services:
     env_file:
       - .env.prod
     command: [
-      /usr/src/app/venv/bin/gunicorn,
+      gunicorn,
       "--bind", "0.0.0.0:5000",
       "--workers", "3",
       "--log-level", "info",

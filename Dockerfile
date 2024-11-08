@@ -9,12 +9,13 @@ RUN : \
 
 ENV \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    UV_NO_CACHE=1
 
 WORKDIR /usr/src/app
 
-RUN python -m venv venv
+RUN pip install uv
 
 COPY . .
 
-RUN venv/bin/pip install . --no-cache-dir
+RUN uv pip install . --no-cache --system
