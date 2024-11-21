@@ -13,6 +13,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 from sqlalchemy import Table
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
+from titiler.core.factory import TilerFactory
 
 from app import ALLOW_ORIGIN_REGEX
 from app.database import angle_avg_funcs
@@ -101,9 +102,11 @@ def create_app() -> FastAPI:
         ],
         lifespan=lifespan,
     )
+    cog = TilerFactory()
     # we want this as a router, so we can do easy url-versioning
     app.include_router(router=v1.router)
     app.include_router(router=general.router)
+    app.include_router(router=cog.router, tags=['tiles'])
     # compress (gzip) all responses larger than 1.5 kb
     app.add_middleware(GZipMiddleware, minimum_size=1500)
     # Allow cross-origin requests for development purposes from localhost and
