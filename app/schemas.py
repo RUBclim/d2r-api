@@ -221,7 +221,7 @@ class Response(BaseModel, Generic[T]):
     )
     version: str = Field(
         default_factory=get_current_version,
-        examples=['0.1.dev101+gbe39ace.d20241030'],
+        examples=['0.1.dev101+gbe39ace'],
         description=(
             'The current API version in the format of '
             '`{next_version}.dev{distance}+{scm letter}{revision hash}.dYYYYMMDD`'
