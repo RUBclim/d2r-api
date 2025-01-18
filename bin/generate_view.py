@@ -39,18 +39,60 @@ GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, n
 ORDER BY measured_at, name'''
 
 VIEW_TEMPLATE_HOURLY = '''
-CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name}(
-    measured_at,
-    name,
-{column_names}
-)
-WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name} AS
+WITH data_bounds AS (
     SELECT
-        time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
         name,
-{columns}
+        MIN(measured_at) AS start_time,
+        MAX(measured_at) AS end_time
     FROM {target_table}
-    GROUP BY time_bucket('1hour', measured_at), name'''
+    GROUP BY name
+), filling_time_series AS (
+    SELECT generate_series(
+        DATE_TRUNC('hour', (SELECT min(measured_at) FROM {target_table})),
+        DATE_TRUNC('hour', (SELECT max(measured_at) FROM {target_table}) + '1 hour'::INTERVAL),
+        '1 hour'::interval
+    ) AS measured_at
+),
+stations_subset AS (
+    -- TODO: this could be faster if check the station table by station_type
+    SELECT DISTINCT name FROM {target_table}
+),
+time_station_combinations AS (
+    SELECT
+        measured_at,
+        stations_subset.name,
+        start_time,
+        end_time
+    FROM filling_time_series
+    CROSS JOIN stations_subset
+    JOIN data_bounds
+        ON data_bounds.name = stations_subset.name
+    WHERE filling_time_series.measured_at >= data_bounds.start_time
+    AND filling_time_series.measured_at <= data_bounds.end_time
+), all_data AS(
+    (
+        SELECT
+            measured_at + '1hour'::INTERVAL AS ma,
+            name,
+{null_column_names}
+        FROM time_station_combinations
+    )
+    UNION ALL
+    (
+        SELECT
+            measured_at  + '1hour'::INTERVAL AS ma,
+            name,
+{basic_column_names}
+        FROM {target_table}
+    )
+) SELECT
+    time_bucket('1 hour', ma) AS measured_at,
+    name,
+{columns}
+FROM all_data
+GROUP BY measured_at, name
+ORDER BY measured_at, name'''  # noqa: E501
 
 COL_TEMPLATE = '''\
 CASE
@@ -68,7 +110,7 @@ ATTR_TEMPLATE = '{attr_name}: Mapped[{attr_type}] = mapped_column({col_args})'
 CLASS_TEMPLATE = """\
 class {view_name}{inherits}:
     {docstring}
-    __tablename__ = {table_name!r}{table_args}{is_cagg}
+    __tablename__ = {table_name!r}{table_args}
 
 {attributes}
 
@@ -118,7 +160,8 @@ class Col(NamedTuple):
             column_name=self.name,
             total_vals=self.total_vals,
             threshold=self.threshold,
-            agg_func=agg_func,
+            # we don't want the fully qualified name (table_name.column_name)
+            agg_func=str(agg_func).replace(f'{self.sqlalchemy_col.table.name}.', ''),
             col_suffix=self.suffix,
         )
 
@@ -166,15 +209,27 @@ def generate_sql_aggregate(
             target_table=table.__tablename__,
         )
     else:
+        basic_columns = [
+            i for i in columns if not i.full_name.endswith(('_min', '_max'))
+        ]
         view_definition = VIEW_TEMPLATE_HOURLY.format(
             view_name=view_name,
             column_names=textwrap.indent(
                 ',\n'.join([i.full_name for i in columns]),
                 prefix=' ' * 4,
             ),
+            null_column_names=textwrap.indent(
+                ',\n'.join([f'NULL AS {i.full_name}' for i in basic_columns]),
+                prefix=' ' * 12,
+            ),
+            # only the basic columns without min/max/sum etc:
+            basic_column_names=textwrap.indent(
+                ',\n'.join([i.full_name for i in basic_columns]),
+                prefix=' ' * 12,
+            ),
             columns=textwrap.indent(
                 text=',\n'.join([i.sql_repr for i in columns]),
-                prefix=' ' * 8,
+                prefix=' ' * 4,
             ),
             target_table=table.__tablename__,
         )
@@ -328,6 +383,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     biomet_hourly = generate_sqlalchemy_class(
         table=BiometData,
         docstring=docstring,
+        table_args=(
+            Index(
+                'ix_biomet_data_hourly_name_measured_at',
+                'name',
+                'measured_at',
+                unique=True,
+            ),
+        ),
         inherits=[
             MaterializedView.__name__,
             _ATM41DataRawBase.__name__,
@@ -343,6 +406,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     temp_rh_hourly = generate_sqlalchemy_class(
         table=TempRHData,
         docstring=docstring,
+        table_args=(
+            Index(
+                'ix_temp_rh_data_hourly_name_measured_at',
+                'name',
+                'measured_at',
+                unique=True,
+            ),
+        ),
         inherits=[
             MaterializedView.__name__,
             _SHT35DataRawBase.__name__,

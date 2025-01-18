@@ -1845,21 +1845,21 @@ async def test_get_network_values_hourly(
     assert resp.json()['data'] == [
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC1',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC2',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC-temprh-0',
             'station_type': 'temprh',
             # temprh supports no windspeed
@@ -1867,7 +1867,7 @@ async def test_get_network_values_hourly(
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
