@@ -702,9 +702,9 @@ class BiometDataHourly(
         GROUP BY name
     ), filling_time_series AS (
         SELECT generate_series(
-            DATE_TRUNC('hour', (SELECT min(measured_at) FROM biomet_data)),
-            DATE_TRUNC('hour', (SELECT max(measured_at) FROM biomet_data) + '1 hour'::INTERVAL),
-            '1 hour'::interval
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM biomet_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
         ) AS measured_at
     ),
     stations_subset AS (
@@ -726,7 +726,7 @@ class BiometDataHourly(
     ), all_data AS(
         (
             SELECT
-                measured_at + '1hour'::INTERVAL AS ma,
+                measured_at AS ma,
                 name,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
@@ -765,7 +765,7 @@ class BiometDataHourly(
         UNION ALL
         (
             SELECT
-                measured_at  + '1hour'::INTERVAL AS ma,
+                measured_at AS ma,
                 name,
                 absolute_humidity,
                 air_temperature,
@@ -802,7 +802,7 @@ class BiometDataHourly(
             FROM biomet_data
         )
     ) SELECT
-        time_bucket('1 hour', ma) AS measured_at,
+        time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
         name,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
@@ -969,9 +969,9 @@ class TempRHDataHourly(
         GROUP BY name
     ), filling_time_series AS (
         SELECT generate_series(
-            DATE_TRUNC('hour', (SELECT min(measured_at) FROM temp_rh_data)),
-            DATE_TRUNC('hour', (SELECT max(measured_at) FROM temp_rh_data) + '1 hour'::INTERVAL),
-            '1 hour'::interval
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM temp_rh_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
         ) AS measured_at
     ),
     stations_subset AS (
@@ -993,7 +993,7 @@ class TempRHDataHourly(
     ), all_data AS(
         (
             SELECT
-                measured_at + '1hour'::INTERVAL AS ma,
+                measured_at AS ma,
                 name,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
@@ -1009,7 +1009,7 @@ class TempRHDataHourly(
         UNION ALL
         (
             SELECT
-                measured_at  + '1hour'::INTERVAL AS ma,
+                measured_at AS ma,
                 name,
                 absolute_humidity,
                 air_temperature,
@@ -1023,7 +1023,7 @@ class TempRHDataHourly(
             FROM temp_rh_data
         )
     ) SELECT
-        time_bucket('1 hour', ma) AS measured_at,
+        time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
         name,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
@@ -1189,8 +1189,116 @@ class BiometDataDaily(
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
-    SELECT
-        (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE as measured_at,
+    WITH data_bounds AS (
+        SELECT
+            name,
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
+        FROM biomet_data
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM biomet_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM biomet_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS atmospheric_pressure,
+                NULL AS atmospheric_pressure_reduced,
+                NULL AS battery_voltage,
+                NULL AS black_globe_temperature,
+                NULL AS blg_battery_voltage,
+                NULL AS blg_time_offset,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS lightning_average_distance,
+                NULL AS lightning_strike_count,
+                NULL AS maximum_wind_speed,
+                NULL AS mrt,
+                NULL AS pet,
+                NULL AS pet_category,
+                NULL AS precipitation_sum,
+                NULL AS relative_humidity,
+                NULL AS sensor_temperature_internal,
+                NULL AS solar_radiation,
+                NULL AS thermistor_resistance,
+                NULL AS u_wind,
+                NULL AS utci,
+                NULL AS utci_category,
+                NULL AS v_wind,
+                NULL AS vapor_pressure,
+                NULL AS voltage_ratio,
+                NULL AS wet_bulb_temperature,
+                NULL AS wind_direction,
+                NULL AS wind_speed,
+                NULL AS x_orientation_angle,
+                NULL AS y_orientation_angle
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                atmospheric_pressure,
+                atmospheric_pressure_reduced,
+                battery_voltage,
+                black_globe_temperature,
+                blg_battery_voltage,
+                blg_time_offset,
+                dew_point,
+                heat_index,
+                lightning_average_distance,
+                lightning_strike_count,
+                maximum_wind_speed,
+                mrt,
+                pet,
+                pet_category,
+                precipitation_sum,
+                relative_humidity,
+                sensor_temperature_internal,
+                solar_radiation,
+                thermistor_resistance,
+                u_wind,
+                utci,
+                utci_category,
+                v_wind,
+                vapor_pressure,
+                voltage_ratio,
+                wet_bulb_temperature,
+                wind_direction,
+                wind_speed,
+                x_orientation_angle,
+                y_orientation_angle
+            FROM biomet_data
+        )
+    ) SELECT
+        (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
         name,
         CASE
             WHEN (count(*) FILTER (
@@ -1696,8 +1804,8 @@ class BiometDataDaily(
                 ) > 0.7 THEN max(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle_max
-    FROM biomet_data
-    GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, name
+    FROM all_data
+    GROUP BY measured_at, name
     ORDER BY measured_at, name
     ''')  # noqa: E501
 
@@ -1768,8 +1876,70 @@ class TempRHDataDaily(
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS
-    SELECT
-        (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE as measured_at,
+    WITH data_bounds AS (
+        SELECT
+            name,
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
+        FROM temp_rh_data
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM temp_rh_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM temp_rh_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS air_temperature_raw,
+                NULL AS battery_voltage,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS relative_humidity,
+                NULL AS relative_humidity_raw,
+                NULL AS wet_bulb_temperature
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                air_temperature_raw,
+                battery_voltage,
+                dew_point,
+                heat_index,
+                relative_humidity,
+                relative_humidity_raw,
+                wet_bulb_temperature
+            FROM temp_rh_data
+        )
+    ) SELECT
+        (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
         name,
         CASE
             WHEN (count(*) FILTER (
@@ -1933,8 +2103,8 @@ class TempRHDataDaily(
                 ) > 0.7 THEN max(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_max
-    FROM temp_rh_data
-    GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, name
+    FROM all_data
+    GROUP BY measured_at, name
     ORDER BY measured_at, name
     ''')  # noqa: E501
 # END_GENERATED
