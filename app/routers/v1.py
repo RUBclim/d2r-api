@@ -307,7 +307,7 @@ async def get_trends(
 
         # now get the data for the requested item_ids
         query = select(
-            cast(BiometDataHourly.measured_at, TIMESTAMP(timezone=True)),
+            BiometDataHourly.measured_at,
             BiometDataHourly.name.label('key'),
             column_biomet.label('value'),
         ).where(
@@ -332,7 +332,7 @@ async def get_trends(
             # now get the data for the requested item_ids. We label this as value, so we
             # can create key-value pairs later on
             query_temp_rh = select(
-                cast(TempRHDataHourly.measured_at, TIMESTAMP(timezone=True)),
+                TempRHDataHourly.measured_at,
                 TempRHDataHourly.name.label('key'),
                 column_temp_rh.label('value'),
             ).where(
@@ -364,7 +364,7 @@ async def get_trends(
 
         # start with the biomet, since this type supports all params
         biomet = select(
-            cast(BiometDataHourly.measured_at, TIMESTAMP(timezone=True)),
+            BiometDataHourly.measured_at,
             Station.district,
             column_biomet.label('value'),
         ).join(
@@ -391,7 +391,7 @@ async def get_trends(
             # since we have data from both station types, we have to combine
             # both datasets
             temp_rh = select(
-                cast(TempRHDataHourly.measured_at, TIMESTAMP(timezone=True)),
+                TempRHDataHourly.measured_at,
                 Station.district,
                 column_temp_rh.label('value'),
             ).join(Station, Station.name == TempRHDataHourly.name, isouter=True).where(
@@ -543,6 +543,15 @@ async def get_data(
                 '`max`, additional `_min` and `_max` values will be available.'
             ),
         ),
+        fill_gaps: bool = Query(
+            True,
+            description=(
+                'Fill gaps of missing timestamps in the result. In hourly and '
+                'daily aggregates gaps are filled with `NULL` values to keep a '
+                'consistent time step interval. To save on the amount of data '
+                'transmitted this can be set to False, omitting filled gaps.'
+            ),
+        ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for getting the data from any station for any time-span. A
@@ -643,20 +652,23 @@ async def get_data(
                 )
 
         columns = [getattr(table, i) for i in param]
-        data = (
-            await db.execute(
-                # we need to cast to TIMESTAMPTZ here, since the view is in UTC but
-                # timescale cannot keep it timezone aware AND make it right-labelled
-                # + 1 hour
-                select(
-                    cast(table.measured_at, TIMESTAMP(timezone=True)),
-                    *columns,
-                ).where(
-                    table.measured_at.between(start_date, end_date) &
-                    (table.name == station.name),
-                ).order_by(table.measured_at),
+        # we need to cast to TIMESTAMPTZ here, since the view is in UTC but timescale
+        # cannot keep it timezone aware AND make it right-labelled +1 hour
+        query = select(
+            cast(table.measured_at, TIMESTAMP(timezone=True)),
+            *columns,
+        ).where(
+            table.measured_at.between(start_date, end_date) &
+            (table.name == station.name),
+        ).order_by(table.measured_at)
+
+        if fill_gaps is False:
+            not_noll_condition = [c.isnot(None) for c in columns]
+            query = query.where(
+                # a filled gap is defined by NULL values in all columns
+                and_(*not_noll_condition),
             )
-        )
+        data = (await db.execute(query))
         return Response(data=data.mappings().all())
     else:
         raise HTTPException(status_code=404, detail='Station not found')

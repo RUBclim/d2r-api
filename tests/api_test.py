@@ -1653,6 +1653,60 @@ async def test_get_data_biomet_hourly_null_values_are_filled(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_data_biomet_hourly_no_gap_filling(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create data for two stations
+    data = [
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 10, 10),
+            maximum_wind_speed=12.0,
+            relative_humidity=50.5,
+        ),
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 12, 10),
+            maximum_wind_speed=6.0,
+            relative_humidity=60.5,
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await BiometDataHourly.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 8),
+            'end_date': datetime(2024, 8, 1, 14),
+            'param': ['maximum_wind_speed', 'relative_humidity'],
+            'scale': 'hourly',
+            'fill_gaps': False,
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T11:00:00Z',
+            'maximum_wind_speed': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-01T13:00:00Z',
+            'maximum_wind_speed': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
 async def test_get_data_temprh_hourly_null_values_are_filled(
         app: AsyncClient,
         db: AsyncSession,
@@ -1861,6 +1915,82 @@ async def test_get_data_temprh_daily_null_values_are_filled(
             'measured_at': '2024-08-02T00:00:00Z',
             'air_temperature': None,
             'relative_humidity': None,
+        },
+        {
+            'measured_at': '2024-08-03T00:00:00Z',
+            'air_temperature': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_data_biomet_daily_no_gap_filling(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+
+    # to exceed the threshold, we need to insert enough values
+    data = []
+    for minutes in range(0, 23*60, 5):
+        step = timedelta(minutes=minutes)
+        tmp_data = [
+            TempRHData(
+                measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=12,
+                relative_humidity=50.5,
+            ),
+            # two days are missing inbetween
+            TempRHData(
+                measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=6,
+                relative_humidity=60.5,
+            ),
+        ]
+        data.extend(tmp_data)
+
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1),
+            'end_date': datetime(2024, 8, 4),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'daily',
+            'fill_gaps': False,
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T00:00:00Z',
+            'air_temperature': 12,
+            'relative_humidity': 50.5,
         },
         {
             'measured_at': '2024-08-03T00:00:00Z',
