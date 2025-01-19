@@ -11,6 +11,7 @@ pythermalcomfort
 # so we are requesting them to be newer, but are not directly depending on them
 llvmlite>=0.43.0
 numba>=0.60.0
+pydantic<2.10.0
 sentry_sdk[fastapi]
 sqlmodel
 # we want the latest terracotta version, so we can use numpy > 2.0 and the turbo colormap
