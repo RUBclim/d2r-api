@@ -1194,505 +1194,505 @@ class BiometDataDaily(
         name,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(air_temperature)
             ELSE NULL
         END AS air_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(air_temperature)
             ELSE NULL
         END AS air_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(air_temperature)
             ELSE NULL
         END AS air_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(battery_voltage)
             ELSE NULL
         END AS battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(battery_voltage)
             ELSE NULL
         END AS battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(battery_voltage)
             ELSE NULL
         END AS battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(dew_point)
             ELSE NULL
         END AS dew_point,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(dew_point)
             ELSE NULL
         END AS dew_point_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(dew_point)
             ELSE NULL
         END AS dew_point_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(heat_index)
             ELSE NULL
         END AS heat_index,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(heat_index)
             ELSE NULL
         END AS heat_index_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(heat_index)
             ELSE NULL
         END AS heat_index_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_strike_count IS NOT NULL) / 288
+                    WHERE lightning_strike_count IS NOT NULL) / 288.0
                 ) > 0.7 THEN sum(lightning_strike_count)
             ELSE NULL
         END AS lightning_strike_count,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE maximum_wind_speed IS NOT NULL) / 288
+                    WHERE maximum_wind_speed IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(maximum_wind_speed)
             ELSE NULL
         END AS maximum_wind_speed,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
+                    WHERE mrt IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(mrt)
             ELSE NULL
         END AS mrt,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
+                    WHERE mrt IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(mrt)
             ELSE NULL
         END AS mrt_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
+                    WHERE mrt IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(mrt)
             ELSE NULL
         END AS mrt_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
+                    WHERE pet IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(pet)
             ELSE NULL
         END AS pet,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
+                    WHERE pet IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(pet)
             ELSE NULL
         END AS pet_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
+                    WHERE pet IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(pet)
             ELSE NULL
         END AS pet_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet_category IS NOT NULL) / 288
+                    WHERE pet_category IS NOT NULL) / 288.0
                 ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY pet_category ASC)
             ELSE NULL
         END AS pet_category,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE precipitation_sum IS NOT NULL) / 288
+                    WHERE precipitation_sum IS NOT NULL) / 288.0
                 ) > 0.7 THEN sum(precipitation_sum)
             ELSE NULL
         END AS precipitation_sum,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
         END AS relative_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(relative_humidity)
             ELSE NULL
         END AS relative_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(relative_humidity)
             ELSE NULL
         END AS relative_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
+                    WHERE solar_radiation IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(solar_radiation)
             ELSE NULL
         END AS solar_radiation,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
+                    WHERE solar_radiation IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(solar_radiation)
             ELSE NULL
         END AS solar_radiation_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
+                    WHERE solar_radiation IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(solar_radiation)
             ELSE NULL
         END AS solar_radiation_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
+                    WHERE u_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(u_wind)
             ELSE NULL
         END AS u_wind,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
+                    WHERE u_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(u_wind)
             ELSE NULL
         END AS u_wind_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
+                    WHERE u_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(u_wind)
             ELSE NULL
         END AS u_wind_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
+                    WHERE utci IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(utci)
             ELSE NULL
         END AS utci,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
+                    WHERE utci IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(utci)
             ELSE NULL
         END AS utci_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
+                    WHERE utci IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(utci)
             ELSE NULL
         END AS utci_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci_category IS NOT NULL) / 288
+                    WHERE utci_category IS NOT NULL) / 288.0
                 ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY utci_category ASC)
             ELSE NULL
         END AS utci_category,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
+                    WHERE v_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(v_wind)
             ELSE NULL
         END AS v_wind,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
+                    WHERE v_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(v_wind)
             ELSE NULL
         END AS v_wind_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
+                    WHERE v_wind IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(v_wind)
             ELSE NULL
         END AS v_wind_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_direction IS NOT NULL) / 288
+                    WHERE wind_direction IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg_angle(wind_direction)
             ELSE NULL
         END AS wind_direction,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
+                    WHERE wind_speed IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(wind_speed)
             ELSE NULL
         END AS wind_speed,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
+                    WHERE wind_speed IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(wind_speed)
             ELSE NULL
         END AS wind_speed_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
+                    WHERE wind_speed IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(wind_speed)
             ELSE NULL
         END AS wind_speed_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle_max
@@ -1773,163 +1773,163 @@ class TempRHDataDaily(
         name,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(air_temperature)
             ELSE NULL
         END AS air_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(air_temperature)
             ELSE NULL
         END AS air_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
+                    WHERE air_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(air_temperature)
             ELSE NULL
         END AS air_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(battery_voltage)
             ELSE NULL
         END AS battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(battery_voltage)
             ELSE NULL
         END AS battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
+                    WHERE battery_voltage IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(battery_voltage)
             ELSE NULL
         END AS battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(dew_point)
             ELSE NULL
         END AS dew_point,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(dew_point)
             ELSE NULL
         END AS dew_point_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
+                    WHERE dew_point IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(dew_point)
             ELSE NULL
         END AS dew_point_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(heat_index)
             ELSE NULL
         END AS heat_index,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(heat_index)
             ELSE NULL
         END AS heat_index_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
+                    WHERE heat_index IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(heat_index)
             ELSE NULL
         END AS heat_index_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
         END AS relative_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(relative_humidity)
             ELSE NULL
         END AS relative_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
+                    WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(relative_humidity)
             ELSE NULL
         END AS relative_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN min(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
                 ) > 0.7 THEN max(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_max

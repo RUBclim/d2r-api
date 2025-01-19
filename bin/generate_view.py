@@ -97,7 +97,7 @@ ORDER BY measured_at, name'''  # noqa: E501
 COL_TEMPLATE = '''\
 CASE
     WHEN (count(*) FILTER (
-            WHERE {column_name} IS NOT NULL) / {total_vals}
+            WHERE {column_name} IS NOT NULL) / {total_vals:.1f}
         ) > {threshold} THEN {agg_func}
     ELSE NULL
 END AS {column_name}{col_suffix}'''
