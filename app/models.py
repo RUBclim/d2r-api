@@ -574,7 +574,14 @@ class BiometDataHourly(
     querying a proper table.
     """
     __tablename__ = 'biomet_data_hourly'
-    is_continuous_aggregate = True
+    __table_args__ = (
+        Index(
+            'ix_biomet_data_hourly_name_measured_at',
+            'name',
+            'measured_at',
+            unique=True,
+        ),
+    )
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -685,184 +692,205 @@ class BiometDataHourly(
     station: Mapped[Station] = relationship(lazy=True)
 
     creation_sql = text('''\
-    CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly(
-        measured_at,
-        name,
-        absolute_humidity,
-        absolute_humidity_min,
-        absolute_humidity_max,
-        air_temperature,
-        air_temperature_min,
-        air_temperature_max,
-        atmospheric_pressure,
-        atmospheric_pressure_min,
-        atmospheric_pressure_max,
-        atmospheric_pressure_reduced,
-        atmospheric_pressure_reduced_min,
-        atmospheric_pressure_reduced_max,
-        battery_voltage,
-        battery_voltage_min,
-        battery_voltage_max,
-        black_globe_temperature,
-        black_globe_temperature_min,
-        black_globe_temperature_max,
-        blg_battery_voltage,
-        blg_battery_voltage_min,
-        blg_battery_voltage_max,
-        blg_time_offset,
-        blg_time_offset_min,
-        blg_time_offset_max,
-        dew_point,
-        dew_point_min,
-        dew_point_max,
-        heat_index,
-        heat_index_min,
-        heat_index_max,
-        lightning_average_distance,
-        lightning_average_distance_min,
-        lightning_average_distance_max,
-        lightning_strike_count,
-        maximum_wind_speed,
-        mrt,
-        mrt_min,
-        mrt_max,
-        pet,
-        pet_min,
-        pet_max,
-        pet_category,
-        precipitation_sum,
-        relative_humidity,
-        relative_humidity_min,
-        relative_humidity_max,
-        sensor_temperature_internal,
-        sensor_temperature_internal_min,
-        sensor_temperature_internal_max,
-        solar_radiation,
-        solar_radiation_min,
-        solar_radiation_max,
-        thermistor_resistance,
-        thermistor_resistance_min,
-        thermistor_resistance_max,
-        u_wind,
-        u_wind_min,
-        u_wind_max,
-        utci,
-        utci_min,
-        utci_max,
-        utci_category,
-        v_wind,
-        v_wind_min,
-        v_wind_max,
-        vapor_pressure,
-        vapor_pressure_min,
-        vapor_pressure_max,
-        voltage_ratio,
-        voltage_ratio_min,
-        voltage_ratio_max,
-        wet_bulb_temperature,
-        wet_bulb_temperature_min,
-        wet_bulb_temperature_max,
-        wind_direction,
-        wind_speed,
-        wind_speed_min,
-        wind_speed_max,
-        x_orientation_angle,
-        x_orientation_angle_min,
-        x_orientation_angle_max,
-        y_orientation_angle,
-        y_orientation_angle_min,
-        y_orientation_angle_max
-    )
-    WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+    CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly AS
+    WITH data_bounds AS (
         SELECT
-            time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
             name,
-            avg(biomet_data.absolute_humidity) AS absolute_humidity,
-            min(biomet_data.absolute_humidity) AS absolute_humidity_min,
-            max(biomet_data.absolute_humidity) AS absolute_humidity_max,
-            avg(biomet_data.air_temperature) AS air_temperature,
-            min(biomet_data.air_temperature) AS air_temperature_min,
-            max(biomet_data.air_temperature) AS air_temperature_max,
-            avg(biomet_data.atmospheric_pressure) AS atmospheric_pressure,
-            min(biomet_data.atmospheric_pressure) AS atmospheric_pressure_min,
-            max(biomet_data.atmospheric_pressure) AS atmospheric_pressure_max,
-            avg(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced,
-            min(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_min,
-            max(biomet_data.atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_max,
-            avg(biomet_data.battery_voltage) AS battery_voltage,
-            min(biomet_data.battery_voltage) AS battery_voltage_min,
-            max(biomet_data.battery_voltage) AS battery_voltage_max,
-            avg(biomet_data.black_globe_temperature) AS black_globe_temperature,
-            min(biomet_data.black_globe_temperature) AS black_globe_temperature_min,
-            max(biomet_data.black_globe_temperature) AS black_globe_temperature_max,
-            avg(biomet_data.blg_battery_voltage) AS blg_battery_voltage,
-            min(biomet_data.blg_battery_voltage) AS blg_battery_voltage_min,
-            max(biomet_data.blg_battery_voltage) AS blg_battery_voltage_max,
-            avg(biomet_data.blg_time_offset) AS blg_time_offset,
-            min(biomet_data.blg_time_offset) AS blg_time_offset_min,
-            max(biomet_data.blg_time_offset) AS blg_time_offset_max,
-            avg(biomet_data.dew_point) AS dew_point,
-            min(biomet_data.dew_point) AS dew_point_min,
-            max(biomet_data.dew_point) AS dew_point_max,
-            avg(biomet_data.heat_index) AS heat_index,
-            min(biomet_data.heat_index) AS heat_index_min,
-            max(biomet_data.heat_index) AS heat_index_max,
-            avg(biomet_data.lightning_average_distance) AS lightning_average_distance,
-            min(biomet_data.lightning_average_distance) AS lightning_average_distance_min,
-            max(biomet_data.lightning_average_distance) AS lightning_average_distance_max,
-            sum(biomet_data.lightning_strike_count) AS lightning_strike_count,
-            max(biomet_data.maximum_wind_speed) AS maximum_wind_speed,
-            avg(biomet_data.mrt) AS mrt,
-            min(biomet_data.mrt) AS mrt_min,
-            max(biomet_data.mrt) AS mrt_max,
-            avg(biomet_data.pet) AS pet,
-            min(biomet_data.pet) AS pet_min,
-            max(biomet_data.pet) AS pet_max,
-            mode() WITHIN GROUP (ORDER BY biomet_data.pet_category ASC) AS pet_category,
-            sum(biomet_data.precipitation_sum) AS precipitation_sum,
-            avg(biomet_data.relative_humidity) AS relative_humidity,
-            min(biomet_data.relative_humidity) AS relative_humidity_min,
-            max(biomet_data.relative_humidity) AS relative_humidity_max,
-            avg(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal,
-            min(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal_min,
-            max(biomet_data.sensor_temperature_internal) AS sensor_temperature_internal_max,
-            avg(biomet_data.solar_radiation) AS solar_radiation,
-            min(biomet_data.solar_radiation) AS solar_radiation_min,
-            max(biomet_data.solar_radiation) AS solar_radiation_max,
-            avg(biomet_data.thermistor_resistance) AS thermistor_resistance,
-            min(biomet_data.thermistor_resistance) AS thermistor_resistance_min,
-            max(biomet_data.thermistor_resistance) AS thermistor_resistance_max,
-            avg(biomet_data.u_wind) AS u_wind,
-            min(biomet_data.u_wind) AS u_wind_min,
-            max(biomet_data.u_wind) AS u_wind_max,
-            avg(biomet_data.utci) AS utci,
-            min(biomet_data.utci) AS utci_min,
-            max(biomet_data.utci) AS utci_max,
-            mode() WITHIN GROUP (ORDER BY biomet_data.utci_category ASC) AS utci_category,
-            avg(biomet_data.v_wind) AS v_wind,
-            min(biomet_data.v_wind) AS v_wind_min,
-            max(biomet_data.v_wind) AS v_wind_max,
-            avg(biomet_data.vapor_pressure) AS vapor_pressure,
-            min(biomet_data.vapor_pressure) AS vapor_pressure_min,
-            max(biomet_data.vapor_pressure) AS vapor_pressure_max,
-            avg(biomet_data.voltage_ratio) AS voltage_ratio,
-            min(biomet_data.voltage_ratio) AS voltage_ratio_min,
-            max(biomet_data.voltage_ratio) AS voltage_ratio_max,
-            avg(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature,
-            min(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature_min,
-            max(biomet_data.wet_bulb_temperature) AS wet_bulb_temperature_max,
-            avg_angle(biomet_data.wind_direction) AS wind_direction,
-            avg(biomet_data.wind_speed) AS wind_speed,
-            min(biomet_data.wind_speed) AS wind_speed_min,
-            max(biomet_data.wind_speed) AS wind_speed_max,
-            avg(biomet_data.x_orientation_angle) AS x_orientation_angle,
-            min(biomet_data.x_orientation_angle) AS x_orientation_angle_min,
-            max(biomet_data.x_orientation_angle) AS x_orientation_angle_max,
-            avg(biomet_data.y_orientation_angle) AS y_orientation_angle,
-            min(biomet_data.y_orientation_angle) AS y_orientation_angle_min,
-            max(biomet_data.y_orientation_angle) AS y_orientation_angle_max
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
         FROM biomet_data
-        GROUP BY time_bucket('1hour', measured_at), name
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM biomet_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM biomet_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS atmospheric_pressure,
+                NULL AS atmospheric_pressure_reduced,
+                NULL AS battery_voltage,
+                NULL AS black_globe_temperature,
+                NULL AS blg_battery_voltage,
+                NULL AS blg_time_offset,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS lightning_average_distance,
+                NULL AS lightning_strike_count,
+                NULL AS maximum_wind_speed,
+                NULL AS mrt,
+                NULL AS pet,
+                NULL AS pet_category,
+                NULL AS precipitation_sum,
+                NULL AS relative_humidity,
+                NULL AS sensor_temperature_internal,
+                NULL AS solar_radiation,
+                NULL AS thermistor_resistance,
+                NULL AS u_wind,
+                NULL AS utci,
+                NULL AS utci_category,
+                NULL AS v_wind,
+                NULL AS vapor_pressure,
+                NULL AS voltage_ratio,
+                NULL AS wet_bulb_temperature,
+                NULL AS wind_direction,
+                NULL AS wind_speed,
+                NULL AS x_orientation_angle,
+                NULL AS y_orientation_angle
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                atmospheric_pressure,
+                atmospheric_pressure_reduced,
+                battery_voltage,
+                black_globe_temperature,
+                blg_battery_voltage,
+                blg_time_offset,
+                dew_point,
+                heat_index,
+                lightning_average_distance,
+                lightning_strike_count,
+                maximum_wind_speed,
+                mrt,
+                pet,
+                pet_category,
+                precipitation_sum,
+                relative_humidity,
+                sensor_temperature_internal,
+                solar_radiation,
+                thermistor_resistance,
+                u_wind,
+                utci,
+                utci_category,
+                v_wind,
+                vapor_pressure,
+                voltage_ratio,
+                wet_bulb_temperature,
+                wind_direction,
+                wind_speed,
+                x_orientation_angle,
+                y_orientation_angle
+            FROM biomet_data
+        )
+    ) SELECT
+        time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
+        name,
+        avg(absolute_humidity) AS absolute_humidity,
+        min(absolute_humidity) AS absolute_humidity_min,
+        max(absolute_humidity) AS absolute_humidity_max,
+        avg(air_temperature) AS air_temperature,
+        min(air_temperature) AS air_temperature_min,
+        max(air_temperature) AS air_temperature_max,
+        avg(atmospheric_pressure) AS atmospheric_pressure,
+        min(atmospheric_pressure) AS atmospheric_pressure_min,
+        max(atmospheric_pressure) AS atmospheric_pressure_max,
+        avg(atmospheric_pressure_reduced) AS atmospheric_pressure_reduced,
+        min(atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_min,
+        max(atmospheric_pressure_reduced) AS atmospheric_pressure_reduced_max,
+        avg(battery_voltage) AS battery_voltage,
+        min(battery_voltage) AS battery_voltage_min,
+        max(battery_voltage) AS battery_voltage_max,
+        avg(black_globe_temperature) AS black_globe_temperature,
+        min(black_globe_temperature) AS black_globe_temperature_min,
+        max(black_globe_temperature) AS black_globe_temperature_max,
+        avg(blg_battery_voltage) AS blg_battery_voltage,
+        min(blg_battery_voltage) AS blg_battery_voltage_min,
+        max(blg_battery_voltage) AS blg_battery_voltage_max,
+        avg(blg_time_offset) AS blg_time_offset,
+        min(blg_time_offset) AS blg_time_offset_min,
+        max(blg_time_offset) AS blg_time_offset_max,
+        avg(dew_point) AS dew_point,
+        min(dew_point) AS dew_point_min,
+        max(dew_point) AS dew_point_max,
+        avg(heat_index) AS heat_index,
+        min(heat_index) AS heat_index_min,
+        max(heat_index) AS heat_index_max,
+        avg(lightning_average_distance) AS lightning_average_distance,
+        min(lightning_average_distance) AS lightning_average_distance_min,
+        max(lightning_average_distance) AS lightning_average_distance_max,
+        sum(lightning_strike_count) AS lightning_strike_count,
+        max(maximum_wind_speed) AS maximum_wind_speed,
+        avg(mrt) AS mrt,
+        min(mrt) AS mrt_min,
+        max(mrt) AS mrt_max,
+        avg(pet) AS pet,
+        min(pet) AS pet_min,
+        max(pet) AS pet_max,
+        mode() WITHIN GROUP (ORDER BY pet_category ASC) AS pet_category,
+        sum(precipitation_sum) AS precipitation_sum,
+        avg(relative_humidity) AS relative_humidity,
+        min(relative_humidity) AS relative_humidity_min,
+        max(relative_humidity) AS relative_humidity_max,
+        avg(sensor_temperature_internal) AS sensor_temperature_internal,
+        min(sensor_temperature_internal) AS sensor_temperature_internal_min,
+        max(sensor_temperature_internal) AS sensor_temperature_internal_max,
+        avg(solar_radiation) AS solar_radiation,
+        min(solar_radiation) AS solar_radiation_min,
+        max(solar_radiation) AS solar_radiation_max,
+        avg(thermistor_resistance) AS thermistor_resistance,
+        min(thermistor_resistance) AS thermistor_resistance_min,
+        max(thermistor_resistance) AS thermistor_resistance_max,
+        avg(u_wind) AS u_wind,
+        min(u_wind) AS u_wind_min,
+        max(u_wind) AS u_wind_max,
+        avg(utci) AS utci,
+        min(utci) AS utci_min,
+        max(utci) AS utci_max,
+        mode() WITHIN GROUP (ORDER BY utci_category ASC) AS utci_category,
+        avg(v_wind) AS v_wind,
+        min(v_wind) AS v_wind_min,
+        max(v_wind) AS v_wind_max,
+        avg(vapor_pressure) AS vapor_pressure,
+        min(vapor_pressure) AS vapor_pressure_min,
+        max(vapor_pressure) AS vapor_pressure_max,
+        avg(voltage_ratio) AS voltage_ratio,
+        min(voltage_ratio) AS voltage_ratio_min,
+        max(voltage_ratio) AS voltage_ratio_max,
+        avg(wet_bulb_temperature) AS wet_bulb_temperature,
+        min(wet_bulb_temperature) AS wet_bulb_temperature_min,
+        max(wet_bulb_temperature) AS wet_bulb_temperature_max,
+        avg_angle(wind_direction) AS wind_direction,
+        avg(wind_speed) AS wind_speed,
+        min(wind_speed) AS wind_speed_min,
+        max(wind_speed) AS wind_speed_max,
+        avg(x_orientation_angle) AS x_orientation_angle,
+        min(x_orientation_angle) AS x_orientation_angle_min,
+        max(x_orientation_angle) AS x_orientation_angle_max,
+        avg(y_orientation_angle) AS y_orientation_angle,
+        min(y_orientation_angle) AS y_orientation_angle_min,
+        max(y_orientation_angle) AS y_orientation_angle_max
+    FROM all_data
+    GROUP BY measured_at, name
+    ORDER BY measured_at, name
     ''')  # noqa: E501
 
 
@@ -877,7 +905,14 @@ class TempRHDataHourly(
     querying a proper table.
     """
     __tablename__ = 'temp_rh_data_hourly'
-    is_continuous_aggregate = True
+    __table_args__ = (
+        Index(
+            'ix_temp_rh_data_hourly_name_measured_at',
+            'name',
+            'measured_at',
+            unique=True,
+        ),
+    )
 
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
@@ -924,71 +959,103 @@ class TempRHDataHourly(
     station: Mapped[Station] = relationship(lazy=True)
 
     creation_sql = text('''\
-    CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly(
-        measured_at,
-        name,
-        absolute_humidity,
-        absolute_humidity_min,
-        absolute_humidity_max,
-        air_temperature,
-        air_temperature_min,
-        air_temperature_max,
-        air_temperature_raw,
-        air_temperature_raw_min,
-        air_temperature_raw_max,
-        battery_voltage,
-        battery_voltage_min,
-        battery_voltage_max,
-        dew_point,
-        dew_point_min,
-        dew_point_max,
-        heat_index,
-        heat_index_min,
-        heat_index_max,
-        relative_humidity,
-        relative_humidity_min,
-        relative_humidity_max,
-        relative_humidity_raw,
-        relative_humidity_raw_min,
-        relative_humidity_raw_max,
-        wet_bulb_temperature,
-        wet_bulb_temperature_min,
-        wet_bulb_temperature_max
-    )
-    WITH (timescaledb.continuous, timescaledb.materialized_only = true) AS
+    CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly AS
+    WITH data_bounds AS (
         SELECT
-            time_bucket('1hour', measured_at) AT TIME ZONE 'UTC' + '1 hour',
             name,
-            avg(temp_rh_data.absolute_humidity) AS absolute_humidity,
-            min(temp_rh_data.absolute_humidity) AS absolute_humidity_min,
-            max(temp_rh_data.absolute_humidity) AS absolute_humidity_max,
-            avg(temp_rh_data.air_temperature) AS air_temperature,
-            min(temp_rh_data.air_temperature) AS air_temperature_min,
-            max(temp_rh_data.air_temperature) AS air_temperature_max,
-            avg(temp_rh_data.air_temperature_raw) AS air_temperature_raw,
-            min(temp_rh_data.air_temperature_raw) AS air_temperature_raw_min,
-            max(temp_rh_data.air_temperature_raw) AS air_temperature_raw_max,
-            avg(temp_rh_data.battery_voltage) AS battery_voltage,
-            min(temp_rh_data.battery_voltage) AS battery_voltage_min,
-            max(temp_rh_data.battery_voltage) AS battery_voltage_max,
-            avg(temp_rh_data.dew_point) AS dew_point,
-            min(temp_rh_data.dew_point) AS dew_point_min,
-            max(temp_rh_data.dew_point) AS dew_point_max,
-            avg(temp_rh_data.heat_index) AS heat_index,
-            min(temp_rh_data.heat_index) AS heat_index_min,
-            max(temp_rh_data.heat_index) AS heat_index_max,
-            avg(temp_rh_data.relative_humidity) AS relative_humidity,
-            min(temp_rh_data.relative_humidity) AS relative_humidity_min,
-            max(temp_rh_data.relative_humidity) AS relative_humidity_max,
-            avg(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw,
-            min(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw_min,
-            max(temp_rh_data.relative_humidity_raw) AS relative_humidity_raw_max,
-            avg(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature,
-            min(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature_min,
-            max(temp_rh_data.wet_bulb_temperature) AS wet_bulb_temperature_max
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
         FROM temp_rh_data
-        GROUP BY time_bucket('1hour', measured_at), name
-    ''')
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM temp_rh_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM temp_rh_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS air_temperature_raw,
+                NULL AS battery_voltage,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS relative_humidity,
+                NULL AS relative_humidity_raw,
+                NULL AS wet_bulb_temperature
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                air_temperature_raw,
+                battery_voltage,
+                dew_point,
+                heat_index,
+                relative_humidity,
+                relative_humidity_raw,
+                wet_bulb_temperature
+            FROM temp_rh_data
+        )
+    ) SELECT
+        time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
+        name,
+        avg(absolute_humidity) AS absolute_humidity,
+        min(absolute_humidity) AS absolute_humidity_min,
+        max(absolute_humidity) AS absolute_humidity_max,
+        avg(air_temperature) AS air_temperature,
+        min(air_temperature) AS air_temperature_min,
+        max(air_temperature) AS air_temperature_max,
+        avg(air_temperature_raw) AS air_temperature_raw,
+        min(air_temperature_raw) AS air_temperature_raw_min,
+        max(air_temperature_raw) AS air_temperature_raw_max,
+        avg(battery_voltage) AS battery_voltage,
+        min(battery_voltage) AS battery_voltage_min,
+        max(battery_voltage) AS battery_voltage_max,
+        avg(dew_point) AS dew_point,
+        min(dew_point) AS dew_point_min,
+        max(dew_point) AS dew_point_max,
+        avg(heat_index) AS heat_index,
+        min(heat_index) AS heat_index_min,
+        max(heat_index) AS heat_index_max,
+        avg(relative_humidity) AS relative_humidity,
+        min(relative_humidity) AS relative_humidity_min,
+        max(relative_humidity) AS relative_humidity_max,
+        avg(relative_humidity_raw) AS relative_humidity_raw,
+        min(relative_humidity_raw) AS relative_humidity_raw_min,
+        max(relative_humidity_raw) AS relative_humidity_raw_max,
+        avg(wet_bulb_temperature) AS wet_bulb_temperature,
+        min(wet_bulb_temperature) AS wet_bulb_temperature_min,
+        max(wet_bulb_temperature) AS wet_bulb_temperature_max
+    FROM all_data
+    GROUP BY measured_at, name
+    ORDER BY measured_at, name
+    ''')  # noqa: E501
 
 
 class BiometDataDaily(
@@ -1122,515 +1189,623 @@ class BiometDataDaily(
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
-    SELECT
-        (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE as measured_at,
+    WITH data_bounds AS (
+        SELECT
+            name,
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
+        FROM biomet_data
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM biomet_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM biomet_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS atmospheric_pressure,
+                NULL AS atmospheric_pressure_reduced,
+                NULL AS battery_voltage,
+                NULL AS black_globe_temperature,
+                NULL AS blg_battery_voltage,
+                NULL AS blg_time_offset,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS lightning_average_distance,
+                NULL AS lightning_strike_count,
+                NULL AS maximum_wind_speed,
+                NULL AS mrt,
+                NULL AS pet,
+                NULL AS pet_category,
+                NULL AS precipitation_sum,
+                NULL AS relative_humidity,
+                NULL AS sensor_temperature_internal,
+                NULL AS solar_radiation,
+                NULL AS thermistor_resistance,
+                NULL AS u_wind,
+                NULL AS utci,
+                NULL AS utci_category,
+                NULL AS v_wind,
+                NULL AS vapor_pressure,
+                NULL AS voltage_ratio,
+                NULL AS wet_bulb_temperature,
+                NULL AS wind_direction,
+                NULL AS wind_speed,
+                NULL AS x_orientation_angle,
+                NULL AS y_orientation_angle
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                atmospheric_pressure,
+                atmospheric_pressure_reduced,
+                battery_voltage,
+                black_globe_temperature,
+                blg_battery_voltage,
+                blg_time_offset,
+                dew_point,
+                heat_index,
+                lightning_average_distance,
+                lightning_strike_count,
+                maximum_wind_speed,
+                mrt,
+                pet,
+                pet_category,
+                precipitation_sum,
+                relative_humidity,
+                sensor_temperature_internal,
+                solar_radiation,
+                thermistor_resistance,
+                u_wind,
+                utci,
+                utci_category,
+                v_wind,
+                vapor_pressure,
+                voltage_ratio,
+                wet_bulb_temperature,
+                wind_direction,
+                wind_speed,
+                x_orientation_angle,
+                y_orientation_angle
+            FROM biomet_data
+        )
+    ) SELECT
+        (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
         name,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(air_temperature)
             ELSE NULL
         END AS air_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(air_temperature)
             ELSE NULL
         END AS air_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(air_temperature)
             ELSE NULL
         END AS air_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.atmospheric_pressure)
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.atmospheric_pressure)
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.atmospheric_pressure)
+                    WHERE atmospheric_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(atmospheric_pressure)
             ELSE NULL
         END AS atmospheric_pressure_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.atmospheric_pressure_reduced)
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.atmospheric_pressure_reduced)
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.atmospheric_pressure_reduced)
+                    WHERE atmospheric_pressure_reduced IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(atmospheric_pressure_reduced)
             ELSE NULL
         END AS atmospheric_pressure_reduced_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(battery_voltage)
             ELSE NULL
         END AS battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(battery_voltage)
             ELSE NULL
         END AS battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(battery_voltage)
             ELSE NULL
         END AS battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.black_globe_temperature)
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.black_globe_temperature)
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE black_globe_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.black_globe_temperature)
+                    WHERE black_globe_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(black_globe_temperature)
             ELSE NULL
         END AS black_globe_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.blg_battery_voltage)
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.blg_battery_voltage)
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.blg_battery_voltage)
+                    WHERE blg_battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(blg_battery_voltage)
             ELSE NULL
         END AS blg_battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.blg_time_offset)
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.blg_time_offset)
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE blg_time_offset IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.blg_time_offset)
+                    WHERE blg_time_offset IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(blg_time_offset)
             ELSE NULL
         END AS blg_time_offset_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(dew_point)
             ELSE NULL
         END AS dew_point,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(dew_point)
             ELSE NULL
         END AS dew_point_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(dew_point)
             ELSE NULL
         END AS dew_point_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(heat_index)
             ELSE NULL
         END AS heat_index,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(heat_index)
             ELSE NULL
         END AS heat_index_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(heat_index)
             ELSE NULL
         END AS heat_index_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.lightning_average_distance)
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.lightning_average_distance)
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_average_distance IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.lightning_average_distance)
+                    WHERE lightning_average_distance IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(lightning_average_distance)
             ELSE NULL
         END AS lightning_average_distance_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE lightning_strike_count IS NOT NULL) / 288
-                ) > 0.7 THEN sum(biomet_data.lightning_strike_count)
+                    WHERE lightning_strike_count IS NOT NULL) / 288.0
+                ) > 0.7 THEN sum(lightning_strike_count)
             ELSE NULL
         END AS lightning_strike_count,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE maximum_wind_speed IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.maximum_wind_speed)
+                    WHERE maximum_wind_speed IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(maximum_wind_speed)
             ELSE NULL
         END AS maximum_wind_speed,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.mrt)
+                    WHERE mrt IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(mrt)
             ELSE NULL
         END AS mrt,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.mrt)
+                    WHERE mrt IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(mrt)
             ELSE NULL
         END AS mrt_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE mrt IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.mrt)
+                    WHERE mrt IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(mrt)
             ELSE NULL
         END AS mrt_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.pet)
+                    WHERE pet IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(pet)
             ELSE NULL
         END AS pet,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.pet)
+                    WHERE pet IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(pet)
             ELSE NULL
         END AS pet_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.pet)
+                    WHERE pet IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(pet)
             ELSE NULL
         END AS pet_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE pet_category IS NOT NULL) / 288
-                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY biomet_data.pet_category ASC)
+                    WHERE pet_category IS NOT NULL) / 288.0
+                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY pet_category ASC)
             ELSE NULL
         END AS pet_category,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE precipitation_sum IS NOT NULL) / 288
-                ) > 0.7 THEN sum(biomet_data.precipitation_sum)
+                    WHERE precipitation_sum IS NOT NULL) / 288.0
+                ) > 0.7 THEN sum(precipitation_sum)
             ELSE NULL
         END AS precipitation_sum,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
         END AS relative_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(relative_humidity)
             ELSE NULL
         END AS relative_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(relative_humidity)
             ELSE NULL
         END AS relative_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.sensor_temperature_internal)
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.sensor_temperature_internal)
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE sensor_temperature_internal IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.sensor_temperature_internal)
+                    WHERE sensor_temperature_internal IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(sensor_temperature_internal)
             ELSE NULL
         END AS sensor_temperature_internal_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.solar_radiation)
+                    WHERE solar_radiation IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(solar_radiation)
             ELSE NULL
         END AS solar_radiation,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.solar_radiation)
+                    WHERE solar_radiation IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(solar_radiation)
             ELSE NULL
         END AS solar_radiation_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE solar_radiation IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.solar_radiation)
+                    WHERE solar_radiation IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(solar_radiation)
             ELSE NULL
         END AS solar_radiation_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.thermistor_resistance)
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.thermistor_resistance)
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE thermistor_resistance IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.thermistor_resistance)
+                    WHERE thermistor_resistance IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(thermistor_resistance)
             ELSE NULL
         END AS thermistor_resistance_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.u_wind)
+                    WHERE u_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(u_wind)
             ELSE NULL
         END AS u_wind,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.u_wind)
+                    WHERE u_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(u_wind)
             ELSE NULL
         END AS u_wind_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE u_wind IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.u_wind)
+                    WHERE u_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(u_wind)
             ELSE NULL
         END AS u_wind_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.utci)
+                    WHERE utci IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(utci)
             ELSE NULL
         END AS utci,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.utci)
+                    WHERE utci IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(utci)
             ELSE NULL
         END AS utci_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.utci)
+                    WHERE utci IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(utci)
             ELSE NULL
         END AS utci_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE utci_category IS NOT NULL) / 288
-                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY biomet_data.utci_category ASC)
+                    WHERE utci_category IS NOT NULL) / 288.0
+                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY utci_category ASC)
             ELSE NULL
         END AS utci_category,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.v_wind)
+                    WHERE v_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(v_wind)
             ELSE NULL
         END AS v_wind,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.v_wind)
+                    WHERE v_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(v_wind)
             ELSE NULL
         END AS v_wind_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE v_wind IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.v_wind)
+                    WHERE v_wind IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(v_wind)
             ELSE NULL
         END AS v_wind_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.vapor_pressure)
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.vapor_pressure)
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE vapor_pressure IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.vapor_pressure)
+                    WHERE vapor_pressure IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(vapor_pressure)
             ELSE NULL
         END AS vapor_pressure_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.voltage_ratio)
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.voltage_ratio)
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE voltage_ratio IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.voltage_ratio)
+                    WHERE voltage_ratio IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(voltage_ratio)
             ELSE NULL
         END AS voltage_ratio_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_direction IS NOT NULL) / 288
-                ) > 0.7 THEN avg_angle(biomet_data.wind_direction)
+                    WHERE wind_direction IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg_angle(wind_direction)
             ELSE NULL
         END AS wind_direction,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.wind_speed)
+                    WHERE wind_speed IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(wind_speed)
             ELSE NULL
         END AS wind_speed,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.wind_speed)
+                    WHERE wind_speed IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(wind_speed)
             ELSE NULL
         END AS wind_speed_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wind_speed IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.wind_speed)
+                    WHERE wind_speed IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(wind_speed)
             ELSE NULL
         END AS wind_speed_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.x_orientation_angle)
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.x_orientation_angle)
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE x_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.x_orientation_angle)
+                    WHERE x_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(x_orientation_angle)
             ELSE NULL
         END AS x_orientation_angle_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN avg(biomet_data.y_orientation_angle)
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN min(biomet_data.y_orientation_angle)
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE y_orientation_angle IS NOT NULL) / 288
-                ) > 0.7 THEN max(biomet_data.y_orientation_angle)
+                    WHERE y_orientation_angle IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(y_orientation_angle)
             ELSE NULL
         END AS y_orientation_angle_max
-    FROM biomet_data
-    GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, name
+    FROM all_data
+    GROUP BY measured_at, name
     ORDER BY measured_at, name
     ''')  # noqa: E501
 
@@ -1701,173 +1876,235 @@ class TempRHDataDaily(
 
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS
-    SELECT
-        (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE as measured_at,
+    WITH data_bounds AS (
+        SELECT
+            name,
+            MIN(measured_at) AS start_time,
+            MAX(measured_at) AS end_time
+        FROM temp_rh_data
+        GROUP BY name
+    ), filling_time_series AS (
+        SELECT generate_series(
+            DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
+            DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM temp_rh_data) + '1 hour'::INTERVAL),
+            '1 hour'::INTERVAL
+        ) AS measured_at
+    ),
+    stations_subset AS (
+        -- TODO: this could be faster if check the station table by station_type
+        SELECT DISTINCT name FROM temp_rh_data
+    ),
+    time_station_combinations AS (
+        SELECT
+            measured_at,
+            stations_subset.name,
+            start_time,
+            end_time
+        FROM filling_time_series
+        CROSS JOIN stations_subset
+        JOIN data_bounds
+            ON data_bounds.name = stations_subset.name
+        WHERE filling_time_series.measured_at >= data_bounds.start_time
+        AND filling_time_series.measured_at <= data_bounds.end_time
+    ), all_data AS(
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                NULL AS absolute_humidity,
+                NULL AS air_temperature,
+                NULL AS air_temperature_raw,
+                NULL AS battery_voltage,
+                NULL AS dew_point,
+                NULL AS heat_index,
+                NULL AS relative_humidity,
+                NULL AS relative_humidity_raw,
+                NULL AS wet_bulb_temperature
+            FROM time_station_combinations
+        )
+        UNION ALL
+        (
+            SELECT
+                measured_at AS ma,
+                name,
+                absolute_humidity,
+                air_temperature,
+                air_temperature_raw,
+                battery_voltage,
+                dew_point,
+                heat_index,
+                relative_humidity,
+                relative_humidity_raw,
+                wet_bulb_temperature
+            FROM temp_rh_data
+        )
+    ) SELECT
+        (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
         name,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE absolute_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.absolute_humidity)
+                    WHERE absolute_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(absolute_humidity)
             ELSE NULL
         END AS absolute_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(air_temperature)
             ELSE NULL
         END AS air_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(air_temperature)
             ELSE NULL
         END AS air_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.air_temperature)
+                    WHERE air_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(air_temperature)
             ELSE NULL
         END AS air_temperature_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.air_temperature_raw)
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.air_temperature_raw)
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE air_temperature_raw IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.air_temperature_raw)
+                    WHERE air_temperature_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(air_temperature_raw)
             ELSE NULL
         END AS air_temperature_raw_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(battery_voltage)
             ELSE NULL
         END AS battery_voltage,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(battery_voltage)
             ELSE NULL
         END AS battery_voltage_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE battery_voltage IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.battery_voltage)
+                    WHERE battery_voltage IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(battery_voltage)
             ELSE NULL
         END AS battery_voltage_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(dew_point)
             ELSE NULL
         END AS dew_point,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(dew_point)
             ELSE NULL
         END AS dew_point_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE dew_point IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.dew_point)
+                    WHERE dew_point IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(dew_point)
             ELSE NULL
         END AS dew_point_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(heat_index)
             ELSE NULL
         END AS heat_index,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(heat_index)
             ELSE NULL
         END AS heat_index_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE heat_index IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.heat_index)
+                    WHERE heat_index IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(heat_index)
             ELSE NULL
         END AS heat_index_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
         END AS relative_humidity,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(relative_humidity)
             ELSE NULL
         END AS relative_humidity_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.relative_humidity)
+                    WHERE relative_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(relative_humidity)
             ELSE NULL
         END AS relative_humidity_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.relative_humidity_raw)
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.relative_humidity_raw)
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE relative_humidity_raw IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.relative_humidity_raw)
+                    WHERE relative_humidity_raw IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw_max,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN avg(temp_rh_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN min(temp_rh_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_min,
         CASE
             WHEN (count(*) FILTER (
-                    WHERE wet_bulb_temperature IS NOT NULL) / 288
-                ) > 0.7 THEN max(temp_rh_data.wet_bulb_temperature)
+                    WHERE wet_bulb_temperature IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(wet_bulb_temperature)
             ELSE NULL
         END AS wet_bulb_temperature_max
-    FROM temp_rh_data
-    GROUP BY (time_bucket('1day', measured_at, 'CET') + '1 hour'::INTERVAL)::DATE, name
+    FROM all_data
+    GROUP BY measured_at, name
     ORDER BY measured_at, name
     ''')  # noqa: E501
 # END_GENERATED

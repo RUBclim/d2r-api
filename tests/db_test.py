@@ -54,11 +54,17 @@ async def test_hourly_view_data_is_right_labelled(
     result = (await db.execute(query)).all()
 
     # we start with 11:55 hence this is part of the right-labeled 11-12:00 interval
-    assert result[0] == (datetime(2024, 1, 1, 12, 0), Decimal('0'))
+    assert result[0] == (datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc), Decimal('0'))
     # this starts at 12:00 and is part of the right-labeled 12-13:00 interval
-    assert result[1] == (datetime(2024, 1, 1, 13, 0), Decimal('6.5'))
+    assert result[1] == (
+        datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc),
+        Decimal('6.5'),
+    )
     # this is 13:00 and is part of the 13-14:00 interval
-    assert result[2] == (datetime(2024, 1, 1, 14, 0), Decimal('13'))
+    assert result[2] == (
+        datetime(2024, 1, 1, 14, 0, tzinfo=timezone.utc),
+        Decimal('13'),
+    )
 
 
 @pytest.mark.anyio

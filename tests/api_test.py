@@ -1595,6 +1595,413 @@ async def test_get_temp_rh_data_multiple_params(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_data_biomet_hourly_null_values_are_filled(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create data for two stations
+    data = [
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 10, 10),
+            maximum_wind_speed=12.0,
+            relative_humidity=50.5,
+        ),
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 12, 10),
+            maximum_wind_speed=6.0,
+            relative_humidity=60.5,
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await BiometDataHourly.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 8),
+            'end_date': datetime(2024, 8, 1, 14),
+            'param': ['maximum_wind_speed', 'relative_humidity'],
+            'scale': 'hourly',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T11:00:00Z',
+            'maximum_wind_speed': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-01T12:00:00Z',
+            'maximum_wind_speed': None,
+            'relative_humidity': None,
+        },
+        {
+            'measured_at': '2024-08-01T13:00:00Z',
+            'maximum_wind_speed': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_data_biomet_hourly_no_gap_filling(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create data for two stations
+    data = [
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 10, 10),
+            maximum_wind_speed=12.0,
+            relative_humidity=50.5,
+        ),
+        BiometData(
+            name=stations[0].name,
+            measured_at=datetime(2024, 8, 1, 12, 10),
+            maximum_wind_speed=6.0,
+            relative_humidity=60.5,
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await BiometDataHourly.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 8),
+            'end_date': datetime(2024, 8, 1, 14),
+            'param': ['maximum_wind_speed', 'relative_humidity'],
+            'scale': 'hourly',
+            'fill_gaps': False,
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T11:00:00Z',
+            'maximum_wind_speed': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-01T13:00:00Z',
+            'maximum_wind_speed': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_data_temprh_hourly_null_values_are_filled(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+    # create data for two stations
+    data = [
+        TempRHData(
+            name=station.name,
+            measured_at=datetime(2024, 8, 1, 10, 10),
+            air_temperature=12.0,
+            relative_humidity=50.5,
+        ),
+        TempRHData(
+            name=station.name,
+            measured_at=datetime(2024, 8, 1, 12, 10),
+            air_temperature=6.0,
+            relative_humidity=60.5,
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataHourly.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1, 8),
+            'end_date': datetime(2024, 8, 1, 14),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'hourly',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T11:00:00Z',
+            'air_temperature': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-01T12:00:00Z',
+            'air_temperature': None,
+            'relative_humidity': None,
+        },
+        {
+            'measured_at': '2024-08-01T13:00:00Z',
+            'air_temperature': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_data_biomet_daily_null_values_are_filled(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create data for two stations
+    # we need to create a lot of data so it is filled
+    # to exceed the threshold, we need to insert enough values
+    data = []
+    for minutes in range(0, 23*60, 5):
+        step = timedelta(minutes=minutes)
+        tmp_data = [
+            BiometData(
+                measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
+                name=stations[0].name,
+                maximum_wind_speed=12,
+                relative_humidity=50.5,
+            ),
+            # two days are missing inbetween
+            BiometData(
+                measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
+                name=stations[0].name,
+                maximum_wind_speed=6,
+                relative_humidity=60.5,
+            ),
+        ]
+        data.extend(tmp_data)
+
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await BiometDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1),
+            'end_date': datetime(2024, 8, 4),
+            'param': ['maximum_wind_speed', 'relative_humidity'],
+            'scale': 'daily',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T00:00:00Z',
+            'maximum_wind_speed': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-02T00:00:00Z',
+            'maximum_wind_speed': None,
+            'relative_humidity': None,
+        },
+        {
+            'measured_at': '2024-08-03T00:00:00Z',
+            'maximum_wind_speed': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_data_temprh_daily_null_values_are_filled(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+
+    # to exceed the threshold, we need to insert enough values
+    data = []
+    for minutes in range(0, 23*60, 5):
+        step = timedelta(minutes=minutes)
+        tmp_data = [
+            TempRHData(
+                measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=12,
+                relative_humidity=50.5,
+            ),
+            # two days are missing inbetween
+            TempRHData(
+                measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=6,
+                relative_humidity=60.5,
+            ),
+        ]
+        data.extend(tmp_data)
+
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1),
+            'end_date': datetime(2024, 8, 4),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'daily',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T00:00:00Z',
+            'air_temperature': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-02T00:00:00Z',
+            'air_temperature': None,
+            'relative_humidity': None,
+        },
+        {
+            'measured_at': '2024-08-03T00:00:00Z',
+            'air_temperature': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_get_data_biomet_daily_no_gap_filling(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    station = Station(
+        name='DEC1',
+        device_id=27,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+
+    # to exceed the threshold, we need to insert enough values
+    data = []
+    for minutes in range(0, 23*60, 5):
+        step = timedelta(minutes=minutes)
+        tmp_data = [
+            TempRHData(
+                measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=12,
+                relative_humidity=50.5,
+            ),
+            # two days are missing inbetween
+            TempRHData(
+                measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
+                name=station.name,
+                air_temperature=6,
+                relative_humidity=60.5,
+            ),
+        ]
+        data.extend(tmp_data)
+
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+
+    resp = await app.get(
+        '/v1/data/DEC1',
+        params={
+            'start_date': datetime(2024, 8, 1),
+            'end_date': datetime(2024, 8, 4),
+            'param': ['air_temperature', 'relative_humidity'],
+            'scale': 'daily',
+            'fill_gaps': False,
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T00:00:00Z',
+            'air_temperature': 12,
+            'relative_humidity': 50.5,
+        },
+        {
+            'measured_at': '2024-08-03T00:00:00Z',
+            'air_temperature': 6,
+            'relative_humidity': 60.5,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
 async def test_get_temp_rh_data_daily_multiple_params(
         app: AsyncClient,
         db: AsyncSession,
@@ -1845,21 +2252,21 @@ async def test_get_network_values_hourly(
     assert resp.json()['data'] == [
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC1',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC2',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
             'name': 'DEC-temprh-0',
             'station_type': 'temprh',
             # temprh supports no windspeed
@@ -1867,7 +2274,148 @@ async def test_get_network_values_hourly(
         },
         {
             'air_temperature': 6.5,
-            'measured_at': '2024-01-01T13:00:00',
+            'measured_at': '2024-01-01T13:00:00Z',
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_network_values_hourly_missing_values_are_null(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create some temp_rh stations
+    temp_rh_stations = []
+    for i in range(2):
+        station = Station(
+            name=f'DEC-temprh-{i}',
+            device_id=27,
+            long_name=f'DEC-temprh-{i}',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        )
+        db.add(station)
+        temp_rh_stations.append(station)
+    await db.commit()
+
+    start_date = datetime(2024, 1, 1, 11, 30, tzinfo=timezone.utc)
+    step = timedelta(hours=1)
+    for biomet_station, temp_rh_station in zip(stations, temp_rh_stations, strict=True):
+        # skip every other value
+        for value in range(1, 5, 2):
+            # insert some values for biomet
+            biomet_data = BiometData(
+                measured_at=start_date + (step * value),
+                name=biomet_station.name,
+                air_temperature=value,
+                wind_speed=value / 2,
+            )
+            db.add(biomet_data)
+            # insert some values for temprh
+            # make this offset compared to the biomet data!
+            temp_rh_data = TempRHData(
+                measured_at=start_date + (step * (value - 1)),
+                name=temp_rh_station.name,
+                air_temperature=value,
+            )
+            db.add(temp_rh_data)
+
+    await db.commit()
+    await TempRHDataHourly.refresh()
+    await BiometDataHourly.refresh()
+    # here the temprh stations should show null values, but the biomet
+    # stations should have actual values
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'hourly',
+            'date': datetime(2024, 1, 1, 13),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 1.0,
+            'measured_at': '2024-01-01T13:00:00Z',
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 0.5,
+        },
+        {
+            'air_temperature': 1.0,
+            'measured_at': '2024-01-01T13:00:00Z',
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'wind_speed': 0.5,
+        },
+        {
+            'air_temperature': None,
+            'measured_at': '2024-01-01T13:00:00Z',
+            'name': 'DEC-temprh-0',
+            'station_type': 'temprh',
+            # temprh supports no windspeed
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': None,
+            'measured_at': '2024-01-01T13:00:00Z',
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+    # here the biomet stations should show null values, but the temprh
+    # stations should have actual values
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'hourly',
+            'date': datetime(2024, 1, 1, 14),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': None,
+            'measured_at': '2024-01-01T14:00:00Z',
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': None,
+            'measured_at': '2024-01-01T14:00:00Z',
+            'name': 'DEC2',
+            'station_type': 'biomet',
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': 3.0,
+            'measured_at': '2024-01-01T14:00:00Z',
+            'name': 'DEC-temprh-0',
+            'station_type': 'temprh',
+            # temprh supports no windspeed
+            'wind_speed': None,
+        },
+        {
+            'air_temperature': 3.0,
+            'measured_at': '2024-01-01T14:00:00Z',
             'name': 'DEC-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
@@ -1964,6 +2512,144 @@ async def test_get_network_values_daily(
         {
             'air_temperature': 155.5,
             'measured_at': '2024-01-02T00:00:00',
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_network_values_daily_missing_values_are_null(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    temp_rh_station = Station(
+        name='DEC-temprh-1',
+        device_id=27,
+        long_name='DEC-temprh-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(temp_rh_station)
+    await db.commit()
+
+    # to exceed the threshold, we need to insert enough values
+    data = []
+    for minutes in range(0, 23*60, 5):
+        step = timedelta(minutes=minutes)
+        tmp_data = [
+            BiometData(
+                measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
+                name=stations[0].name,
+                air_temperature=10.5,
+                wind_speed=3.5,
+            ),
+            # 1 day missing inbetween
+            BiometData(
+                measured_at=datetime(2024, 1, 3, 0, tzinfo=timezone.utc) + step,
+                name=stations[0].name,
+                air_temperature=12.0,
+                wind_speed=1.5,
+            ),
+            TempRHData(
+                measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
+                name=temp_rh_station.name,
+                air_temperature=11.4,
+            ),
+            # two days missing inbetween
+            TempRHData(
+                measured_at=datetime(2024, 1, 4, 0, tzinfo=timezone.utc) + step,
+                name=temp_rh_station.name,
+                air_temperature=9.5,
+            ),
+        ]
+        data.extend(tmp_data)
+
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+    await TempRHDataDaily.refresh()
+    await BiometDataDaily.refresh()
+
+    # here both stations should have data!
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'daily',
+            'date': datetime(2024, 1, 1, 0, 0),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-01-01T00:00:00',
+            'air_temperature': 10.5,
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 3.5,
+        },
+        {
+            'measured_at': '2024-01-01T00:00:00',
+            'air_temperature': 11.4,
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+    # here only the biomet should have data, but the other is filled in with NULL
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'daily',
+            'date': datetime(2024, 1, 3, 0, 0),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-01-03T00:00:00',
+            'air_temperature': 12.0,
+            'name': 'DEC1',
+            'station_type': 'biomet',
+            'wind_speed': 1.5,
+        },
+        {
+            'measured_at': '2024-01-03T00:00:00',
+            'air_temperature': None,
+            'name': 'DEC-temprh-1',
+            'station_type': 'temprh',
+            'wind_speed': None,
+        },
+    ]
+    # here only the temprh should have data since it was after the last measurement
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['air_temperature', 'wind_speed'],
+            'scale': 'daily',
+            'date': datetime(2024, 1, 4, 0, 0),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-01-04T00:00:00',
+            'air_temperature': 9.5,
             'name': 'DEC-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
