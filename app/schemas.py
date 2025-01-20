@@ -24,6 +24,7 @@ LCZClass = Literal[
 class Units(StrEnum):
     """Common units used for data provided by this API"""
     g_m3 = 'g/m³'
+    g_kg = 'g/kg'
     hpa = 'hPa'
     deg_c = '°C'
     km = 'km',
@@ -40,6 +41,9 @@ UNIT_MAPPING: dict[str, Units] = {
     'absolute_humidity': Units.g_m3,
     'absolute_humidity_max': Units.g_m3,
     'absolute_humidity_min': Units.g_m3,
+    'specific_humidity': Units.g_kg,
+    'specific_humidity_max': Units.g_kg,
+    'specific_humidity_min': Units.g_kg,
     'atmospheric_pressure': Units.hpa,
     'atmospheric_pressure_max': Units.hpa,
     'atmospheric_pressure_min': Units.hpa,
@@ -102,10 +106,12 @@ class PublicParams(StrEnum):
     - `relative_humidity`
     - `dew_point`
     - `absolute_humidity`
+    - `specific_humidity`
     - `heat_index`
     - `wet_bulb_temperature`
     """
     absolute_humidity = 'absolute_humidity'
+    specific_humidity = 'specific_humidity'
     atmospheric_pressure = 'atmospheric_pressure'
     atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
     air_temperature = 'air_temperature'
@@ -139,6 +145,7 @@ class PublicParamsAggregates(StrEnum):
     - `relative_humidity`
     - `dew_point`
     - `absolute_humidity`
+    - `specific_humidity`
     - `heat_index`
     - `wet_bulb_temperature`
 
@@ -149,6 +156,9 @@ class PublicParamsAggregates(StrEnum):
     absolute_humidity = 'absolute_humidity'
     absolute_humidity_max = 'absolute_humidity_max'
     absolute_humidity_min = 'absolute_humidity_min'
+    specific_humidity = 'specific_humidity'
+    specific_humidity_max = 'specific_humidity_max'
+    specific_humidity_min = 'specific_humidity_min'
     atmospheric_pressure = 'atmospheric_pressure'
     atmospheric_pressure_max = 'atmospheric_pressure_max'
     atmospheric_pressure_min = 'atmospheric_pressure_min'
@@ -282,6 +292,11 @@ class Parameters(BaseModel):
         None,
         examples=[11.5],
         description='Absolute humidity in **g/m³**',
+    )
+    specific_humidity: float | None = Field(
+        None,
+        examples=[11.5],
+        description='Specific humidity in **g/kg**',
     )
     atmospheric_pressure: float | None = Field(
         None,
@@ -422,7 +437,17 @@ class ParametersAgg(BaseModel):
     absolute_humidity_max: float | None = Field(
         None,
         examples=[11.9],
-        description='The maximum Absolute humidity in **g/m³**',
+        description='The maximum absolute humidity in **g/m³**',
+    )
+    specific_humidity_min: float | None = Field(
+        None,
+        examples=[11.1],
+        description='The minimum specific humidity in **g/kg**',
+    )
+    specific_humidity_max: float | None = Field(
+        None,
+        examples=[11.9],
+        description='The maximum specific humidity in **g/kg**',
     )
     atmospheric_pressure_min: float | None = Field(
         None,

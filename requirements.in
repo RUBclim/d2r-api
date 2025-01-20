@@ -3,14 +3,13 @@ asgiref
 celery[redis]
 fastapi
 git+https://github.com/RUBclim/element-api@0.2.1
+git+https://github.com/RUBclim/thermal-comfort@bd07a2973d8cb9735ae1acc2289d43a5c63f77f3
 gunicorn
 psycopg[binary] > 3.2.0
 psycopg2-binary
-pythermalcomfort
+pydantic==2.9.2
 # something is fucked in one of the depencies which makes us getting a very old version
 # so we are requesting them to be newer, but are not directly depending on them
-llvmlite>=0.43.0
-numba>=0.60.0
 pydantic<2.10.0
 sentry_sdk[fastapi]
 sqlmodel

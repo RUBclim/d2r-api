@@ -5,7 +5,6 @@ from datetime import timedelta
 from datetime import timezone
 from typing import Any
 from typing import NamedTuple
-from typing import overload
 from typing import Union
 from urllib.error import HTTPError
 
@@ -16,20 +15,18 @@ from celery import chord
 from celery import group
 from celery.schedules import crontab
 from element import ElementApi
-from numpy import floating
 from numpy.typing import NDArray
-from pythermalcomfort.models import heat_index_rothfusz
-from pythermalcomfort.models import pet_steady
-from pythermalcomfort.models import utci
-from pythermalcomfort.shared_functions import mapping
-from pythermalcomfort.utilities import dew_point_tmp
-from pythermalcomfort.utilities import mean_radiant_tmp
-from pythermalcomfort.utilities import Postures
-from pythermalcomfort.utilities import Sex
-from pythermalcomfort.utilities import wet_bulb_tmp
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from thermal_comfort import absolute_humidity
+from thermal_comfort import dew_point
+from thermal_comfort import heat_index_extended
+from thermal_comfort import mean_radiant_temp
+from thermal_comfort import pet_static
+from thermal_comfort import specific_humidity
+from thermal_comfort import utci_approx
+from thermal_comfort import wet_bulb_temp
 
 from app.celery import async_task
 from app.celery import celery_app
@@ -40,6 +37,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import PET_STRESS_CATEGORIES
 from app.models import Sensor
@@ -51,6 +49,7 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.models import UTCI_STRESS_CATEGORIES
 
 # TODO: the pythermalcomfort imports are incredibly slow - we might as well just
 # vendor the functions we need or even use them in C/fortran as the original
@@ -93,15 +92,6 @@ RENAMER = {
     'temperature': 'black_globe_temperature',
 }
 
-KLIMA_MICHEL = {
-    'mbody': 75,  # body mass (kg)
-    'age': 35,  # person's age (years)
-    'height': 1.75,  # height (meters)
-    'activity': 135,  # activity level (W)
-    'sex': Sex.male.value,
-    'clo': 0.9,  # clothing amount (0-5)
-}
-
 
 def reduce_pressure(p: Union[float, 'pd.Series[float]'], alt: float) -> float:
     """Correct barometric pressure in **hPa** to sea level
@@ -111,67 +101,25 @@ def reduce_pressure(p: Union[float, 'pd.Series[float]'], alt: float) -> float:
     return p + 1013.25 * (1 - (1 - alt / 44307.69231)**5.25328)
 
 
-# autopep8: off
+def category_mapping(
+        value: Union[float, 'pd.Series[float]'],
+        mapping: dict[float, HeatStressCategories],
+        right: bool = True,
+) -> NDArray[np.str_]:
+    """Maps a value array to categories.
 
+    Taken from: https://github.com/CenterForTheBuiltEnvironment/pythermalcomfort/blob/496f3799de287737f2ea53cc6a8c900052a29aaa/pythermalcomfort/utilities.py#L378-L397
 
-@overload
-def abshum_from_sat_vap_press(temp: float, relhum: float) -> float: ...
+    :param value: The numeric value to map
+    :param mapping: A dictionary with the mapping of the values to categories
+    :param right: Indicating whether the intervals include the right or the left
+        bin edge.
 
-
-@overload
-def abshum_from_sat_vap_press(
-        temp: 'pd.Series[float]',
-        relhum: 'pd.Series[float]',
-) -> 'pd.Series[float]': ...
-# autopep8: on
-
-
-def abshum_from_sat_vap_press(
-        temp: Union[float, 'pd.Series[float]'],
-        relhum: Union[float, 'pd.Series[float]'],
-) -> Union[float, 'pd.Series[float]', NDArray[floating[Any]]]:
-    '''Compute absolute humidity from relative humidity and temperature.
-    using an estimated saturation vapour pressure as calculated by
-    :func:`estimate_sat_vap_pressure`. Formula was taken from:
-    https://www.hatchability.com/Vaisala.pdf
-
-    :param temp: temperature in degrees celsius
-    :param relhum: relative humidity in %
-
-    :return: absolute humidity in ``g m^-3``
-    '''
-    C = 2.16679
-    temp_kelvin = temp + 273.15
-    sat_vap_pressure = estimate_sat_vap_pressure(temp)
-    vap_pressure = sat_vap_pressure * relhum
-    abshum = C * vap_pressure / temp_kelvin
-    return abshum
-
-# autopep8: off
-
-
-@overload
-def estimate_sat_vap_pressure(temp: float) -> float: ...
-
-
-@overload
-def estimate_sat_vap_pressure(temp: 'pd.Series[float]') -> NDArray[floating[Any]]: ...
-# autopep8: on
-
-
-def estimate_sat_vap_pressure(
-        temp: Union[float, 'pd.Series[float]'],
-) -> float | NDArray[floating[Any]]:
-    '''Estimate saturation vapour pressure (in Pa) at a given temperature
-    using the August-Roche-Magnus formula.
-    https://www.hatchability.com/Vaisala.pdf
-
-    :param temp: temperature in degrees celsius
-
-    :return: vapour pressure in Pa
-    '''
-    r = 6.1094 * np.exp(17.625 * temp / (temp + 243.04))
-    return r
+    :returns: The category the value(s) fit(s) into
+    """  # noqa: E501
+    bins = np.array(list(mapping.keys()))
+    words = np.append(np.array(list(mapping.values())), HeatStressCategories.unknown)
+    return words[np.digitize(value, bins, right=right)]
 
 
 async def _download_sensor_data(
@@ -364,6 +312,7 @@ async def calculate_biomet(station_id: str | None) -> None:
     - ``vapor_pressure``
     - ``atmospheric_pressure_reduced``
     - ``absolute_humidity``
+    - ``specific_humidity``
     - ``mrt``
     - ``dew_point``
     - ``wet_bulb_temperature``
@@ -513,66 +462,74 @@ async def calculate_biomet(station_id: str | None) -> None:
             alt=deployment_info.station.altitude,
         )
 
-        df_biomet['absolute_humidity'] = abshum_from_sat_vap_press(
-            temp=df_biomet['air_temperature'],
-            relhum=df_biomet['relative_humidity'],
+        df_biomet['absolute_humidity'] = absolute_humidity(
+            ta=df_biomet['air_temperature'],
+            rh=df_biomet['relative_humidity'],
         )
 
-        df_biomet['mrt'] = mean_radiant_tmp(
+        df_biomet['specific_humidity'] = specific_humidity(
+            ta=df_biomet['air_temperature'],
+            rh=df_biomet['relative_humidity'],
+            p=df_biomet['atmospheric_pressure'],
+        )
+
+        df_biomet['mrt'] = mean_radiant_temp(
+            ta=df_biomet['air_temperature'],
             tg=df_biomet['black_globe_temperature'],
-            tdb=df_biomet['air_temperature'],
             v=df_biomet['wind_speed'],
-            standard='ISO',
         )
 
-        df_biomet['dew_point'] = dew_point_tmp(
-            tdb=df_biomet['air_temperature'],
+        df_biomet['dew_point'] = dew_point(
+            ta=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
         )
 
-        df_biomet['wet_bulb_temperature'] = wet_bulb_tmp(
-            tdb=df_biomet['air_temperature'],
+        df_biomet['wet_bulb_temperature'] = wet_bulb_temp(
+            ta=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
         )
 
-        # we need to unpack the stupid object...
-        df_biomet['heat_index'] = heat_index_rothfusz(
-            tdb=df_biomet['air_temperature'],
+        df_biomet['heat_index'] = heat_index_extended(
+            ta=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
-            round_output=False,
-        ).hi
+        )
 
-        utci_values = utci(
-            tdb=df_biomet['air_temperature'],
-            tr=df_biomet['mrt'],
+        df_biomet['utci'] = utci_approx(
+            ta=df_biomet['air_temperature'],
+            tmrt=df_biomet['mrt'],
             v=df_biomet['wind_speed'],
             rh=df_biomet['relative_humidity'],
-            limit_inputs=False,
-            round_output=False,
         )
-        df_biomet['utci'] = utci_values['utci']
-        df_biomet['utci_category'] = utci_values['stress_category']
-        # TODO (LW): validate this with the Klima Michel
+        # retrieve the UTCI-stress category
+        df_biomet['utci_category'] = category_mapping(
+            df_biomet['utci'],
+            UTCI_STRESS_CATEGORIES,
+        )
+
         # we cannot calculate pet with atmospheric pressures of 0 (sometimes sensors
         # send this value) we need to set them to a value that is not 0
         atmospheric_pressure_mask = df_biomet['atmospheric_pressure'] == 0
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 1013.25
-        df_biomet['pet'] = pet_steady(
-            tdb=df_biomet['air_temperature'],
-            tr=df_biomet['mrt'],
-            v=df_biomet['wind_speed'],
-            rh=df_biomet['relative_humidity'],
-            met=KLIMA_MICHEL['activity'] / 58.2,
-            clo=KLIMA_MICHEL['clo'],
-            p_atm=df_biomet['atmospheric_pressure'],
-            position=Postures.standing.value,
-            age=KLIMA_MICHEL['age'],
-            sex=KLIMA_MICHEL['sex'],
-            weight=KLIMA_MICHEL['mbody'],
-            height=KLIMA_MICHEL['height'],
-            wme=0,  # external work, [W/(m2)]
-        ).pet
-        df_biomet['pet_category'] = mapping(df_biomet['pet'], PET_STRESS_CATEGORIES)
+        df_biomet['pet'] = df_biomet[
+            [
+                'air_temperature', 'mrt', 'wind_speed',
+                'relative_humidity', 'atmospheric_pressure',
+            ]
+        ].apply(
+            lambda x: pet_static(
+                ta=x['air_temperature'],
+                tmrt=x['mrt'],
+                v=x['wind_speed'],
+                rh=x['relative_humidity'],
+                p=x['atmospheric_pressure'],
+            ),
+            axis=1,
+        )
+        # TODO: do the categories even apply to PET?
+        df_biomet['pet_category'] = category_mapping(
+            df_biomet['pet'],
+            PET_STRESS_CATEGORIES,
+        )
         # reset the atmospheric pressure to 0 again
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 0
         df_biomet['station_id'] = station_id
@@ -602,6 +559,7 @@ async def calculate_temp_rh(station_id: str | None) -> None:
     Currently the following parameters are calculated:
 
     - ``absolute_humidity``
+    - ``specific_humidity``
     - ``dew_point``
     - ``wet_bulb_temperature``
     - ``heat_index``
@@ -667,24 +625,29 @@ async def calculate_temp_rh(station_id: str | None) -> None:
 
         data = data.set_index('measured_at')
         # calculate derivates
-        data['absolute_humidity'] = abshum_from_sat_vap_press(
-            temp=data['air_temperature'],
-            relhum=data['relative_humidity'],
+        data['absolute_humidity'] = absolute_humidity(
+            ta=data['air_temperature'],
+            rh=data['relative_humidity'],
         )
-        data['dew_point'] = dew_point_tmp(
-            tdb=data['air_temperature'],
+        data['specific_humidity'] = specific_humidity(
+            ta=data['air_temperature'],
+            rh=data['relative_humidity'],
+            # we use the default atmospheric pressure of 1013.25 hPa here
+        )
+        data['dew_point'] = dew_point(
+            ta=data['air_temperature'],
             rh=data['relative_humidity'],
         )
 
-        data['wet_bulb_temperature'] = wet_bulb_tmp(
-            tdb=data['air_temperature'],
+        data['wet_bulb_temperature'] = wet_bulb_temp(
+            ta=data['air_temperature'],
             rh=data['relative_humidity'],
         )
 
-        data['heat_index'] = heat_index_rothfusz(
-            tdb=data['air_temperature'],
+        data['heat_index'] = heat_index_extended(
+            ta=data['air_temperature'],
             rh=data['relative_humidity'],
-        ).hi
+        )
         data['station_id'] = station_id
         con = await sess.connection()
         await con.run_sync(

@@ -71,6 +71,19 @@ PET_STRESS_CATEGORIES: dict[float, HeatStressCategories] = {
     1000.0: HeatStressCategories.extreme_heat_stress,
 }
 
+UTCI_STRESS_CATEGORIES: dict[float, HeatStressCategories] = {
+    -40.0: HeatStressCategories.extreme_cold_stress,
+    -27.0: HeatStressCategories.very_strong_cold_stress,
+    -13.0: HeatStressCategories.strong_cold_stress,
+    0.0: HeatStressCategories.moderate_cold_stress,
+    9.0: HeatStressCategories.slight_cold_stress,
+    26.0: HeatStressCategories.no_thermal_stress,
+    32.0: HeatStressCategories.moderate_heat_stress,
+    38.0: HeatStressCategories.strong_heat_stress,
+    46.0: HeatStressCategories.very_strong_heat_stress,
+    1000.0: HeatStressCategories.extreme_heat_stress,
+}
+
 # we need this for pandas to be able to insert enums via .to_sql
 _HeatStressCategories = ENUM(HeatStressCategories)
 
@@ -523,6 +536,7 @@ class _TempRHDerivatives(Base):
     __abstract__ = True
     dew_point: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     absolute_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='g/m3')
+    specific_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='g/kg')
     heat_index: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     wet_bulb_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
 
@@ -764,6 +778,7 @@ class LatestData(
             relative_humidity,
             dew_point,
             absolute_humidity,
+            specific_humidity,
             heat_index,
             wet_bulb_temperature,
             atmospheric_pressure,
@@ -810,6 +825,7 @@ class LatestData(
             relative_humidity,
             dew_point,
             absolute_humidity,
+            specific_humidity,
             heat_index,
             wet_bulb_temperature,
             NULL,
@@ -986,6 +1002,14 @@ class BiometDataHourly(
     )
     solar_radiation_min: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
     solar_radiation_max: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    specific_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
+    specific_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
     thermistor_resistance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
@@ -1077,6 +1101,9 @@ class BiometDataHourly(
             f'solar_radiation={self.solar_radiation!r}, '
             f'solar_radiation_min={self.solar_radiation_min!r}, '
             f'solar_radiation_max={self.solar_radiation_max!r}, '
+            f'specific_humidity={self.specific_humidity!r}, '
+            f'specific_humidity_min={self.specific_humidity_min!r}, '
+            f'specific_humidity_max={self.specific_humidity_max!r}, '
             f'thermistor_resistance={self.thermistor_resistance!r}, '
             f'thermistor_resistance_min={self.thermistor_resistance_min!r}, '
             f'thermistor_resistance_max={self.thermistor_resistance_max!r}, '
@@ -1170,6 +1197,7 @@ class BiometDataHourly(
                 NULL AS relative_humidity,
                 NULL AS sensor_temperature_internal,
                 NULL AS solar_radiation,
+                NULL AS specific_humidity,
                 NULL AS thermistor_resistance,
                 NULL AS u_wind,
                 NULL AS utci,
@@ -1210,6 +1238,7 @@ class BiometDataHourly(
                 relative_humidity,
                 sensor_temperature_internal,
                 solar_radiation,
+                specific_humidity,
                 thermistor_resistance,
                 u_wind,
                 utci,
@@ -1280,6 +1309,9 @@ class BiometDataHourly(
         avg(solar_radiation) AS solar_radiation,
         min(solar_radiation) AS solar_radiation_min,
         max(solar_radiation) AS solar_radiation_max,
+        avg(specific_humidity) AS specific_humidity,
+        min(specific_humidity) AS specific_humidity_min,
+        max(specific_humidity) AS specific_humidity_max,
         avg(thermistor_resistance) AS thermistor_resistance,
         min(thermistor_resistance) AS thermistor_resistance_min,
         max(thermistor_resistance) AS thermistor_resistance_max,
@@ -1372,6 +1404,14 @@ class TempRHDataHourly(
         nullable=True,
         comment='%',
     )
+    specific_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
+    specific_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
@@ -1411,6 +1451,9 @@ class TempRHDataHourly(
             f'relative_humidity_raw={self.relative_humidity_raw!r}, '
             f'relative_humidity_raw_min={self.relative_humidity_raw_min!r}, '
             f'relative_humidity_raw_max={self.relative_humidity_raw_max!r}, '
+            f'specific_humidity={self.specific_humidity!r}, '
+            f'specific_humidity_min={self.specific_humidity_min!r}, '
+            f'specific_humidity_max={self.specific_humidity_max!r}, '
             f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
             f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
             f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
@@ -1463,6 +1506,7 @@ class TempRHDataHourly(
                 NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS relative_humidity_raw,
+                NULL AS specific_humidity,
                 NULL AS wet_bulb_temperature
             FROM time_station_combinations
         )
@@ -1480,6 +1524,7 @@ class TempRHDataHourly(
                 protocol_version,
                 relative_humidity,
                 relative_humidity_raw,
+                specific_humidity,
                 wet_bulb_temperature
             FROM temp_rh_data
         )
@@ -1511,6 +1556,9 @@ class TempRHDataHourly(
         avg(relative_humidity_raw) AS relative_humidity_raw,
         min(relative_humidity_raw) AS relative_humidity_raw_min,
         max(relative_humidity_raw) AS relative_humidity_raw_max,
+        avg(specific_humidity) AS specific_humidity,
+        min(specific_humidity) AS specific_humidity_min,
+        max(specific_humidity) AS specific_humidity_max,
         avg(wet_bulb_temperature) AS wet_bulb_temperature,
         min(wet_bulb_temperature) AS wet_bulb_temperature_min,
         max(wet_bulb_temperature) AS wet_bulb_temperature_max
@@ -1615,6 +1663,14 @@ class BiometDataDaily(
     )
     solar_radiation_min: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
     solar_radiation_max: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    specific_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
+    specific_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
     thermistor_resistance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
@@ -1706,6 +1762,9 @@ class BiometDataDaily(
             f'solar_radiation={self.solar_radiation!r}, '
             f'solar_radiation_min={self.solar_radiation_min!r}, '
             f'solar_radiation_max={self.solar_radiation_max!r}, '
+            f'specific_humidity={self.specific_humidity!r}, '
+            f'specific_humidity_min={self.specific_humidity_min!r}, '
+            f'specific_humidity_max={self.specific_humidity_max!r}, '
             f'thermistor_resistance={self.thermistor_resistance!r}, '
             f'thermistor_resistance_min={self.thermistor_resistance_min!r}, '
             f'thermistor_resistance_max={self.thermistor_resistance_max!r}, '
@@ -1799,6 +1858,7 @@ class BiometDataDaily(
                 NULL AS relative_humidity,
                 NULL AS sensor_temperature_internal,
                 NULL AS solar_radiation,
+                NULL AS specific_humidity,
                 NULL AS thermistor_resistance,
                 NULL AS u_wind,
                 NULL AS utci,
@@ -1839,6 +1899,7 @@ class BiometDataDaily(
                 relative_humidity,
                 sensor_temperature_internal,
                 solar_radiation,
+                specific_humidity,
                 thermistor_resistance,
                 u_wind,
                 utci,
@@ -2176,6 +2237,24 @@ class BiometDataDaily(
         END AS solar_radiation_max,
         CASE
             WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity,
+        CASE
+            WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity_min,
+        CASE
+            WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity_max,
+        CASE
+            WHEN (count(*) FILTER (
                     WHERE thermistor_resistance IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(thermistor_resistance)
             ELSE NULL
@@ -2426,6 +2505,14 @@ class TempRHDataDaily(
         nullable=True,
         comment='%',
     )
+    specific_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
+    specific_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+    )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
@@ -2465,6 +2552,9 @@ class TempRHDataDaily(
             f'relative_humidity_raw={self.relative_humidity_raw!r}, '
             f'relative_humidity_raw_min={self.relative_humidity_raw_min!r}, '
             f'relative_humidity_raw_max={self.relative_humidity_raw_max!r}, '
+            f'specific_humidity={self.specific_humidity!r}, '
+            f'specific_humidity_min={self.specific_humidity_min!r}, '
+            f'specific_humidity_max={self.specific_humidity_max!r}, '
             f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
             f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
             f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
@@ -2517,6 +2607,7 @@ class TempRHDataDaily(
                 NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS relative_humidity_raw,
+                NULL AS specific_humidity,
                 NULL AS wet_bulb_temperature
             FROM time_station_combinations
         )
@@ -2534,6 +2625,7 @@ class TempRHDataDaily(
                 protocol_version,
                 relative_humidity,
                 relative_humidity_raw,
+                specific_humidity,
                 wet_bulb_temperature
             FROM temp_rh_data
         )
@@ -2690,6 +2782,24 @@ class TempRHDataDaily(
                 ) > 0.7 THEN max(relative_humidity_raw)
             ELSE NULL
         END AS relative_humidity_raw_max,
+        CASE
+            WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN avg(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity,
+        CASE
+            WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN min(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity_min,
+        CASE
+            WHEN (count(*) FILTER (
+                    WHERE specific_humidity IS NOT NULL) / 288.0
+                ) > 0.7 THEN max(specific_humidity)
+            ELSE NULL
+        END AS specific_humidity_max,
         CASE
             WHEN (count(*) FILTER (
                     WHERE wet_bulb_temperature IS NOT NULL) / 288.0
