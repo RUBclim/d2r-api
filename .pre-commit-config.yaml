@@ -26,7 +26,7 @@ repos:
             - sqlalchemy
             - psycopg[binary] > 3.2.0
 -   repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
+    rev: 7.1.2
     hooks:
     -   id: flake8
         additional_dependencies:
@@ -69,7 +69,7 @@ repos:
         args: [--prose-wrap, always, --print-width=88]
         types_or: [markdown, javascript]
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
+    rev: v1.15.0
     hooks:
     -   id: mypy
         additional_dependencies: [
@@ -80,5 +80,6 @@ repos:
             'psycopg[binary]==3.2.3',
             'alembic==1.13.3',
             'pandas-stubs==2.2.3.241009',
-            'sqlmodel==0.0.22'
+            'sqlmodel==0.0.22',
+            'pythermalcomfort==3.0.0'
         ]

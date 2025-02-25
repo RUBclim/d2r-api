@@ -15,13 +15,15 @@ from celery.schedules import crontab
 from element import ElementApi
 from numpy import floating
 from numpy.typing import NDArray
-from pythermalcomfort.models import heat_index
+from pythermalcomfort.models import heat_index_rothfusz
 from pythermalcomfort.models import pet_steady
 from pythermalcomfort.models import utci
-from pythermalcomfort.psychrometrics import t_dp
-from pythermalcomfort.psychrometrics import t_mrt
-from pythermalcomfort.psychrometrics import t_wb
-from pythermalcomfort.utilities import mapping
+from pythermalcomfort.shared_functions import mapping
+from pythermalcomfort.utilities import dew_point_tmp
+from pythermalcomfort.utilities import mean_radiant_tmp
+from pythermalcomfort.utilities import Postures
+from pythermalcomfort.utilities import Sex
+from pythermalcomfort.utilities import wet_bulb_tmp
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,7 +82,7 @@ KLIMA_MICHEL = {
     'age': 35,  # person's age (years)
     'height': 1.75,  # height (meters)
     'activity': 135,  # activity level (W)
-    'sex': 1,  # 1=male 2=female
+    'sex': Sex.male.value,
     'clo': 0.9,  # clothing amount (0-5)
 }
 
@@ -517,66 +519,56 @@ async def calculate_biomet(name: str | None) -> None:
             relhum=df_biomet['relative_humidity'],
         )
 
-        df_biomet['mrt'] = t_mrt(
+        df_biomet['mrt'] = mean_radiant_tmp(
             tg=df_biomet['black_globe_temperature'],
             tdb=df_biomet['air_temperature'],
             v=df_biomet['wind_speed'],
             standard='ISO',
         )
 
-        df_biomet['dew_point'] = t_dp(
+        df_biomet['dew_point'] = dew_point_tmp(
             tdb=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
         )
 
-        df_biomet['wet_bulb_temperature'] = t_wb(
+        df_biomet['wet_bulb_temperature'] = wet_bulb_tmp(
             tdb=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
         )
 
-        df_biomet['heat_index'] = heat_index(
+        # we need to unpack the stupid object...
+        df_biomet['heat_index'] = heat_index_rothfusz(
             tdb=df_biomet['air_temperature'],
             rh=df_biomet['relative_humidity'],
-        )
+            round_output=False,
+        ).hi
 
         utci_values = utci(
             tdb=df_biomet['air_temperature'],
             tr=df_biomet['mrt'],
             v=df_biomet['wind_speed'],
             rh=df_biomet['relative_humidity'],
-            return_stress_category=True,
             limit_inputs=False,
+            round_output=False,
         )
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
-        # TODO (LW): validate this with the Klima Michel, we need to also
-        # somehow filter this annoying warning, it floods our logs with nonsense
-        # this only seems to work a per-row basis, hence the apply along axis=1
-        df_biomet['pet'] = df_biomet[
-            [
-                'air_temperature', 'mrt', 'wind_speed',
-                'relative_humidity', 'atmospheric_pressure',
-            ]
-        ].apply(
-            lambda x: pet_steady(
-                tdb=x['air_temperature'],
-                tr=x['mrt'],
-                v=x['wind_speed'],
-                rh=x['relative_humidity'],
-                met=KLIMA_MICHEL['activity'] / 58.2,
-                clo=KLIMA_MICHEL['clo'],
-                p_atm=x['atmospheric_pressure'],
-                # position of the individual
-                # (1=sitting, 2=standing, 3=standing, forced convection)
-                position=2,
-                age=KLIMA_MICHEL['age'],
-                sex=KLIMA_MICHEL['sex'],
-                weight=KLIMA_MICHEL['mbody'],
-                height=KLIMA_MICHEL['height'],
-                wme=0,  # external work, [W/(m2)]
-            ),
-            axis=1,
-        )
+        # TODO (LW): validate this with the Klima Michel
+        df_biomet['pet'] = pet_steady(
+            tdb=df_biomet['air_temperature'],
+            tr=df_biomet['mrt'],
+            v=df_biomet['wind_speed'],
+            rh=df_biomet['relative_humidity'],
+            met=KLIMA_MICHEL['activity'] / 58.2,
+            clo=KLIMA_MICHEL['clo'],
+            p_atm=df_biomet['atmospheric_pressure'],
+            position=Postures.standing.value,
+            age=KLIMA_MICHEL['age'],
+            sex=KLIMA_MICHEL['sex'],
+            weight=KLIMA_MICHEL['mbody'],
+            height=KLIMA_MICHEL['height'],
+            wme=0,  # external work, [W/(m2)]
+        ).pet
         # TODO: do the categories even apply to PET?
         df_biomet['pet_category'] = mapping(df_biomet['pet'], PET_STRESS_CATEGORIES)
 
@@ -665,20 +657,20 @@ async def calculate_temp_rh(name: str | None) -> None:
             temp=data['air_temperature'],
             relhum=data['relative_humidity'],
         )
-        data['dew_point'] = t_dp(
+        data['dew_point'] = dew_point_tmp(
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
         )
 
-        data['wet_bulb_temperature'] = t_wb(
+        data['wet_bulb_temperature'] = wet_bulb_tmp(
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
         )
 
-        data['heat_index'] = heat_index(
+        data['heat_index'] = heat_index_rothfusz(
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
-        )
+        ).hi
         con = await sess.connection()
         await con.run_sync(
             lambda con: data.to_sql(

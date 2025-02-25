@@ -876,7 +876,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.protocol_version) == 2
     assert float(d.dew_point) == 10.4
     assert float(d.absolute_humidity) == pytest.approx(9.55, abs=1e-2)
-    assert float(d.heat_index) == 24.1
+    assert float(d.heat_index) == pytest.approx(24.1, abs=1e-1)
     assert float(d.wet_bulb_temperature) == 11.1
 
 
