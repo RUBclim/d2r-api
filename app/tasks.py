@@ -641,7 +641,7 @@ async def calculate_temp_rh(name: str | None) -> None:
                     'air_temperature': 'float64',
                     'relative_humidity': 'float64',
                     'battery_voltage': 'float64',
-                    'protocol_version': 'Int64',
+                    'protocol_version': 'int64',
                 },
             ),
         )
