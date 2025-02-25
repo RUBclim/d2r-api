@@ -419,6 +419,28 @@ async def calculate_biomet(name: str | None) -> None:
                     (ATM41DataRaw.measured_at > biomet_latest),
                 ).order_by(ATM41DataRaw.measured_at),
                 con=con,
+                # we need explicit types, when nothing is set so calculations can
+                # use NaN
+                dtype={
+                    'air_temperature': 'float64',
+                    'relative_humidity': 'float64',
+                    'atmospheric_pressure': 'float64',
+                    'vapor_pressure': 'float64',
+                    'wind_speed': 'float64',
+                    'wind_direction': 'float64',
+                    'u_wind': 'float64',
+                    'v_wind': 'float64',
+                    'maximum_wind_speed': 'float64',
+                    'precipitation_sum': 'float64',
+                    'solar_radiation': 'float64',
+                    'lightning_average_distance': 'float64',
+                    'lightning_strike_count': 'float64',
+                    'sensor_temperature_internal': 'float64',
+                    'x_orientation_angle': 'float64',
+                    'y_orientation_angle': 'float64',
+                    'battery_voltage': 'float64',
+                    'protocol_version': 'Int64',
+                },
             ),
         )
         # we cannot do anything if there is no biomet data
@@ -441,6 +463,12 @@ async def calculate_biomet(name: str | None) -> None:
                     (BLGDataRaw.measured_at > (biomet_latest - timedelta(minutes=5))),
                 ).order_by(BLGDataRaw.measured_at),
                 con=con,
+                dtype={
+                    'black_globe_temperature': 'float64',
+                    'thermistor_resistance': 'float64',
+                    'voltage_ratio': 'float64',
+                    'blg_battery_voltage': 'float64',
+                },
             ),
         )
         # if we have no BLG data we cannot merge both and need to wait until new
@@ -609,6 +637,12 @@ async def calculate_temp_rh(name: str | None) -> None:
                     (SHT35DataRaw.measured_at > latest),
                 ).order_by(SHT35DataRaw.measured_at),
                 con=con,
+                dtype={
+                    'air_temperature': 'float64',
+                    'relative_humidity': 'float64',
+                    'battery_voltage': 'float64',
+                    'protocol_version': 'Int64',
+                },
             ),
         )
         if data.empty:
