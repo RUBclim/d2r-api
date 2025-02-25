@@ -680,6 +680,50 @@ async def test_calculate_biomet_no_data_available(db: AsyncSession) -> None:
     assert len(data) == 0
 
 
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_calculate_biomet_only_null_values_available(db: AsyncSession) -> None:
+    station = Station(
+        name='DEC00546D',
+        device_id=21613,
+        long_name='Westfalenhalle',
+        latitude=51.49626168307185,
+        longitude=7.458186573064577,
+        altitude=0.0,
+        station_type=StationType.biomet,
+        leuchtennummer=0,
+        district='44139',
+        blg_name='DEC005491',
+        blg_device_id=21649,
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+    atm_data = ATM41DataRaw(
+        name='DEC00546D',
+        measured_at=datetime(2024, 9, 10, 5, 15, tzinfo=timezone.utc),
+        air_temperature=None,
+        battery_voltage=3.178,
+        protocol_version=2,
+    )
+    blg_data = BLGDataRaw(
+        name='DEC005491',
+        measured_at=datetime(2024, 9, 10, 5, 15, tzinfo=timezone.utc),
+        black_globe_temperature=30.5,
+    )
+    db.add(atm_data)
+    db.add(blg_data)
+    await db.commit()
+    # check that we can perform our calculation even though we're missing most data
+    await calculate_biomet('DEC00546D')
+    # check a single row was inserted into the database
+    data = (await db.execute(select(BiometData))).all()
+    assert len(data) == 1
+
+
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
