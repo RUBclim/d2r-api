@@ -554,6 +554,10 @@ async def calculate_biomet(name: str | None) -> None:
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
         # TODO (LW): validate this with the Klima Michel
+        # we cannot calculate pet with atmospheric pressures of 0 (sometimes sensors)
+        # send this value we need to set them to a value that is not 0
+        atmospheric_pressure_mask = df_biomet['atmospheric_pressure'] == 0
+        df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 1013.25
         df_biomet['pet'] = pet_steady(
             tdb=df_biomet['air_temperature'],
             tr=df_biomet['mrt'],
@@ -571,6 +575,8 @@ async def calculate_biomet(name: str | None) -> None:
         ).pet
         # TODO: do the categories even apply to PET?
         df_biomet['pet_category'] = mapping(df_biomet['pet'], PET_STRESS_CATEGORIES)
+        # reset the atmospheric pressure to 0 again
+        df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 0
 
         con = await sess.connection()
         await con.run_sync(
