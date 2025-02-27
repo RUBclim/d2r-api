@@ -51,6 +51,8 @@ services:
     # TODO: maybe build a separate image
     image: d2r-api
     user: nobody
+    environment:
+      NUMBA_CACHE_DIR: /tmp/numba_cache
     # we need access to the host directory for the rasters
     volumes:
       - ${DATA_DIRECTORY}:/usr/src/app/rasters:ro
@@ -67,6 +69,8 @@ services:
     container_name: celery-beat
     user: nobody
     image: d2r-api
+    environment:
+      NUMBA_CACHE_DIR: /tmp/numba_cache
     depends_on:
       - redis
 
