@@ -28,6 +28,13 @@ from app.database import sessionmanager
 class StationType(StrEnum):
     temprh = 'temprh'
     biomet = 'biomet'
+    double = 'double'
+
+
+class SensorType(StrEnum):
+    atm41 = 'atm41'
+    sht35 = 'sht35'
+    blg = 'blg'
 
 
 class HeatStressCategories(StrEnum):
@@ -69,20 +76,13 @@ _HeatStressCategories = ENUM(HeatStressCategories)
 
 
 class Station(Base):
-    """Representation of a station"""
+    """Representation of a station which has a physical location and sensor(s) attached
+    to it."""
     __tablename__ = 'station'
 
     # IDs
-    name: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
-    device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    station_id: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
-    # the biomet stations have two components (ATM41 and BLG)
-    blg_name: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
-    blg_device_id: Mapped[int | None] = mapped_column(
-        BigInteger,
-        unique=True,
-        nullable=True,
-    )
     station_type: Mapped[StationType] = mapped_column(nullable=False)
 
     # geographical position
@@ -128,7 +128,6 @@ class Station(Base):
     )
 
     # mounting information
-    setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     mounting_type: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -199,40 +198,52 @@ class Station(Base):
             'station from the mounting structure'
         ),
     )
-
-    # calibration information
-    temp_calib_offset: Mapped[Decimal] = mapped_column(
-        nullable=False, default=0,
-        server_default='0',
-    )
-    relhum_calib_offset: Mapped[Decimal] = mapped_column(
-        nullable=False,
-        default=0,
-        server_default='0',
-    )
-
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # relationships
-    blg_data_raw: Mapped[list[BLGDataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    active_sensors: Mapped[list[Sensor]] = relationship(
+        'Sensor',
+        secondary='sensor_deployments',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployments.station_id,'
+            '    SensorDeployments.teardown_date == None'
+            ')'
+        ),
+        secondaryjoin='Sensor.sensor_id == SensorDeployments.sensor_id',
+        viewonly=True,
     )
-    atm41_data_raw: Mapped[list[ATM41DataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    former_sensors: Mapped[list[Sensor]] = relationship(
+        'Sensor',
+        secondary='sensor_deployments',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployments.station_id,'
+            '    SensorDeployments.teardown_date != None'
+            ')'
+        ),
+        secondaryjoin='Sensor.sensor_id == SensorDeployments.sensor_id',
+        viewonly=True,
     )
-    sht35_data_raw: Mapped[list[SHT35DataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    active_deployments: Mapped[list[SensorDeployments]] = relationship(
+        'SensorDeployments',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployments.station_id,'
+            '    SensorDeployments.teardown_date == None'
+            ')'
+        ),
+        viewonly=True,
     )
-    biomet_data: Mapped[list[BiometData]] = relationship(
-        back_populates='station',
-        lazy=True,
-    )
-    temp_rh_data: Mapped[list[TempRHData]] = relationship(
-        back_populates='station',
-        lazy=True,
+    former_deployments: Mapped[list[SensorDeployments]] = relationship(
+        'SensorDeployments',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployments.station_id,'
+            '    SensorDeployments.teardown_date != None'
+            ')'
+        ),
+        viewonly=True,
     )
 
     @property
@@ -248,6 +259,131 @@ class Station(Base):
         ]
         return ''.join(address)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'station_id={self.station_id!r}, '
+            f'long_name={self.long_name!r}, '
+            f'station_type={self.station_type!r}, '
+            f'latitude={self.latitude!r}, '
+            f'longitude={self.longitude!r}, '
+            f'altitude={self.altitude!r}, '
+            f'street={self.street!r}, '
+            f'number={self.number!r}, '
+            f'plz={self.plz!r}, '
+            f'city={self.city!r}, '
+            f'country={self.country!r}, '
+            f'district={self.district!r}, '
+            f'lcz={self.lcz!r}, '
+            f'dominant_land_use={self.dominant_land_use!r}, '
+            f'urban_atlas_class_name={self.urban_atlas_class_name!r}, '
+            f'urban_atlas_class_nr={self.urban_atlas_class_nr!r}, '
+            f'orographic_setting={self.orographic_setting!r}, '
+            f'svf={self.svf!r}, '
+            f'artificial_heat_sources={self.artificial_heat_sources!r}, '
+            f'proximity_to_building={self.proximity_to_building!r}, '
+            f'proximity_to_parking={self.proximity_to_parking!r}, '
+            f'proximity_to_tree={self.proximity_to_tree!r}, '
+            f'surrounding_land_cover_description={self.surrounding_land_cover_description!r}, '  # noqa: E501
+            f'mounting_type={self.mounting_type!r}, '
+            f'leuchtennummer={self.leuchtennummer!r}, '
+            f'mounting_structure_material={self.mounting_structure_material!r}, '
+            f'mounting_structure_height_agl={self.mounting_structure_height_agl!r}, '
+            f'mounting_structure_diameter={self.mounting_structure_diameter!r}, '
+            f'mounting_structure_light_extension_offset={self.mounting_structure_light_extension_offset!r}, '  # noqa: E501
+            f'sensor_height_agl={self.sensor_height_agl!r}, '
+            f'sensor_distance_from_mounting_structure={self.sensor_distance_from_mounting_structure!r}, '  # noqa: E501
+            f'sensor_orientation={self.sensor_orientation!r}, '
+            f'blg_sensor_height_agl={self.blg_sensor_height_agl!r}, '
+            f'blg_sensor_distance_from_mounting_structure={self.blg_sensor_distance_from_mounting_structure!r}, '  # noqa: E501
+            f'blg_sensor_orientation={self.blg_sensor_orientation!r}, '
+            f'comment={self.comment!r}'
+            f')'
+        )
+
+
+class SensorDeployments(Base):
+    """Deployment of a sensor at a station"""
+    __tablename__ = 'sensor_deployments'
+
+    deployment_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    sensor_id: Mapped[str] = mapped_column(ForeignKey('sensor.sensor_id'))
+    station_id: Mapped[str] = mapped_column(ForeignKey('station.station_id'))
+    setup_date: Mapped[datetime] = mapped_column(nullable=False)
+    teardown_date: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    sensor: Mapped[Sensor] = relationship('Sensor', back_populates='deployments')
+    station: Mapped[Station] = relationship()
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'sensor_id={self.sensor_id!r}, '
+            f'station_id={self.station_id!r}, '
+            f'setup_date={self.setup_date!r}, '
+            f'teardown_date={self.teardown_date!r} '
+            f')'
+        )
+
+
+class Sensor(Base):
+    """Pool of sensors that can be installed at a station"""
+    __tablename__ = 'sensor'
+
+    sensor_id: Mapped[str] = mapped_column(primary_key=True)
+    device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sensor_type: Mapped[SensorType] = mapped_column(nullable=False)
+    # calibration information
+    temp_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default='0',
+    )
+    relhum_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default='0',
+    )
+
+    # relationships
+    deployments: Mapped[list[SensorDeployments]] = relationship()
+    current_station: Mapped[Station | None] = relationship(
+        secondary='sensor_deployments',
+        primaryjoin=(
+            'and_('
+            '    Sensor.sensor_id == SensorDeployments.sensor_id,'
+            '    SensorDeployments.teardown_date == None'
+            ')'
+        ),
+        secondaryjoin='Station.station_id == SensorDeployments.station_id',
+        uselist=False,
+        viewonly=True,
+    )
+    former_stations: Mapped[list[Station]] = relationship(
+        'Station',
+        secondary='sensor_deployments',
+        primaryjoin=(
+            'and_('
+            '    Sensor.sensor_id == SensorDeployments.sensor_id,'
+            '    SensorDeployments.teardown_date != None'
+            ')'
+        ),
+        secondaryjoin='Station.station_id == SensorDeployments.station_id',
+        uselist=True,
+        viewonly=True,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'sensor_id={self.sensor_id!r}, '
+            f'device_id={self.device_id!r}, '
+            f'sensor_type={self.sensor_type!r}, '
+            f'temp_calib_offset={self.temp_calib_offset!r}, '
+            f'relhum_calib_offset={self.relhum_calib_offset!r}'
+            f')'
+        )
+
 
 class _Data(Base):
     __abstract__ = True
@@ -257,9 +393,9 @@ class _Data(Base):
         primary_key=True,
         index=True,
     )
-    name: Mapped[str] = mapped_column(
+    sensor_id: Mapped[str] = mapped_column(
         Text,
-        ForeignKey('station.name'),
+        ForeignKey('sensor.sensor_id'),
         primary_key=True,
         index=True,
     )
@@ -276,7 +412,7 @@ class _SHT35DataRawBase(_Data):
 
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
-    station: Mapped[Station] = relationship(back_populates='sht35_data_raw', lazy=True)
+    station: Mapped[Sensor] = relationship(lazy=True)
 
 
 class _ATM41DataRawBase(_Data):
@@ -308,7 +444,7 @@ class _ATM41DataRawBase(_Data):
 
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
-    station: Mapped[Station] = relationship(back_populates='atm41_data_raw', lazy=True)
+    station: Mapped[Sensor] = relationship(lazy=True)
 
 
 class _BLGDataRawBase(_Data):
@@ -326,12 +462,7 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
-    name: Mapped[str] = mapped_column(
-        Text,
-        ForeignKey('station.blg_name'),
-        primary_key=True,
-    )
-    station: Mapped[Station] = relationship(back_populates='blg_data_raw', lazy=True)
+    station: Mapped[Sensor] = relationship(lazy=True)
 
 
 class _TempRHDerivatives(Base):
@@ -373,30 +504,32 @@ class BiometData(
     __tablename__ = 'biomet_data'
     __table_args__ = (
         Index(
-            'ix_biomet_data_name_measured_at_desc',
-            'name',
+            'ix_biomet_data_station_id_measured_at_desc',
+            'station_id',
             desc('measured_at'),
         ),
     )
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+    )
+    station: Mapped[Station] = relationship(lazy=True)
 
-    # TODO: QC fields?
-    station: Mapped[Station] = relationship(back_populates='biomet_data', lazy=True)
 
-
-class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
+class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
     __tablename__ = 'temp_rh_data'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_name_measured_at_desc',
-            'name',
+            'ix_temp_rh_data_station_id_measured_at_desc',
+            'station_id',
             desc('measured_at'),
         ),
     )
-
-    air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    # TODO: QC fields?
-    station: Mapped[Station] = relationship(back_populates='temp_rh_data', lazy=True)
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+    )
+    station: Mapped[Station] = relationship(lazy=True)
 
 
 class MaterializedView(Base):
@@ -404,6 +537,8 @@ class MaterializedView(Base):
     __abstract__ = True
     # is this a timescale continuous aggregate?
     is_continuous_aggregate = False
+
+    station_id: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
 
     @classmethod
     async def refresh(
@@ -464,7 +599,14 @@ class LatestData(
     The query for creating this materialized view is saved above.
     """
     __tablename__ = 'latest_data'
-    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
+
+    sensor_id = None  # type: ignore[assignment]
+    station_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
@@ -488,8 +630,8 @@ class LatestData(
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
     (
-        SELECT DISTINCT ON (name)
-            name,
+        SELECT DISTINCT ON (station_id)
+            station_id,
             long_name,
             latitude,
             longitude,
@@ -519,13 +661,13 @@ class LatestData(
             wind_direction,
             wind_speed,
             maximum_wind_speed
-        FROM biomet_data INNER JOIN station USING(name)
-        ORDER BY name, measured_at DESC
+        FROM biomet_data INNER JOIN station USING(station_id)
+        ORDER BY station_id, measured_at DESC
     )
     UNION ALL
     (
-        SELECT DISTINCT ON (name)
-            name,
+        SELECT DISTINCT ON (station_id)
+            station_id,
             long_name,
             latitude,
             longitude,
@@ -555,8 +697,8 @@ class LatestData(
             NULL,
             NULL,
             NULL
-        FROM temp_rh_data INNER JOIN station USING(name)
-        ORDER BY name, measured_at DESC
+        FROM temp_rh_data INNER JOIN station USING(station_id)
+        ORDER BY station_id, measured_at DESC
     )
     ''')
 
@@ -576,13 +718,15 @@ class BiometDataHourly(
     __tablename__ = 'biomet_data_hourly'
     __table_args__ = (
         Index(
-            'ix_biomet_data_hourly_name_measured_at',
-            'name',
+            'ix_biomet_data_hourly_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
     )
 
+    # we don't need the sensor information in hourly and daily views
+    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -695,11 +839,11 @@ class BiometDataHourly(
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM biomet_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
@@ -709,25 +853,25 @@ class BiometDataHourly(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM biomet_data
+        SELECT DISTINCT station_id FROM biomet_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS atmospheric_pressure,
@@ -766,7 +910,7 @@ class BiometDataHourly(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 atmospheric_pressure,
@@ -803,7 +947,7 @@ class BiometDataHourly(
         )
     ) SELECT
         time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
-        name,
+        station_id,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
         max(absolute_humidity) AS absolute_humidity_max,
@@ -889,8 +1033,8 @@ class BiometDataHourly(
         min(y_orientation_angle) AS y_orientation_angle_min,
         max(y_orientation_angle) AS y_orientation_angle_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -907,13 +1051,15 @@ class TempRHDataHourly(
     __tablename__ = 'temp_rh_data_hourly'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_hourly_name_measured_at',
-            'name',
+            'ix_temp_rh_data_hourly_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
     )
 
+    # we don't need the sensor information in hourly and daily views
+    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -962,11 +1108,11 @@ class TempRHDataHourly(
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM temp_rh_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
@@ -976,25 +1122,25 @@ class TempRHDataHourly(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM temp_rh_data
+        SELECT DISTINCT station_id FROM temp_rh_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS air_temperature_raw,
@@ -1010,7 +1156,7 @@ class TempRHDataHourly(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 air_temperature_raw,
@@ -1024,7 +1170,7 @@ class TempRHDataHourly(
         )
     ) SELECT
         time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
-        name,
+        station_id,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
         max(absolute_humidity) AS absolute_humidity_max,
@@ -1053,8 +1199,8 @@ class TempRHDataHourly(
         min(wet_bulb_temperature) AS wet_bulb_temperature_min,
         max(wet_bulb_temperature) AS wet_bulb_temperature_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -1072,13 +1218,15 @@ class BiometDataDaily(
     __tablename__ = 'biomet_data_daily'
     __table_args__ = (
         Index(
-            'ix_biomet_data_daily_name_measured_at',
-            'name',
+            'ix_biomet_data_daily_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
     )
 
+    # we don't need the sensor information in hourly and daily views
+    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -1191,11 +1339,11 @@ class BiometDataDaily(
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM biomet_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
@@ -1205,25 +1353,25 @@ class BiometDataDaily(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM biomet_data
+        SELECT DISTINCT station_id FROM biomet_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS atmospheric_pressure,
@@ -1262,7 +1410,7 @@ class BiometDataDaily(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 atmospheric_pressure,
@@ -1299,7 +1447,7 @@ class BiometDataDaily(
         )
     ) SELECT
         (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
-        name,
+        station_id,
         CASE
             WHEN (count(*) FILTER (
                     WHERE absolute_humidity IS NOT NULL) / 288.0
@@ -1805,8 +1953,8 @@ class BiometDataDaily(
             ELSE NULL
         END AS y_orientation_angle_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -1823,13 +1971,15 @@ class TempRHDataDaily(
     __tablename__ = 'temp_rh_data_daily'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_daily_name_measured_at',
-            'name',
+            'ix_temp_rh_data_daily_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
     )
 
+    # we don't need the sensor information in hourly and daily views
+    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -1878,11 +2028,11 @@ class TempRHDataDaily(
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM temp_rh_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
@@ -1892,25 +2042,25 @@ class TempRHDataDaily(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM temp_rh_data
+        SELECT DISTINCT station_id FROM temp_rh_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS air_temperature_raw,
@@ -1926,7 +2076,7 @@ class TempRHDataDaily(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 air_temperature_raw,
@@ -1940,7 +2090,7 @@ class TempRHDataDaily(
         )
     ) SELECT
         (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
-        name,
+        station_id,
         CASE
             WHEN (count(*) FILTER (
                     WHERE absolute_humidity IS NOT NULL) / 288.0
@@ -2104,8 +2254,8 @@ class TempRHDataDaily(
             ELSE NULL
         END AS wet_bulb_temperature_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 # END_GENERATED
 

@@ -33,11 +33,11 @@ _VIEW_TEMPLATE_BASE = '''
 CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name} AS
 WITH data_bounds AS (
     SELECT
-        name,
+        station_id,
         MIN(measured_at) AS start_time,
         MAX(measured_at) AS end_time
     FROM {target_table}
-    GROUP BY name
+    GROUP BY station_id
 ), filling_time_series AS (
     SELECT generate_series(
         DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM {target_table})),
@@ -47,25 +47,25 @@ WITH data_bounds AS (
 ),
 stations_subset AS (
     -- TODO: this could be faster if check the station table by station_type
-    SELECT DISTINCT name FROM {target_table}
+    SELECT DISTINCT station_id FROM {target_table}
 ),
 time_station_combinations AS (
     SELECT
         measured_at,
-        stations_subset.name,
+        stations_subset.station_id,
         start_time,
         end_time
     FROM filling_time_series
     CROSS JOIN stations_subset
     JOIN data_bounds
-        ON data_bounds.name = stations_subset.name
+        ON data_bounds.station_id = stations_subset.station_id
     WHERE filling_time_series.measured_at >= data_bounds.start_time
     AND filling_time_series.measured_at <= data_bounds.end_time
 ), all_data AS(
     (
         SELECT
             measured_at AS ma,
-            name,
+            station_id,
 {null_column_names}
         FROM time_station_combinations
     )
@@ -73,17 +73,17 @@ time_station_combinations AS (
     (
         SELECT
             measured_at AS ma,
-            name,
+            station_id,
 {basic_column_names}
         FROM {target_table}
     )
 ) SELECT
     {time_bucket_function} AS measured_at,
-    name,
+    station_id,
 {columns}
 FROM all_data
-GROUP BY measured_at, name
-ORDER BY measured_at, name'''  # noqa: E501
+GROUP BY measured_at, station_id
+ORDER BY measured_at, station_id'''  # noqa: E501
 
 VIEW_TEMPLATE_DAILY = partial(
     _VIEW_TEMPLATE_BASE.format,
@@ -113,6 +113,8 @@ class {view_name}{inherits}:
     {docstring}
     __tablename__ = {table_name!r}{table_args}{is_cagg}
 
+    # we don't need the sensor information in hourly and daily views
+    sensor_id = None  # type: ignore[assignment]
 {attributes}
 
     creation_sql = text('''\\{creation_sql}
@@ -120,7 +122,7 @@ class {view_name}{inherits}:
 """
 
 
-AVG_EXCLUDES = {'name', 'measured_at', 'protocol_version'}
+AVG_EXCLUDES = {'name', 'measured_at', 'protocol_version', 'station_id', 'sensor_id'}
 
 
 class Col(NamedTuple):
@@ -301,8 +303,8 @@ def generate_sqlalchemy_class(
             skip_py=avgs_defined_by_inheritance,
         ),
         Col(
-            name='name',
-            sqlalchemy_col=table.name,
+            name='station_id',
+            sqlalchemy_col=table.sensor_id,
             skip_py=avgs_defined_by_inheritance,
         ),
         *sorted_cols,
@@ -391,8 +393,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_biomet_data_hourly_name_measured_at',
-                'name',
+                'ix_biomet_data_hourly_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -414,8 +416,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_temp_rh_data_hourly_name_measured_at',
-                'name',
+                'ix_temp_rh_data_hourly_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -436,8 +438,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_biomet_data_daily_name_measured_at',
-                'name',
+                'ix_biomet_data_daily_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -460,8 +462,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_temp_rh_data_daily_name_measured_at',
-                'name',
+                'ix_temp_rh_data_daily_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
