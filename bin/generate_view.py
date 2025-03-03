@@ -113,8 +113,6 @@ class {view_name}{inherits}:
     {docstring}
     __tablename__ = {table_name!r}{table_args}{is_cagg}
 
-    # we don't need the sensor information in hourly and daily views
-    sensor_id = None  # type: ignore[assignment]
 {attributes}
 
     creation_sql = text('''\\{creation_sql}
@@ -295,16 +293,11 @@ def generate_sqlalchemy_class(
         target_agg=target_agg,
     )
 
-    # sort by name but keep the columns name and measured at the first two
+    # sort by name but keep measured as the first column
     cols = [
         Col(
             name='measured_at',
             sqlalchemy_col=table.measured_at,
-            skip_py=avgs_defined_by_inheritance,
-        ),
-        Col(
-            name='station_id',
-            sqlalchemy_col=table.sensor_id,
             skip_py=avgs_defined_by_inheritance,
         ),
         *sorted_cols,

@@ -393,12 +393,6 @@ class _Data(Base):
         primary_key=True,
         index=True,
     )
-    sensor_id: Mapped[str] = mapped_column(
-        Text,
-        ForeignKey('sensor.sensor_id'),
-        primary_key=True,
-        index=True,
-    )
     battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
     protocol_version: Mapped[int] = mapped_column(nullable=True)
 
@@ -412,6 +406,12 @@ class _SHT35DataRawBase(_Data):
 
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
     station: Mapped[Sensor] = relationship(lazy=True)
 
 
@@ -444,6 +444,12 @@ class _ATM41DataRawBase(_Data):
 
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
     station: Mapped[Sensor] = relationship(lazy=True)
 
 
@@ -462,6 +468,12 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
     station: Mapped[Sensor] = relationship(lazy=True)
 
 
@@ -497,11 +509,6 @@ class _CalibrationDerivatives(Base):
     air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
 
-# TODO: sensor_id is kinda fucked here, since each row may be measured by multiple
-# sensors such as atm41 and blg.
-# so we might need two sensor_id ? Or maybe no sensor_id column?
-# Ahhhh everything is fucked!
-
 
 class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
@@ -518,7 +525,6 @@ class BiometData(
         ForeignKey('station.station_id'),
         primary_key=True,
     )
-    sensor_id = None  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
 
 
@@ -535,7 +541,6 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
         ForeignKey('station.station_id'),
         primary_key=True,
     )
-    sensor_id = None  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
 
 
@@ -611,7 +616,6 @@ class LatestData(
     """
     __tablename__ = 'latest_data'
 
-    sensor_id = None  # type: ignore[assignment]
     station_id: Mapped[str] = mapped_column(
         Text,
         nullable=False,
@@ -736,8 +740,6 @@ class BiometDataHourly(
         ),
     )
 
-    # we don't need the sensor information in hourly and daily views
-    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -1069,8 +1071,6 @@ class TempRHDataHourly(
         ),
     )
 
-    # we don't need the sensor information in hourly and daily views
-    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -1236,8 +1236,6 @@ class BiometDataDaily(
         ),
     )
 
-    # we don't need the sensor information in hourly and daily views
-    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
@@ -1989,8 +1987,6 @@ class TempRHDataDaily(
         ),
     )
 
-    # we don't need the sensor information in hourly and daily views
-    sensor_id = None  # type: ignore[assignment]
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
