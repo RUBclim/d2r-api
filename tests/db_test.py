@@ -39,7 +39,7 @@ async def test_hourly_view_data_is_right_labelled(
     for value in range(14):
         data = data_table(
             measured_at=start_date + (step * value),
-            name=station.name,
+            station_id=station.station_id,
             air_temperature=value,
         )
         db.add(data)
@@ -97,7 +97,7 @@ async def test_daily_view_threshold_and_timezone(
     for value in range((12 * 24) + (12 * 2)):
         data = data_table(
             measured_at=start_date + (step * value),
-            name=station.name,
+            station_id=station.station_id,
             air_temperature=value,
         )
         db.add(data)
@@ -126,8 +126,7 @@ async def test_daily_view_threshold_and_timezone(
 @pytest.mark.usefixtures('clean_db')
 async def test_full_address_from_station() -> None:
     station = Station(
-        name='test-station',
-        device_id=1,
+        station_id='test-station',
         long_name='test-station-1',
         latitude=51.4460,
         longitude=7.2627,
@@ -149,8 +148,7 @@ async def test_full_address_from_station() -> None:
 @pytest.mark.usefixtures('clean_db')
 async def test_full_address_from_station_district_missing() -> None:
     station = Station(
-        name='test-station',
-        device_id=1,
+        station_id='test-station',
         long_name='test-station-1',
         latitude=51.4460,
         longitude=7.2627,
@@ -172,8 +170,7 @@ async def test_full_address_from_station_district_missing() -> None:
 @pytest.mark.usefixtures('clean_db')
 async def test_full_address_from_station_number_missing() -> None:
     station = Station(
-        name='test-station',
-        device_id=1,
+        station_id='test-station',
         long_name='test-station-1',
         latitude=51.4460,
         longitude=7.2627,

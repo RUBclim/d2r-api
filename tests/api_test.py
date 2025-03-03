@@ -28,8 +28,8 @@ VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+(\.d[0-9]{8}
         '/v1/stations/metadata',
         '/v1/stations/latest_data?param=air_temperature',
         '/v1/districts/latest_data?param=air_temperature',
-        '/v1/trends/air_temperature?spatial_level=stations&item_ids=DEC1&start_date=2024-08-01&hour=3',  # noqa: E501
-        'v1/data/DEC1?start_date=2024-08-01&end_date=2024-08-02&param=air_temperature',
+        '/v1/trends/air_temperature?spatial_level=stations&item_ids=DOB1&start_date=2024-08-01&hour=3',  # noqa: E501
+        'v1/data/DOB1?start_date=2024-08-01&end_date=2024-08-02&param=air_temperature',
         'v1/network-snapshot?param=air_temperature&scale=hourly&date=2024-08-02',
     ),
 )
@@ -74,7 +74,7 @@ async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -
             'lcz': '2',
             'long_name': 'test-station-1',
             'longitude': 7.2627,
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
         },
         {
@@ -84,7 +84,7 @@ async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -
             'lcz': '2',
             'long_name': 'test-station-2',
             'longitude': 7.2627,
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
         },
     ]
@@ -114,7 +114,7 @@ async def test_get_station_latest_data(
             'lcz': '2',
             'long_name': 'test-station-1',
             'longitude': 7.2627,
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'measured_at': '2024-08-01T00:15:00Z',
             'utci': 35.5,
@@ -126,7 +126,7 @@ async def test_get_station_latest_data(
             'lcz': '2',
             'long_name': 'test-station-2',
             'longitude': 7.2627,
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'measured_at': '2024-08-01T00:15:00Z',
             'utci': 35.5,
@@ -152,13 +152,13 @@ async def test_get_station_latest_data_data_of_one_station_too_old(
 ) -> None:
     # add data for the station
     up_to_date_data = BiometData(
-        name=stations[0].name,
+        station_id=stations[0].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
     )
     db.add(up_to_date_data)
     too_old_data = BiometData(
-        name=stations[1].name,
+        station_id=stations[1].station_id,
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
     )
@@ -183,7 +183,7 @@ async def test_get_station_latest_data_data_of_one_station_too_old(
         'lcz': '2',
         'long_name': 'test-station-1',
         'longitude': 7.2627,
-        'name': 'DEC1',
+        'station_id': 'DOB1',
         'station_type': 'biomet',
         'measured_at': '2024-08-01T01:30:00Z',
         'mrt': 69.69,
@@ -201,13 +201,13 @@ async def test_get_station_latest_data_data_of_one_station_too_old_default(
 ) -> None:
     # add data for the station
     up_to_date_data = BiometData(
-        name=stations[0].name,
+        station_id=stations[0].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
     )
     db.add(up_to_date_data)
     too_old_data = BiometData(
-        name=stations[1].name,
+        station_id=stations[1].station_id,
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
     )
@@ -226,7 +226,7 @@ async def test_get_station_latest_data_data_of_one_station_too_old_default(
         'lcz': '2',
         'long_name': 'test-station-1',
         'longitude': 7.2627,
-        'name': 'DEC1',
+        'station_id': 'DOB1',
         'station_type': 'biomet',
         'measured_at': '2024-08-01T01:30:00Z',
         'mrt': 69.69,
@@ -244,7 +244,7 @@ async def test_get_station_latest_data_multiple_params(
 ) -> None:
     # add data for the station
     up_to_date_data = BiometData(
-        name=stations[0].name,
+        station_id=stations[0].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
         utci=45,
@@ -252,7 +252,7 @@ async def test_get_station_latest_data_multiple_params(
     )
     db.add(up_to_date_data)
     too_old_data = BiometData(
-        name=stations[1].name,
+        station_id=stations[1].station_id,
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
         utci=30,
@@ -261,7 +261,7 @@ async def test_get_station_latest_data_multiple_params(
     db.add(too_old_data)
     # this station must not be included, since it does not provide all params
     null_data = BiometData(
-        name=stations[2].name,
+        station_id=stations[2].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=None,
         utci=30,
@@ -285,7 +285,7 @@ async def test_get_station_latest_data_multiple_params(
         'lcz': '2',
         'long_name': 'test-station-1',
         'longitude': 7.2627,
-        'name': 'DEC1',
+        'station_id': 'DOB1',
         'station_type': 'biomet',
         'measured_at': '2024-08-01T01:30:00Z',
         'mrt': 69.69,
@@ -356,7 +356,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
 ) -> None:
     # add data for the station
     data_station_0 = BiometData(
-        name=stations[0].name,
+        station_id=stations[0].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=360,
         air_temperature=10,
@@ -367,7 +367,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     )
     db.add(data_station_0)
     data_station_1 = BiometData(
-        name=stations[1].name,
+        station_id=stations[1].station_id,
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=10,
         air_temperature=20,
@@ -379,7 +379,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     db.add(data_station_1)
     # the data is too old, hence omitted from the calculation
     data_station_2 = BiometData(
-        name=stations[2].name,
+        station_id=stations[2].station_id,
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=180,
         air_temperature=40,
@@ -390,8 +390,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     )
     db.add(data_station_2)
     station_with_missing_data = Station(
-        name='missing_data',
-        device_id=27,
+        station_id='missing_data',
         long_name='test-station-missing-data',
         latitude=51.447,
         longitude=7.268,
@@ -406,7 +405,7 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     )
     db.add(station_with_missing_data)
     data_missing = BiometData(
-        name=station_with_missing_data.name,
+        station_id=station_with_missing_data.station_id,
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=None,
         air_temperature=40,
@@ -467,8 +466,7 @@ async def test_get_trends_stations_biomet_and_temprh(
 ) -> None:
     # create a temprh station
     temp_rh_station = Station(
-        name='DEC4',
-        device_id=27,
+        station_id='DOB4',
         long_name='temprh-station',
         latitude=51.447,
         longitude=7.268,
@@ -489,61 +487,61 @@ async def test_get_trends_stations_biomet_and_temprh(
         # station 0
         # data before our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
         # station 1 (the same structure as above)
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=9,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=9,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=10,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=14,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=15,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -558,7 +556,7 @@ async def test_get_trends_stations_biomet_and_temprh(
         '/v1/trends/air_temperature',
         params={
             'spatial_level': 'stations',
-            'item_ids': ['DEC1', 'DEC4'],
+            'item_ids': ['DOB1', 'DOB4'],
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
             'hour': 10,
@@ -566,10 +564,10 @@ async def test_get_trends_stations_biomet_and_temprh(
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1', 'DEC2', 'DEC4'],
+        'supported_ids': ['DOB1', 'DOB2', 'DOB4'],
         'trends': [
-            {'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'},
-            {'DEC4': 11.0, 'measured_at': '2024-08-01T10:00:00Z'},
+            {'DOB1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'},
+            {'DOB4': 11.0, 'measured_at': '2024-08-01T10:00:00Z'},
         ],
         'unit': '°C',
     }
@@ -589,35 +587,35 @@ async def test_get_trends_stations_only_biomet(
         # station 0
         # data before our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -632,7 +630,7 @@ async def test_get_trends_stations_only_biomet(
         '/v1/trends/air_temperature',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC1',
+            'item_ids': 'DOB1',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
             'hour': 10,
@@ -640,8 +638,8 @@ async def test_get_trends_stations_only_biomet(
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1', 'DEC2'],
-        'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'supported_ids': ['DOB1', 'DOB2'],
+        'trends': [{'DOB1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
         'unit': '°C',
     }
 
@@ -660,35 +658,35 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
         # station 0
         # data before our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             lightning_strike_count=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             lightning_strike_count=10,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             lightning_strike_count=11,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             lightning_strike_count=15,
         ),
         # data after our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             lightning_strike_count=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             lightning_strike_count=15,
         ),
@@ -703,7 +701,7 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
         '/v1/trends/lightning_strike_count',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC1',
+            'item_ids': 'DOB1',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
             'hour': 10,
@@ -711,8 +709,8 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1', 'DEC2'],
-        'trends': [{'DEC1': 36, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'supported_ids': ['DOB1', 'DOB2'],
+        'trends': [{'DOB1': 36, 'measured_at': '2024-08-01T10:00:00Z'}],
         'unit': '-',
     }
 
@@ -727,8 +725,7 @@ async def test_get_trends_stations_only_temprh(
 ) -> None:
     # create a temprh station
     temp_rh_station = Station(
-        name='DEC4',
-        device_id=27,
+        station_id='DOB4',
         long_name='temprh-station',
         latitude=51.447,
         longitude=7.268,
@@ -749,35 +746,35 @@ async def test_get_trends_stations_only_temprh(
         # station 0
         # data before our requested range
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
-            name=temp_rh_station.name,
+            station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -792,7 +789,7 @@ async def test_get_trends_stations_only_temprh(
         '/v1/trends/air_temperature',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC4',
+            'item_ids': 'DOB4',
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 2, 23, 0),
             'hour': 10,
@@ -800,8 +797,8 @@ async def test_get_trends_stations_only_temprh(
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1', 'DEC4'],
-        'trends': [{'DEC4': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'supported_ids': ['DOB1', 'DOB4'],
+        'trends': [{'DOB4': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
         'unit': '°C',
     }
 
@@ -820,29 +817,29 @@ async def test_get_trends_stations_end_not_set(
         # station 0
         # data before our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
@@ -857,15 +854,15 @@ async def test_get_trends_stations_end_not_set(
         '/v1/trends/air_temperature',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC1',
+            'item_ids': 'DOB1',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
         },
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1'],
-        'trends': [{'DEC1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
+        'supported_ids': ['DOB1'],
+        'trends': [{'DOB1': 12.0, 'measured_at': '2024-08-01T10:00:00Z'}],
         'unit': '°C',
     }
 
@@ -876,7 +873,7 @@ async def test_get_trends_stations_no_data_available(app: AsyncClient) -> None:
         '/v1/trends/air_temperature',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC1',
+            'item_ids': 'DOB1',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
         },
@@ -898,8 +895,7 @@ async def test_get_trends_stations_does_not_provide_param(
         stations: list[Station],
 ) -> None:
     temp_rh_station = Station(
-        name='DEC4',
-        device_id=27,
+        station_id='DOB4',
         long_name='temprh-station',
         latitude=51.447,
         longitude=7.268,
@@ -915,13 +911,13 @@ async def test_get_trends_stations_does_not_provide_param(
     db.add(temp_rh_station)
     biomet_station, = stations
     biomet_data = BiometData(
-        name=biomet_station.name,
+        station_id=biomet_station.station_id,
         measured_at=datetime(2024, 8, 1, 9, 30),
         mrt=70.5,
     )
     db.add(biomet_data)
     temp_rh_data = TempRHData(
-        name=temp_rh_station.name,
+        station_id=temp_rh_station.station_id,
         measured_at=datetime(2024, 8, 1, 10, 0),
         air_temperature=10.5,
         relative_humidity=65,
@@ -935,14 +931,14 @@ async def test_get_trends_stations_does_not_provide_param(
         '/v1/trends/mrt',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC4',
+            'item_ids': 'DOB4',
             'start_date': datetime(2024, 8, 1, 10, 0),
             'hour': 10,
         },
     )
     assert resp.status_code == 200
     assert resp.json()['data'] == {
-        'supported_ids': ['DEC1'],
+        'supported_ids': ['DOB1'],
         'trends': [],
         'unit': '°C',
     }
@@ -987,7 +983,7 @@ async def test_get_trends_stations_units_correctly_extracted(
     # we need to create some data and this way we can also check that the materialized
     # view works as expected
     data = BiometData(
-        name=stations[0].name,
+        station_id=stations[0].station_id,
         measured_at=datetime(2024, 8, 1, 8, 10),
         absolute_humidity=3,
         atmospheric_pressure=3,
@@ -1019,7 +1015,7 @@ async def test_get_trends_stations_units_correctly_extracted(
         f'/v1/trends/{param}',
         params={
             'spatial_level': 'stations',
-            'item_ids': 'DEC1',
+            'item_ids': 'DOB1',
             'start_date': datetime(2024, 8, 1, 8, 0),
             'hour': 9,
         },
@@ -1037,8 +1033,7 @@ async def test_get_trends_districts(
 ) -> None:
     # 1st create a few stations, we get two biomet stations from the fixture
     temp_rh_station_1 = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOB1',
         long_name='temprh-station',
         latitude=51.447,
         longitude=7.268,
@@ -1053,8 +1048,7 @@ async def test_get_trends_districts(
     )
     db.add(temp_rh_station_1)
     temp_rh_station_2 = Station(
-        name='DEC2',
-        device_id=27,
+        station_id='DOB2',
         long_name='temprh-station',
         latitude=51.447,
         longitude=7.268,
@@ -1069,8 +1063,7 @@ async def test_get_trends_districts(
     )
     db.add(temp_rh_station_2)
     biomet_station_1 = Station(
-        name='DEC3',
-        device_id=27,
+        station_id='DOB3',
         long_name='biomet-station',
         latitude=51.447,
         longitude=7.268,
@@ -1085,8 +1078,7 @@ async def test_get_trends_districts(
     )
     db.add(biomet_station_1)
     biomet_station_2 = Station(
-        name='DEC4',
-        device_id=27,
+        station_id='DOB4',
         long_name='biomet-station',
         latitude=51.447,
         longitude=7.268,
@@ -1104,65 +1096,65 @@ async def test_get_trends_districts(
     data = [
         # temp rh station 1
         TempRHData(
-            name=temp_rh_station_1.name,
+            station_id=temp_rh_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=10,
         ),
         TempRHData(
-            name=temp_rh_station_1.name,
+            station_id=temp_rh_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 20),
             air_temperature=12,
         ),
         TempRHData(
-            name=temp_rh_station_1.name,
+            station_id=temp_rh_station_1.station_id,
             measured_at=datetime(2024, 8, 2, 10, 30),
             air_temperature=15,
         ),
         # temp rh station 2
         TempRHData(
-            name=temp_rh_station_2.name,
+            station_id=temp_rh_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=12,
         ),
         TempRHData(
-            name=temp_rh_station_2.name,
+            station_id=temp_rh_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 20),
             air_temperature=14,
         ),
         TempRHData(
-            name=temp_rh_station_2.name,
+            station_id=temp_rh_station_2.station_id,
             measured_at=datetime(2024, 8, 2, 10, 30),
             air_temperature=18,
         ),
         # biomet station 1
         BiometData(
-            name=biomet_station_1.name,
+            station_id=biomet_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=15,
         ),
         BiometData(
-            name=biomet_station_1.name,
+            station_id=biomet_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=16,
         ),
         BiometData(
-            name=biomet_station_1.name,
+            station_id=biomet_station_1.station_id,
             measured_at=datetime(2024, 8, 2, 10, 19),
             air_temperature=17,
         ),
         # biomet station 2
         BiometData(
-            name=biomet_station_2.name,
+            station_id=biomet_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=15,
         ),
         BiometData(
-            name=biomet_station_2.name,
+            station_id=biomet_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=16,
         ),
         BiometData(
-            name=biomet_station_2.name,
+            station_id=biomet_station_2.station_id,
             measured_at=datetime(2024, 8, 2, 10, 19),
             air_temperature=17,
         ),
@@ -1219,7 +1211,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
 ) -> None:
     data = [
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=10,
             wind_direction=90,
@@ -1227,7 +1219,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
             solar_radiation=5,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=5,
             wind_direction=270,
@@ -1236,7 +1228,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         ),
         # biomet station 2
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12,
             wind_direction=90,
@@ -1244,7 +1236,7 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
             solar_radiation=20,
         ),
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=14,
             wind_direction=270,
@@ -1299,8 +1291,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
 ) -> None:
     # define Temp rh stations
     temp_rh_station_1 = Station(
-        name='DEC4',
-        device_id=27,
+        station_id='DOT4',
         long_name='test-station-4',
         latitude=51.447,
         longitude=7.268,
@@ -1315,8 +1306,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
     )
     db.add(temp_rh_station_1)
     temp_rh_station_2 = Station(
-        name='DEC5',
-        device_id=28,
+        station_id='DOT5',
         long_name='test-station-5',
         latitude=51.447,
         longitude=7.268,
@@ -1334,7 +1324,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
 
     data = [
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=10,
             wind_direction=90,
@@ -1342,7 +1332,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
             solar_radiation=5,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=5,
             wind_direction=270,
@@ -1351,7 +1341,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         ),
         # biomet station 2
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12,
             wind_direction=90,
@@ -1359,7 +1349,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
             solar_radiation=20,
         ),
         BiometData(
-            name=stations[1].name,
+            station_id=stations[1].station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=14,
             wind_direction=270,
@@ -1367,22 +1357,22 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
             solar_radiation=40,
         ),
         TempRHData(
-            name=temp_rh_station_1.name,
+            station_id=temp_rh_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=10,
         ),
         TempRHData(
-            name=temp_rh_station_1.name,
+            station_id=temp_rh_station_1.station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=10,
         ),
         TempRHData(
-            name=temp_rh_station_2.name,
+            station_id=temp_rh_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=20,
         ),
         TempRHData(
-            name=temp_rh_station_2.name,
+            station_id=temp_rh_station_2.station_id,
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=20,
         ),
@@ -1415,7 +1405,7 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
 @pytest.mark.anyio
 async def test_get_data_start_greater_end_date(app: AsyncClient) -> None:
     resp = await app.get(
-        '/v1/data/DEC1234',
+        '/v1/data/DOB1234',
         params={
             'start_date': datetime(2024, 8, 1, 14, 0),
             'end_date': datetime(2024, 8, 1, 13, 0),
@@ -1442,7 +1432,7 @@ async def test_get_data_period_too_long(
         days: int,
 ) -> None:
     resp = await app.get(
-        '/v1/data/DEC1234',
+        '/v1/data/DOB1234',
         params={
             'start_date': datetime(2024, 8, 1, 14, 0),
             'end_date': end_date,
@@ -1457,7 +1447,7 @@ async def test_get_data_period_too_long(
 @pytest.mark.anyio
 async def test_get_data_station_not_found(app: AsyncClient) -> None:
     resp = await app.get(
-        '/v1/data/DEC1234',
+        '/v1/data/DOB1234',
         params={
             'start_date': datetime(2024, 8, 1, 14, 0),
             'end_date': datetime(2024, 8, 1, 15, 0),
@@ -1479,7 +1469,7 @@ async def test_get_biomet_data_multiple_params(
     # generate some data for the station
     data = [
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             mrt=minute*2,
@@ -1491,7 +1481,7 @@ async def test_get_biomet_data_multiple_params(
     await db.commit()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1, 10, 0),
             'end_date': datetime(2024, 8, 1, 11, 0),
@@ -1531,8 +1521,7 @@ async def test_get_temp_rh_data_multiple_params(
 ) -> None:
     # generate some data for the station
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOT1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -1549,7 +1538,7 @@ async def test_get_temp_rh_data_multiple_params(
     await db.commit()
     data = [
         TempRHData(
-            name=station.name,
+            station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             relative_humidity=minute*2,
@@ -1561,7 +1550,7 @@ async def test_get_temp_rh_data_multiple_params(
     await db.commit()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOT1',
         params={
             'start_date': datetime(2024, 8, 1, 10, 0),
             'end_date': datetime(2024, 8, 1, 11, 0),
@@ -1604,13 +1593,13 @@ async def test_get_data_biomet_hourly_null_values_are_filled(
     # create data for two stations
     data = [
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12.0,
             relative_humidity=50.5,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 12, 10),
             maximum_wind_speed=6.0,
             relative_humidity=60.5,
@@ -1623,7 +1612,7 @@ async def test_get_data_biomet_hourly_null_values_are_filled(
     await BiometDataHourly.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1, 8),
             'end_date': datetime(2024, 8, 1, 14),
@@ -1662,13 +1651,13 @@ async def test_get_data_biomet_hourly_no_gap_filling(
     # create data for two stations
     data = [
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12.0,
             relative_humidity=50.5,
         ),
         BiometData(
-            name=stations[0].name,
+            station_id=stations[0].station_id,
             measured_at=datetime(2024, 8, 1, 12, 10),
             maximum_wind_speed=6.0,
             relative_humidity=60.5,
@@ -1681,7 +1670,7 @@ async def test_get_data_biomet_hourly_no_gap_filling(
     await BiometDataHourly.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1, 8),
             'end_date': datetime(2024, 8, 1, 14),
@@ -1712,8 +1701,7 @@ async def test_get_data_temprh_hourly_null_values_are_filled(
         db: AsyncSession,
 ) -> None:
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOB1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -1731,13 +1719,13 @@ async def test_get_data_temprh_hourly_null_values_are_filled(
     # create data for two stations
     data = [
         TempRHData(
-            name=station.name,
+            station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=12.0,
             relative_humidity=50.5,
         ),
         TempRHData(
-            name=station.name,
+            station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 12, 10),
             air_temperature=6.0,
             relative_humidity=60.5,
@@ -1750,7 +1738,7 @@ async def test_get_data_temprh_hourly_null_values_are_filled(
     await TempRHDataHourly.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1, 8),
             'end_date': datetime(2024, 8, 1, 14),
@@ -1795,14 +1783,14 @@ async def test_get_data_biomet_daily_null_values_are_filled(
         tmp_data = [
             BiometData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
-                name=stations[0].name,
+                station_id=stations[0].station_id,
                 maximum_wind_speed=12,
                 relative_humidity=50.5,
             ),
             # two days are missing inbetween
             BiometData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
-                name=stations[0].name,
+                station_id=stations[0].station_id,
                 maximum_wind_speed=6,
                 relative_humidity=60.5,
             ),
@@ -1816,7 +1804,7 @@ async def test_get_data_biomet_daily_null_values_are_filled(
     await BiometDataDaily.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1),
             'end_date': datetime(2024, 8, 4),
@@ -1851,8 +1839,7 @@ async def test_get_data_temprh_daily_null_values_are_filled(
         db: AsyncSession,
 ) -> None:
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOB1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -1875,14 +1862,14 @@ async def test_get_data_temprh_daily_null_values_are_filled(
         tmp_data = [
             TempRHData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
-                name=station.name,
+                station_id=station.station_id,
                 air_temperature=12,
                 relative_humidity=50.5,
             ),
             # two days are missing inbetween
             TempRHData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
-                name=station.name,
+                station_id=station.station_id,
                 air_temperature=6,
                 relative_humidity=60.5,
             ),
@@ -1896,7 +1883,7 @@ async def test_get_data_temprh_daily_null_values_are_filled(
     await TempRHDataDaily.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1),
             'end_date': datetime(2024, 8, 4),
@@ -1931,8 +1918,7 @@ async def test_get_data_biomet_daily_no_gap_filling(
         db: AsyncSession,
 ) -> None:
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOB1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -1955,14 +1941,14 @@ async def test_get_data_biomet_daily_no_gap_filling(
         tmp_data = [
             TempRHData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
-                name=station.name,
+                station_id=station.station_id,
                 air_temperature=12,
                 relative_humidity=50.5,
             ),
             # two days are missing inbetween
             TempRHData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
-                name=station.name,
+                station_id=station.station_id,
                 air_temperature=6,
                 relative_humidity=60.5,
             ),
@@ -1976,7 +1962,7 @@ async def test_get_data_biomet_daily_no_gap_filling(
     await TempRHDataDaily.refresh()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOB1',
         params={
             'start_date': datetime(2024, 8, 1),
             'end_date': datetime(2024, 8, 4),
@@ -2008,8 +1994,7 @@ async def test_get_temp_rh_data_daily_multiple_params(
 ) -> None:
     # generate some data for the station
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOT1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -2026,7 +2011,7 @@ async def test_get_temp_rh_data_daily_multiple_params(
     await db.commit()
     data = [
         TempRHData(
-            name=station.name,
+            station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             relative_humidity=minute*2,
@@ -2040,7 +2025,7 @@ async def test_get_temp_rh_data_daily_multiple_params(
     await db.commit()
 
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOT1',
         params={
             'start_date': datetime(2024, 8, 1, 0, 0),
             'end_date': datetime(2024, 8, 1, 0, 0),
@@ -2066,8 +2051,7 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
 ) -> None:
     # generate some data for the station
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOT1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -2084,7 +2068,7 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
     await db.commit()
     data = [
         TempRHData(
-            name=station.name,
+            station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             relative_humidity=minute*2,
@@ -2096,7 +2080,7 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
     await db.commit()
     await TempRHDataHourly.refresh()
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOT1',
         params={
             'start_date': datetime(2024, 8, 1, 10, 0),
             'end_date': datetime(2024, 8, 1, 11, 0),
@@ -2122,8 +2106,7 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
 ) -> None:
     # generate some data for the station
     station = Station(
-        name='DEC1',
-        device_id=27,
+        station_id='DOT1',
         long_name='test-station-1',
         latitude=51.447,
         longitude=7.268,
@@ -2139,7 +2122,7 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
     db.add(station)
     await db.commit()
     resp = await app.get(
-        '/v1/data/DEC1',
+        '/v1/data/DOT1',
         params={
             'start_date': datetime(2024, 8, 1, 10, 0),
             'end_date': datetime(2024, 8, 1, 11, 0),
@@ -2196,12 +2179,11 @@ async def test_get_network_values_hourly(
         stations: list[Station],
 ) -> None:
     # create some temp_rh stations
-    temp_rh_stations = []
+    temp_rh_stations: list[Station] = []
     for i in range(2):
         station = Station(
-            name=f'DEC-temprh-{i}',
-            device_id=27,
-            long_name=f'DEC-temprh-{i}',
+            station_id=f'DOT-temprh-{i}',
+            long_name=f'DOT-temprh-{i}',
             latitude=51.447,
             longitude=7.268,
             altitude=100,
@@ -2224,7 +2206,7 @@ async def test_get_network_values_hourly(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
-                name=biomet_station.name,
+                station_id=biomet_station.station_id,
                 air_temperature=value,
                 wind_speed=value / 2,
             )
@@ -2232,7 +2214,7 @@ async def test_get_network_values_hourly(
             # insert some values for temprh
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
             db.add(temp_rh_data)
@@ -2253,21 +2235,21 @@ async def test_get_network_values_hourly(
         {
             'air_temperature': 6.5,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'wind_speed': 3.25,
         },
         {
             'air_temperature': 6.5,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC-temprh-0',
+            'station_id': 'DOT-temprh-0',
             'station_type': 'temprh',
             # temprh supports no windspeed
             'wind_speed': None,
@@ -2275,7 +2257,7 @@ async def test_get_network_values_hourly(
         {
             'air_temperature': 6.5,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2291,12 +2273,11 @@ async def test_get_network_values_hourly_missing_values_are_null(
         stations: list[Station],
 ) -> None:
     # create some temp_rh stations
-    temp_rh_stations = []
+    temp_rh_stations: list[Station] = []
     for i in range(2):
         station = Station(
-            name=f'DEC-temprh-{i}',
-            device_id=27,
-            long_name=f'DEC-temprh-{i}',
+            station_id=f'DOT-temprh-{i}',
+            long_name=f'DOT-temprh-{i}',
             latitude=51.447,
             longitude=7.268,
             altitude=100,
@@ -2320,7 +2301,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
-                name=biomet_station.name,
+                station_id=biomet_station.station_id,
                 air_temperature=value,
                 wind_speed=value / 2,
             )
@@ -2329,7 +2310,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
             # make this offset compared to the biomet data!
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * (value - 1)),
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
             db.add(temp_rh_data)
@@ -2352,21 +2333,21 @@ async def test_get_network_values_hourly_missing_values_are_null(
         {
             'air_temperature': 1.0,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 0.5,
         },
         {
             'air_temperature': 1.0,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'wind_speed': 0.5,
         },
         {
             'air_temperature': None,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC-temprh-0',
+            'station_id': 'DOT-temprh-0',
             'station_type': 'temprh',
             # temprh supports no windspeed
             'wind_speed': None,
@@ -2374,7 +2355,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
         {
             'air_temperature': None,
             'measured_at': '2024-01-01T13:00:00Z',
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2394,21 +2375,21 @@ async def test_get_network_values_hourly_missing_values_are_null(
         {
             'air_temperature': None,
             'measured_at': '2024-01-01T14:00:00Z',
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': None,
         },
         {
             'air_temperature': None,
             'measured_at': '2024-01-01T14:00:00Z',
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'wind_speed': None,
         },
         {
             'air_temperature': 3.0,
             'measured_at': '2024-01-01T14:00:00Z',
-            'name': 'DEC-temprh-0',
+            'station_id': 'DOT-temprh-0',
             'station_type': 'temprh',
             # temprh supports no windspeed
             'wind_speed': None,
@@ -2416,7 +2397,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
         {
             'air_temperature': 3.0,
             'measured_at': '2024-01-01T14:00:00Z',
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2435,9 +2416,8 @@ async def test_get_network_values_daily(
     temp_rh_stations = []
     for i in range(2):
         station = Station(
-            name=f'DEC-temprh-{i}',
-            device_id=27,
-            long_name=f'DEC-temprh-{i}',
+            station_id=f'DOT-temprh-{i}',
+            long_name=f'DOT-temprh-{i}',
             latitude=51.447,
             longitude=7.268,
             altitude=100,
@@ -2461,7 +2441,7 @@ async def test_get_network_values_daily(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
-                name=biomet_station.name,
+                station_id=biomet_station.station_id,
                 air_temperature=value,
                 wind_speed=value / 2,
             )
@@ -2469,7 +2449,7 @@ async def test_get_network_values_daily(
             # insert some values for temprh
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
             db.add(temp_rh_data)
@@ -2491,28 +2471,28 @@ async def test_get_network_values_daily(
         {
             'air_temperature': 155.5,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 77.75,
         },
         {
             'air_temperature': 155.5,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'wind_speed': 77.75,
         },
         {
             'air_temperature': 155.5,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC-temprh-0',
+            'station_id': 'DOT-temprh-0',
             'station_type': 'temprh',
             'wind_speed': None,
         },
         {
             'air_temperature': 155.5,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2528,9 +2508,8 @@ async def test_get_network_values_daily_missing_values_are_null(
         stations: list[Station],
 ) -> None:
     temp_rh_station = Station(
-        name='DEC-temprh-1',
-        device_id=27,
-        long_name='DEC-temprh-1',
+        station_id='DOT-temprh-1',
+        long_name='DOT-temprh-1',
         latitude=51.447,
         longitude=7.268,
         altitude=100,
@@ -2552,26 +2531,26 @@ async def test_get_network_values_daily_missing_values_are_null(
         tmp_data = [
             BiometData(
                 measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
-                name=stations[0].name,
+                station_id=stations[0].station_id,
                 air_temperature=10.5,
                 wind_speed=3.5,
             ),
             # 1 day missing inbetween
             BiometData(
                 measured_at=datetime(2024, 1, 3, 0, tzinfo=timezone.utc) + step,
-                name=stations[0].name,
+                station_id=stations[0].station_id,
                 air_temperature=12.0,
                 wind_speed=1.5,
             ),
             TempRHData(
                 measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
                 air_temperature=11.4,
             ),
             # two days missing inbetween
             TempRHData(
                 measured_at=datetime(2024, 1, 4, 0, tzinfo=timezone.utc) + step,
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
                 air_temperature=9.5,
             ),
         ]
@@ -2598,14 +2577,14 @@ async def test_get_network_values_daily_missing_values_are_null(
         {
             'measured_at': '2024-01-01T00:00:00',
             'air_temperature': 10.5,
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 3.5,
         },
         {
             'measured_at': '2024-01-01T00:00:00',
             'air_temperature': 11.4,
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2624,14 +2603,14 @@ async def test_get_network_values_daily_missing_values_are_null(
         {
             'measured_at': '2024-01-03T00:00:00',
             'air_temperature': 12.0,
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 1.5,
         },
         {
             'measured_at': '2024-01-03T00:00:00',
             'air_temperature': None,
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2650,7 +2629,7 @@ async def test_get_network_values_daily_missing_values_are_null(
         {
             'measured_at': '2024-01-04T00:00:00',
             'air_temperature': 9.5,
-            'name': 'DEC-temprh-1',
+            'station_id': 'DOT-temprh-1',
             'station_type': 'temprh',
             'wind_speed': None,
         },
@@ -2666,12 +2645,11 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         stations: list[Station],
 ) -> None:
     # create some temp_rh stations
-    temp_rh_stations = []
+    temp_rh_stations: list[Station] = []
     for i in range(2):
         station = Station(
-            name=f'DEC-temprh-{i}',
-            device_id=27,
-            long_name=f'DEC-temprh-{i}',
+            station_id=f'DOT-temprh-{i}',
+            long_name=f'DOT-temprh-{i}',
             latitude=51.447,
             longitude=7.268,
             altitude=100,
@@ -2695,7 +2673,7 @@ async def test_get_network_values_daily_temprh_supports_no_param(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
-                name=biomet_station.name,
+                station_id=biomet_station.station_id,
                 utci=value * 2,
                 wind_speed=value / 2,
             )
@@ -2703,7 +2681,7 @@ async def test_get_network_values_daily_temprh_supports_no_param(
             # insert some values for temprh (event though we don't request them)
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
-                name=temp_rh_station.name,
+                station_id=temp_rh_station.station_id,
             )
             db.add(temp_rh_data)
 
@@ -2724,14 +2702,14 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         {
             'utci': 311,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC1',
+            'station_id': 'DOB1',
             'station_type': 'biomet',
             'wind_speed': 77.75,
         },
         {
             'utci': 311,
             'measured_at': '2024-01-02T00:00:00',
-            'name': 'DEC2',
+            'station_id': 'DOB2',
             'station_type': 'biomet',
             'wind_speed': 77.75,
         },

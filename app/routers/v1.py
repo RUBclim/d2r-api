@@ -80,7 +80,7 @@ async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> A
     data = (
         await db.execute(
             select(
-                Station.name,
+                Station.station_id,
                 Station.long_name,
                 Station.latitude,
                 Station.longitude,
@@ -88,7 +88,7 @@ async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> A
                 Station.district,
                 Station.lcz,
                 Station.station_type,
-            ).order_by(Station.name),
+            ).order_by(Station.station_id),
         )
     )
     return Response(data=data.mappings().all())
@@ -131,7 +131,7 @@ async def get_stations_latest_data(
     columns: list[InstrumentedAttribute[Any]] = [getattr(LatestData, i) for i in param]
     not_null_conditions = [c.isnot(None) for c in columns]
     query = select(
-        LatestData.name,
+        LatestData.station_id,
         LatestData.long_name,
         LatestData.latitude,
         LatestData.longitude,
@@ -145,7 +145,7 @@ async def get_stations_latest_data(
     ).where(
         LatestData.measured_at > (datetime.now(tz=timezone.utc) - max_age),
         and_(*not_null_conditions),
-    ).order_by(LatestData.name)
+    ).order_by(LatestData.station_id)
     data = await db.execute(query)
     return Response(data=data.mappings().all())
 
@@ -297,8 +297,8 @@ async def get_trends(
     if spatial_level == 'stations':
         # get the supported ids which are needed for the API return, probably for
         # possible comparison
-        biomet_id_query = select(BiometDataHourly.name).distinct(
-            BiometDataHourly.name,
+        biomet_id_query = select(BiometDataHourly.station_id).distinct(
+            BiometDataHourly.station_id,
         ).where(
             BiometDataHourly.measured_at.between(start_date, end_date) &
             (column_biomet.is_not(None)),
@@ -308,19 +308,19 @@ async def get_trends(
         # now get the data for the requested item_ids
         query = select(
             BiometDataHourly.measured_at,
-            BiometDataHourly.name.label('key'),
+            BiometDataHourly.station_id.label('key'),
             column_biomet.label('value'),
         ).where(
             BiometDataHourly.measured_at.between(start_date, end_date) &
-            BiometDataHourly.name.in_(item_ids) &
+            BiometDataHourly.station_id.in_(item_ids) &
             (func.extract('hour', BiometDataHourly.measured_at) == hour),
-        ).order_by(BiometDataHourly.name, column_biomet)
+        ).order_by(BiometDataHourly.station_id, column_biomet)
         # if column_temp_rh is None, the entire station type is not supported, hence we
         # can start with a default of an empty set and change it if needed.
         supported_temp_rh_ids = set()
         if column_temp_rh is not None:
-            temp_rh_id_query = select(TempRHDataHourly.name).distinct(
-                TempRHDataHourly.name.label('key'),
+            temp_rh_id_query = select(TempRHDataHourly.station_id).distinct(
+                TempRHDataHourly.station_id.label('key'),
             ).where(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
                 (column_temp_rh.is_not(None)),
@@ -333,11 +333,11 @@ async def get_trends(
             # can create key-value pairs later on
             query_temp_rh = select(
                 TempRHDataHourly.measured_at,
-                TempRHDataHourly.name.label('key'),
+                TempRHDataHourly.station_id.label('key'),
                 column_temp_rh.label('value'),
             ).where(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
-                TempRHDataHourly.name.in_(item_ids) &
+                TempRHDataHourly.station_id.in_(item_ids) &
                 (func.extract('hour', TempRHDataHourly.measured_at) == hour),
             )
             # we can safely combine both queries since we have this parameter at both
@@ -353,7 +353,7 @@ async def get_trends(
         biomet_districts_query = select(Station.district).distinct(
             Station.district,
         ).join(
-            BiometDataHourly, Station.name == BiometDataHourly.name,
+            BiometDataHourly, Station.station_id == BiometDataHourly.station_id,
         ).where(
             BiometDataHourly.measured_at.between(start_date, end_date) &
             (column_biomet.is_not(None)),
@@ -368,7 +368,7 @@ async def get_trends(
             Station.district,
             column_biomet.label('value'),
         ).join(
-            Station, Station.name == BiometDataHourly.name, isouter=True,
+            Station, Station.station_id == BiometDataHourly.station_id, isouter=True,
         ).where(
             BiometDataHourly.measured_at.between(start_date, end_date) &
             Station.district.in_(item_ids) &
@@ -380,7 +380,7 @@ async def get_trends(
             temp_rh_districts_query = select(Station.district).distinct(
                 Station.district,
             ).join(
-                TempRHDataHourly, Station.name == TempRHDataHourly.name,
+                TempRHDataHourly, Station.station_id == TempRHDataHourly.station_id,
             ).where(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
                 (column_temp_rh.is_not(None)),
@@ -394,7 +394,10 @@ async def get_trends(
                 TempRHDataHourly.measured_at,
                 Station.district,
                 column_temp_rh.label('value'),
-            ).join(Station, Station.name == TempRHDataHourly.name, isouter=True).where(
+            ).join(
+                Station, Station.station_id == TempRHDataHourly.station_id,
+                isouter=True,
+            ).where(
                 TempRHDataHourly.measured_at.between(start_date, end_date) &
                 Station.district.in_(item_ids) &
                 (func.extract('hour', TempRHDataHourly.measured_at) == hour),
@@ -620,7 +623,7 @@ async def get_data(
         )
 
     station = (
-        await db.execute(select(Station).where(Station.name == name))
+        await db.execute(select(Station).where(Station.station_id == name))
     ).scalar_one_or_none()
     if station:
         table_info = TABLE_MAPPING[station.station_type][scale]
@@ -659,7 +662,7 @@ async def get_data(
             *columns,
         ).where(
             table.measured_at.between(start_date, end_date) &
-            (table.name == station.name),
+            (table.station_id == station.station_id),
         ).order_by(table.measured_at)
 
         if fill_gaps is False:
@@ -749,26 +752,26 @@ async def get_network_snapshot(
     query: Select[Any] | CompoundSelect
     query = select(
         biomet_table.measured_at,
-        biomet_table.name,
+        biomet_table.station_id,
         Station.station_type,
         *columns,
     ).join(
-        Station, Station.name == biomet_table.name,
-    ).where(biomet_table.measured_at == date).order_by(biomet_table.name)
+        Station, Station.station_id == biomet_table.station_id,
+    ).where(biomet_table.measured_at == date).order_by(biomet_table.station_id)
     # check that not all of the temp_rh columns are None, if so, just don't query
     # them at all
     if any(columns_temp_rh):
         query = query.union_all(
             select(
                 tempr_rh_table.measured_at,
-                tempr_rh_table.name,
+                tempr_rh_table.station_id,
                 Station.station_type,
                 *columns_temp_rh,
             ).join(
-                Station, Station.name == tempr_rh_table.name,
+                Station, Station.station_id == tempr_rh_table.station_id,
             ).where(
                 tempr_rh_table.measured_at == date,
-            ).order_by(tempr_rh_table.name),
+            ).order_by(tempr_rh_table.station_id),
         )
 
     data = (await db.execute(query)).mappings().all()

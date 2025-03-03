@@ -497,6 +497,11 @@ class _CalibrationDerivatives(Base):
     air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
     relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
 
+# TODO: sensor_id is kinda fucked here, since each row may be measured by multiple
+# sensors such as atm41 and blg.
+# so we might need two sensor_id ? Or maybe no sensor_id column?
+# Ahhhh everything is fucked!
+
 
 class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
@@ -513,6 +518,7 @@ class BiometData(
         ForeignKey('station.station_id'),
         primary_key=True,
     )
+    sensor_id = None  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
 
 
@@ -529,6 +535,7 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
         ForeignKey('station.station_id'),
         primary_key=True,
     )
+    sensor_id = None  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
 
 
@@ -538,7 +545,11 @@ class MaterializedView(Base):
     # is this a timescale continuous aggregate?
     is_continuous_aggregate = False
 
-    station_id: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            'station.station_id',
+        ), primary_key=True, index=True,
+    )
 
     @classmethod
     async def refresh(
