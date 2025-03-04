@@ -212,6 +212,7 @@ class Station(Base):
         ),
         secondaryjoin='Sensor.sensor_id == SensorDeployments.sensor_id',
         viewonly=True,
+        lazy='selectin',
     )
     former_sensors: Mapped[list[Sensor]] = relationship(
         'Sensor',
@@ -224,6 +225,7 @@ class Station(Base):
         ),
         secondaryjoin='Sensor.sensor_id == SensorDeployments.sensor_id',
         viewonly=True,
+        lazy='selectin',
     )
     active_deployments: Mapped[list[SensorDeployments]] = relationship(
         'SensorDeployments',
@@ -234,6 +236,7 @@ class Station(Base):
             ')'
         ),
         viewonly=True,
+        lazy='selectin',
     )
     former_deployments: Mapped[list[SensorDeployments]] = relationship(
         'SensorDeployments',
@@ -244,6 +247,11 @@ class Station(Base):
             ')'
         ),
         viewonly=True,
+        lazy='selectin',
+    )
+    deployments: Mapped[list[SensorDeployments]] = relationship(
+        back_populates='station',
+        lazy='selectin',
     )
 
     @property
@@ -309,15 +317,28 @@ class SensorDeployments(Base):
     deployment_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     sensor_id: Mapped[str] = mapped_column(ForeignKey('sensor.sensor_id'))
     station_id: Mapped[str] = mapped_column(ForeignKey('station.station_id'))
-    setup_date: Mapped[datetime] = mapped_column(nullable=False)
-    teardown_date: Mapped[datetime | None] = mapped_column(nullable=True)
+    setup_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    teardown_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
-    sensor: Mapped[Sensor] = relationship('Sensor', back_populates='deployments')
-    station: Mapped[Station] = relationship()
+    sensor: Mapped[Sensor] = relationship(
+        'Sensor',
+        back_populates='deployments',
+        lazy='selectin',
+    )
+    station: Mapped[Station] = relationship(
+        back_populates='deployments', lazy='selectin',
+    )
 
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}('
+            f'deployment_id={self.deployment_id!r}, '
             f'sensor_id={self.sensor_id!r}, '
             f'station_id={self.station_id!r}, '
             f'setup_date={self.setup_date!r}, '
@@ -346,7 +367,9 @@ class Sensor(Base):
     )
 
     # relationships
-    deployments: Mapped[list[SensorDeployments]] = relationship()
+    deployments: Mapped[list[SensorDeployments]] = relationship(
+        back_populates='sensor', lazy='selectin',
+    )
     current_station: Mapped[Station | None] = relationship(
         secondary='sensor_deployments',
         primaryjoin=(
@@ -358,6 +381,7 @@ class Sensor(Base):
         secondaryjoin='Station.station_id == SensorDeployments.station_id',
         uselist=False,
         viewonly=True,
+        lazy='selectin',
     )
     former_stations: Mapped[list[Station]] = relationship(
         'Station',
@@ -371,6 +395,7 @@ class Sensor(Base):
         secondaryjoin='Station.station_id == SensorDeployments.station_id',
         uselist=True,
         viewonly=True,
+        lazy='selectin',
     )
 
     def __repr__(self) -> str:
@@ -525,7 +550,15 @@ class BiometData(
         ForeignKey('station.station_id'),
         primary_key=True,
     )
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
+    # TODO: we also want the blackglobe sensor ID here, in a way...
     station: Mapped[Station] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(lazy=True)
 
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
@@ -541,7 +574,14 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
         ForeignKey('station.station_id'),
         primary_key=True,
     )
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
     station: Mapped[Station] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(lazy=True)
 
 
 class MaterializedView(Base):
@@ -642,6 +682,7 @@ class LatestData(
     )
     vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
 
+    # we exclude the temprh part of a double station here and only use the biomet part
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
     (
@@ -713,6 +754,7 @@ class LatestData(
             NULL,
             NULL
         FROM temp_rh_data INNER JOIN station USING(station_id)
+        WHERE station.station_type <> 'double'
         ORDER BY station_id, measured_at DESC
     )
     ''')
