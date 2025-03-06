@@ -819,3 +819,50 @@ async def download_station_data(station_id: str) -> str | None:
         await sess.commit()
         # return the station name for the next task to be picked up
         return station.station_id if new_data else None
+
+DEVICE_TYPE_MAPPING = {
+    'ATM41': SensorType.atm41,
+    'SHT35': SensorType.sht35,
+    'DL-BLG-001': SensorType.blg,
+}
+
+
+@async_task(
+    app=celery_app,
+    name='check-new-sensors',
+    autoretry_for=(HTTPError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=20,
+)
+async def check_for_new_sensors() -> None:
+    # compile a list of sensors that are present in the Element system. They may be in
+    # any of the folders assigned to the project
+    project_folders = [
+        f for f in api.get_folder_slugs() if f.startswith('stadt-dortmund-klimasensoren')  # noqa: E501
+    ]
+    # now get all hexadecimal device addresses in those folders
+    _device_addrs: list[str] = []
+    for folder in project_folders:
+        _device_addrs.extend(api.get_device_addresses(folder))
+
+    device_addrs = set(_device_addrs)
+    # now get the sensors that we have in the database and compare both
+    async with sessionmanager.session() as sess:
+        sensors = set((await sess.execute(select(Sensor.sensor_id))).scalars().all())
+        new_sensors = device_addrs - sensors
+        if new_sensors:
+            for sensor_id in new_sensors:
+                # get more detailed information about the sensor
+                sensor_info = api.get_device(address=sensor_id)['body']
+                # we have to omit the calibration information, since new sensors do not
+                # have any calibration information
+                sensor = Sensor(
+                    sensor_id=sensor_id,
+                    device_id=api.decentlab_id_from_address(sensor_id),
+                    sensor_type=DEVICE_TYPE_MAPPING[
+                        sensor_info['fields']['gerateinformation']['geratetyp']
+                    ],
+                )
+                print(f'Adding new sensor: {sensor}')
+                sess.add(sensor)
+            await sess.commit()
