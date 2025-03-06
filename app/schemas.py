@@ -397,6 +397,16 @@ class Parameters(BaseModel):
         ),
         ge=0,
     )
+    u_wind: float | None = Field(
+        None,
+        examples=[3.5],
+        description='The u-component of the wind vector in **m/s**',
+    )
+    v_wind: float | None = Field(
+        None,
+        examples=[-1.5],
+        description='The v-component of the wind vector in **m/s**',
+    )
 
 # TODO: we may also generate these at some point from either the enums or the basic
 # schema without extreme values

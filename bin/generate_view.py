@@ -115,12 +115,22 @@ class {view_name}{inherits}:
 
 {attributes}
 
+    def __repr__(self) -> str:
+        return (
+            f'{{type(self).__name__}}('
+{repr_attrs}
+            f')'
+        )
+
     creation_sql = text('''\\{creation_sql}
     '''){noqa}
 """
 
 
-AVG_EXCLUDES = {'name', 'measured_at', 'protocol_version', 'station_id', 'sensor_id'}
+AVG_EXCLUDES = {
+    'name', 'measured_at', 'station_id', 'sensor_id',
+    'blg_sensor_id', 'deployment_id',
+}
 
 
 class Col(NamedTuple):
@@ -143,7 +153,7 @@ class Col(NamedTuple):
             agg_func = func.max(self.sqlalchemy_col)
         elif '_min' in self.full_name:
             agg_func = func.min(self.sqlalchemy_col)
-        elif 'category' in self.full_name:
+        elif 'category' in self.full_name or 'version' in self.full_name:
             agg_func = func.mode().within_group(self.sqlalchemy_col.asc())
         elif 'direction' in self.full_name:
             agg_func = func.avg_angle(self.sqlalchemy_col)
@@ -271,7 +281,7 @@ def generate_sqlalchemy_class(
             ),
         )
         # we don't want them to get a _min or _max column
-        other_aggs = {'category', 'count', 'sum', 'max', 'direction'}
+        other_aggs = {'category', 'count', 'sum', 'max', 'direction', 'version'}
         if col.key not in AVG_EXCLUDES and not any(i in col.key for i in other_aggs):
             for suffix in ('_min', '_max'):
                 cols.append(
@@ -351,6 +361,14 @@ def generate_sqlalchemy_class(
     # cagg = textwrap.indent('\nis_continuous_aggregate = True',  ' ' * 4)
 
     # finally combine everything and generate the full class
+    repr_attrs_base = [f"f'{i.full_name}={{self.{i.full_name}!r}}, '" for i in cols]
+    repr_attrs = []
+    for i in repr_attrs_base:
+        if len(i) > 76:
+            repr_attrs.append(f'{i}  # noqa: E501')
+        else:
+            repr_attrs.append(i)
+
     class_def = CLASS_TEMPLATE.format(
         view_name=f'{table.__name__}{target_agg.title()}',
         docstring=f'\"""{docstring}\n    \"""' if docstring else '',
@@ -358,6 +376,7 @@ def generate_sqlalchemy_class(
         inherits=inherit_str,
         creation_sql=creation_sql,
         attributes=textwrap.indent(text='\n'.join(py_cols), prefix=' ' * 4),
+        repr_attrs=textwrap.indent(text='\n'.join(repr_attrs), prefix=' ' * 12),
         noqa=noqa,
         table_args=table_args_str,
         is_cagg=cagg,

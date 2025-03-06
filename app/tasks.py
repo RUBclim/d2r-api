@@ -43,7 +43,7 @@ from app.models import BLGDataRaw
 from app.models import LatestData
 from app.models import PET_STRESS_CATEGORIES
 from app.models import Sensor
-from app.models import SensorDeployments
+from app.models import SensorDeployment
 from app.models import SensorType
 from app.models import SHT35DataRaw
 from app.models import Station
@@ -191,9 +191,9 @@ async def _download_sensor_data(
         # deployments and find the earliest one
         start_date = (
             await con.execute(
-                select(SensorDeployments.setup_date).where(
-                    SensorDeployments.sensor_id == sensor.sensor_id,
-                ).order_by(SensorDeployments.setup_date).limit(1),
+                select(SensorDeployment.setup_date).where(
+                    SensorDeployment.sensor_id == sensor.sensor_id,
+                ).order_by(SensorDeployment.setup_date).limit(1),
             )
         ).scalar_one_or_none()
         if start_date is None:
@@ -284,7 +284,7 @@ async def _sync_data_wrapper() -> None:
 class DeploymentInfo(NamedTuple):
     latest: datetime
     station: Station
-    deployments: Sequence[SensorDeployments]
+    deployments: Sequence[SensorDeployment]
 
 
 async def get_station_deployments(
@@ -321,13 +321,13 @@ async def get_station_deployments(
     # 2. get the biomet data, we potentially need to combine multiple deployments
     deployments = (
         await con.execute(
-            select(SensorDeployments).where(
-                (SensorDeployments.station_id == station.station_id) &
-                (SensorDeployments.setup_date < latest) &
+            select(SensorDeployment).where(
+                (SensorDeployment.station_id == station.station_id) &
+                (SensorDeployment.setup_date < latest) &
                 (
-                    (SensorDeployments.teardown_date > latest) |
+                    (SensorDeployment.teardown_date > latest) |
                     # we do not need any older deployment, but the current
-                    (SensorDeployments.teardown_date.is_(None))
+                    (SensorDeployment.teardown_date.is_(None))
                 ),
             ),
         )
@@ -424,6 +424,7 @@ async def calculate_biomet(station_id: str | None) -> None:
                     lambda con: pd.read_sql(
                         sql=select(
                             BLGDataRaw.measured_at.label('measured_at_blg'),
+                            BLGDataRaw.sensor_id.label('blg_sensor_id'),
                             BLGDataRaw.black_globe_temperature,
                             BLGDataRaw.thermistor_resistance,
                             BLGDataRaw.voltage_ratio,
@@ -739,13 +740,13 @@ async def download_station_data(station_id: str) -> str | None:
         if latest_data is not None:
             deployments = (
                 await sess.execute(
-                    select(SensorDeployments).where(
-                        (SensorDeployments.station_id == station.station_id) &
-                        (SensorDeployments.setup_date < latest_data) &
+                    select(SensorDeployment).where(
+                        (SensorDeployment.station_id == station.station_id) &
+                        (SensorDeployment.setup_date < latest_data) &
                         (
-                            (SensorDeployments.teardown_date > latest_data) |
+                            (SensorDeployment.teardown_date > latest_data) |
                             # we don't need older deployment, but the current
-                            (SensorDeployments.teardown_date.is_(None))
+                            (SensorDeployment.teardown_date.is_(None))
                         ),
                     ),
                 )

@@ -20,7 +20,8 @@ from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
 from app.models import Sensor
-from app.models import SensorDeployments
+from app.models import SensorDeployment
+from app.models import SensorType
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
@@ -51,8 +52,7 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.execute(delete(SHT35DataRaw))
     await db.execute(delete(ATM41DataRaw))
     await db.execute(delete(BLGDataRaw))
-    await db.execute(delete(Station))
-    await db.execute(delete(SensorDeployments))
+    await db.execute(delete(SensorDeployment))
     await db.execute(delete(Sensor))
     await db.execute(delete(Station))
     await db.commit()
@@ -87,7 +87,7 @@ async def db() -> AsyncGenerator[AsyncSession]:
         yield sess
 
 
-def _create_stations(n: int) -> list[Station]:
+def _create_biomet_stations(n: int) -> list[Station]:
     stations: list[Station] = []
     for i in range(1, n + 1):
         test_id = f'DOB{i}'
@@ -112,13 +112,31 @@ def _create_stations(n: int) -> list[Station]:
 
 
 @pytest.fixture
+async def biomet_sensors(db: AsyncSession, clean_db: None) -> None:
+    atm41_sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=11111,
+        sensor_type=SensorType.atm41,
+    )
+    blg_sensor = Sensor(
+        sensor_id='DEC2',
+        device_id=22222,
+        sensor_type=SensorType.blg,
+    )
+    db.add(atm41_sensor)
+    db.add(blg_sensor)
+    await db.commit()
+
+
+@pytest.fixture
 async def stations(
         db: AsyncSession,
         request: SubRequest,
+        biomet_sensors: None,
         clean_db: None,
 ) -> AsyncGenerator[list[Station]]:
     n = request.param if hasattr(request, 'param') else 1
-    stations = _create_stations(n)
+    stations = _create_biomet_stations(n)
     for station in stations:
         db.add(station)
     await db.commit()
@@ -129,11 +147,12 @@ async def stations(
 async def biomet_data(
         db: AsyncSession,
         request: SubRequest,
+        biomet_sensors: None,
         clean_db: None,
 ) -> AsyncGenerator[list[BiometData]]:
     n_stations = request.param['n_stations']
     n_data = request.param['n_data']
-    stations = _create_stations(n=n_stations)
+    stations = _create_biomet_stations(n=n_stations)
     start_date = datetime(2024, 8, 1, 0, tzinfo=timezone.utc)
     biomet_data_list = []
     for station in stations:
@@ -141,6 +160,8 @@ async def biomet_data(
         for i in range(n_data + 1):
             biomet_data = BiometData(
                 station_id=station.station_id,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 measured_at=start_date + timedelta(minutes=5*i),
                 utci=35.5,
                 # TODO: add more values and dynamically change them
