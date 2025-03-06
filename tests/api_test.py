@@ -1747,6 +1747,97 @@ async def test_get_temp_rh_data_multiple_params(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+async def test_get_data_from_double_station_multiple_params(
+        app: AsyncClient,
+        db: AsyncSession,
+) -> None:
+    # generate some data for the station
+    station = Station(
+        station_id='DOD1',
+        long_name='double-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.double,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=222222,
+            sensor_type=SensorType.blg,
+        ),
+        Sensor(
+            sensor_id='DEC3',
+            device_id=33333,
+            sensor_type=SensorType.sht35,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+    # deploy the sensors??
+    await db.commit()
+    biomet_data = [
+        BiometData(
+            station_id=station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
+            measured_at=datetime(2024, 8, 1, 10, minute),
+            air_temperature=minute/2,
+            relative_humidity=minute*2,
+        ) for minute in range(0, 40, 10)
+    ]
+    for d in biomet_data:
+        db.add(d)
+
+    await db.commit()
+
+    resp = await app.get(
+        '/v1/data/DOD1',
+        params={
+            'start_date': datetime(2024, 8, 1, 10, 0),
+            'end_date': datetime(2024, 8, 1, 11, 0),
+            'param': ['air_temperature', 'relative_humidity'],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'air_temperature': 0.0,
+            'measured_at': '2024-08-01T10:00:00Z',
+            'relative_humidity': 0.0,
+        },
+        {
+            'air_temperature': 5.0,
+            'measured_at': '2024-08-01T10:10:00Z',
+            'relative_humidity': 20.0,
+        },
+        {
+            'air_temperature': 10.0,
+            'measured_at': '2024-08-01T10:20:00Z',
+            'relative_humidity': 40.0,
+        },
+        {
+            'air_temperature': 15.0,
+            'measured_at': '2024-08-01T10:30:00Z',
+            'relative_humidity': 60.0,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
 @pytest.mark.parametrize('stations', [1], indirect=True)
 async def test_get_data_biomet_hourly_null_values_are_filled(
         app: AsyncClient,
@@ -2946,5 +3037,3 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         },
         # the other two stations are omitted
     ]
-
-# TODO: we need to test the get_data API for double stations

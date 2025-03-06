@@ -506,6 +506,21 @@ TABLE_MAPPING: dict[StationType, TableMapping] = {
             'allowed_params': PublicParamsAggregates,
         },
     },
+    # we simply treat a double station as a biomet station for now
+    StationType.double: {
+        'max': {
+            'table': BiometData,
+            'allowed_params': PublicParams,
+        },
+        'hourly': {
+            'table': BiometDataHourly,
+            'allowed_params': PublicParamsAggregates,
+        },
+        'daily': {
+            'table': BiometDataDaily,
+            'allowed_params': PublicParamsAggregates,
+        },
+    },
 }
 
 
