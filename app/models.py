@@ -576,10 +576,13 @@ class BiometData(
         ForeignKey('sensor.sensor_id'),
         index=True,
     )
-    blg_sensor_id: Mapped[str] = mapped_column(
+    blg_sensor_id: Mapped[str | None] = mapped_column(
         Text,
         ForeignKey('sensor.sensor_id'),
         index=True,
+        # this needs to be nullable, since we may have measurements of the ATM41 sensor
+        # that do not have corresponding blackglobe measurements
+        nullable=True,
     )
 
     station: Mapped[Station] = relationship(lazy=True)
@@ -589,7 +592,7 @@ class BiometData(
         viewonly=True,
         lazy='selectin',
     )
-    blg_sensor: Mapped[Sensor] = relationship(
+    blg_sensor: Mapped[Sensor | None] = relationship(
         primaryjoin='and_(BiometData.blg_sensor_id == Sensor.sensor_id, Sensor.sensor_type == "blg")',  # noqa: E501
         viewonly=True,
         lazy='selectin',

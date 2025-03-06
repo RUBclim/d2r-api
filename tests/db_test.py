@@ -467,6 +467,7 @@ async def test_data_table_relations(db: AsyncSession) -> None:
     assert biomet_data is not None
     assert biomet_data.station.station_id == 'DOB1'
     assert biomet_data.sensor.sensor_id == 'DEC2'
+    assert biomet_data.blg_sensor is not None
     assert biomet_data.blg_sensor.sensor_id == 'DEC3'
 
     temprh_data = (await db.execute(select(TempRHData))).scalar()
