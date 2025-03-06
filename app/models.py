@@ -386,10 +386,8 @@ class Sensor(Base):
             ')'
         ),
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
-        uselist=False,
         viewonly=True,
-        # TODO: for some reason this can't be selectin?
-        lazy='joined',
+        lazy='selectin',
     )
     former_stations: Mapped[list[Station]] = relationship(
         'Station',
@@ -401,10 +399,8 @@ class Sensor(Base):
             ')'
         ),
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
-        uselist=True,
         viewonly=True,
-        # TODO: for some reason this can't be selectin?
-        lazy='joined',
+        lazy='selectin',
     )
 
     def __repr__(self) -> str:

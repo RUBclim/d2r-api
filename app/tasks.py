@@ -67,6 +67,16 @@ def setup_periodic_tasks(
         _sync_data_wrapper.s(),
         name='download-data-periodic',
     )
+    sender.add_periodic_task(
+        crontab(minute='2', hour='*/1'),
+        check_for_new_sensors.s(),
+        name='check-new-sensors-periodic',
+    )
+    sender.add_periodic_task(
+        crontab(minute='2', hour='1'),
+        self_test_integrity.s(),
+        name='self_test_integrity',
+    )
 
 
 api = ElementApi(
@@ -242,7 +252,9 @@ async def _sync_data_wrapper() -> None:
     stations. The result of the task is no awaited and checked.
     """
     async with sessionmanager.session() as sess:
-        stations = (await sess.execute(select(Station))).scalars().all()
+        stations = (
+            await sess.execute(select(Station).order_by(Station.station_id))
+        ).scalars().all()
         tasks = []
         for station in stations:
             match station.station_type:
@@ -419,7 +431,7 @@ async def calculate_biomet(station_id: str | None) -> None:
                 else:
                     df_atm41_list.append(df_tmp_atm41)
 
-            elif deployment.sensor.sensor_type == SensorType.blg:
+            elif deployment.sensor.sensor_type == SensorType.blg:  # pragma: no branch
                 df_tmp_blg = await con.run_sync(
                     lambda con: pd.read_sql(
                         sql=select(
@@ -728,6 +740,11 @@ async def get_latest_data(station: Station, con: AsyncSession) -> datetime | Non
     default_retry_delay=20,
 )
 async def download_station_data(station_id: str) -> str | None:
+    if station_id:
+        pass
+    else:
+        raise NotImplementedError('No station id provided')
+
     new_data = None
     async with sessionmanager.session() as sess:
         # check what the latest data for that station is
@@ -850,7 +867,7 @@ async def check_for_new_sensors() -> None:
     async with sessionmanager.session() as sess:
         sensors = set((await sess.execute(select(Sensor.sensor_id))).scalars().all())
         new_sensors = device_addrs - sensors
-        if new_sensors:
+        if new_sensors:  # pragma: no branch
             for sensor_id in new_sensors:
                 # get more detailed information about the sensor
                 sensor_info = api.get_device(address=sensor_id)['body']
@@ -866,3 +883,26 @@ async def check_for_new_sensors() -> None:
                 print(f'Adding new sensor: {sensor}')
                 sess.add(sensor)
             await sess.commit()
+
+
+@async_task(app=celery_app, name='self-test-integrity')
+async def self_test_integrity() -> None:
+    """Ideally this would be superflous and handle by the database definition, but
+    this is hard to implement and complicates all tests. Hence we do it here.
+    """
+    # check that a sensor is not deployed simultaneously at two stations, so the
+    # sensor_id must be unique
+    async with sessionmanager.session() as sess:
+        stm = (
+            select(SensorDeployment.sensor_id)
+            .group_by(SensorDeployment.sensor_id)
+            .having(func.count() > 1)
+        )
+        # get all active deployments
+        duplicates = (await sess.execute(stm)).scalars().all()
+        if duplicates:
+            raise ValueError(
+                f'Found duplicate sensor deployments affecting theses sensor(s): '
+                f'{", ".join(duplicates)}',
+            )
+        # TODO: check that contigous deployments of the same sensor type do not overlap

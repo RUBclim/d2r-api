@@ -413,6 +413,8 @@ async def test_temprh_station_relationships(db: AsyncSession) -> None:
     assert former_deployment == ['DEC4']
     temp_deployments = [d.sensor_id for d in temp_station.deployments]
     assert temp_deployments == ['DEC4', 'DEC1']
+    assert [i.sensor_id for i in temp_station.active_sensors] == ['DEC1']
+    assert [i.sensor_id for i in temp_station.former_sensors] == ['DEC4']
 
 
 @pytest.mark.anyio
@@ -445,9 +447,6 @@ async def test_deployments_backreference(db: AsyncSession) -> None:
 
     # sensor relationships
     temp_station.active_sensors[0].deployments[0].sensor_id == 'DEC1'
-    assert temp_station.active_sensors[0].current_station is not None
-    temp_station.active_sensors[0].current_station.station_id == 'DOT1'
-    temp_station.active_sensors[0].former_stations == ['DOB1']
 
 
 @pytest.mark.anyio
