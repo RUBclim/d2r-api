@@ -613,7 +613,7 @@ class StationDataAgg(ParametersAgg, Parameters):
 
 
 class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | None]]):
-    """Key-Value pair where the key is either the station name or the district name.
+    """Key-Value pair where the key is either the station id or the district name.
     Value can be really anything that is stored as data.
     """
     pass
@@ -622,8 +622,8 @@ class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | N
 class Trends(BaseModel):
     """Trends for a single or multiple stations/districts"""
     supported_ids: list[str] = Field(
-        examples=[['DEC005476']],
-        description='Either names of stations or names of districts.',
+        examples=[['DOBHAP']],
+        description='Either ids of stations or names of districts.',
     )
     unit: Units = Field(
         examples=[Units.wm2],
@@ -634,7 +634,7 @@ class Trends(BaseModel):
             [
                 TrendValue(
                     {
-                        'DEC005476': 855.1,
+                        'DOBHAP': 855.1,
                         'measured_at': datetime(2024, 8, 1, 10, 0, tzinfo=timezone.utc),
                     },
                 ),

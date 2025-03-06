@@ -245,7 +245,7 @@ async def get_trends(
             deprecated=True,
         ),
         item_ids: list[str] = Query(
-            description='Either names of the districts or names of the stations',
+            description='Either names of the districts or ids of the stations',
         ),
         start_date: datetime = Query(
             description=(
@@ -525,7 +525,7 @@ TABLE_MAPPING: dict[StationType, TableMapping] = {
 
 
 @router.get(
-    '/data/{name}',
+    '/data/{station_id}',
     response_model=Response[
         list[schemas.StationData]
     ] | Response[list[schemas.StationDataAgg]],
@@ -533,8 +533,8 @@ TABLE_MAPPING: dict[StationType, TableMapping] = {
     tags=['stations'],
 )
 async def get_data(
-        name: str = Path(
-            description='The unique name of the station e.g. `DEC005476`',
+        station_id: str = Path(
+            description='The unique identifier of the station e.g. `DOBHAP`',
         ),
         start_date: datetime = Query(
             description='the start date of the data in UTC. The format must follow the '
@@ -638,7 +638,7 @@ async def get_data(
         )
 
     station = (
-        await db.execute(select(Station).where(Station.station_id == name))
+        await db.execute(select(Station).where(Station.station_id == station_id))
     ).scalar_one_or_none()
     if station:
         table_info = TABLE_MAPPING[station.station_type][scale]
