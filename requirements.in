@@ -15,6 +15,6 @@ pydantic<2.10.0
 sentry_sdk[fastapi]
 sqlmodel
 # we want the latest terracotta version, so we can use numpy > 2.0 and the turbo colormap
-git+https://github.com/DHI/terracotta@0e776b7203919d74a8ab6c82ca0d99897ebefd06
+terracotta>=0.8.6
 uvicorn
 uvicorn-worker
