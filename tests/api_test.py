@@ -13,6 +13,8 @@ from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import HeatStressCategories
 from app.models import LatestData
+from app.models import Sensor
+from app.models import SensorType
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
@@ -153,12 +155,16 @@ async def test_get_station_latest_data_data_of_one_station_too_old(
     # add data for the station
     up_to_date_data = BiometData(
         station_id=stations[0].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
     )
     db.add(up_to_date_data)
     too_old_data = BiometData(
         station_id=stations[1].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
     )
@@ -202,12 +208,16 @@ async def test_get_station_latest_data_data_of_one_station_too_old_default(
     # add data for the station
     up_to_date_data = BiometData(
         station_id=stations[0].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
     )
     db.add(up_to_date_data)
     too_old_data = BiometData(
         station_id=stations[1].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
     )
@@ -245,6 +255,8 @@ async def test_get_station_latest_data_multiple_params(
     # add data for the station
     up_to_date_data = BiometData(
         station_id=stations[0].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=69.69,
         utci=45,
@@ -253,6 +265,8 @@ async def test_get_station_latest_data_multiple_params(
     db.add(up_to_date_data)
     too_old_data = BiometData(
         station_id=stations[1].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         mrt=42.0,
         utci=30,
@@ -262,6 +276,8 @@ async def test_get_station_latest_data_multiple_params(
     # this station must not be included, since it does not provide all params
     null_data = BiometData(
         station_id=stations[2].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         mrt=None,
         utci=30,
@@ -357,6 +373,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     # add data for the station
     data_station_0 = BiometData(
         station_id=stations[0].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=360,
         air_temperature=10,
@@ -368,6 +386,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     db.add(data_station_0)
     data_station_1 = BiometData(
         station_id=stations[1].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 1, 30, tzinfo=timezone.utc),
         wind_direction=10,
         air_temperature=20,
@@ -380,6 +400,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     # the data is too old, hence omitted from the calculation
     data_station_2 = BiometData(
         station_id=stations[2].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=180,
         air_temperature=40,
@@ -406,6 +428,8 @@ async def test_get_districts_latest_data_aggregates_are_correct(
     db.add(station_with_missing_data)
     data_missing = BiometData(
         station_id=station_with_missing_data.station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 0, 0, tzinfo=timezone.utc),
         wind_direction=None,
         air_temperature=40,
@@ -488,28 +512,38 @@ async def test_get_trends_stations_biomet_and_temprh(
         # data before our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
@@ -517,31 +551,43 @@ async def test_get_trends_stations_biomet_and_temprh(
         BiometData(
             station_id=temp_rh_station.station_id,
             measured_at=datetime(2024, 8, 1, 8, 0),
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             air_temperature=9,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=9,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=10,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=14,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=15,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -588,34 +634,46 @@ async def test_get_trends_stations_only_biomet(
         # data before our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -659,34 +717,46 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
         # data before our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 8, 0),
             lightning_strike_count=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             lightning_strike_count=10,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             lightning_strike_count=11,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             lightning_strike_count=15,
         ),
         # data after our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             lightning_strike_count=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             lightning_strike_count=15,
         ),
@@ -747,34 +817,46 @@ async def test_get_trends_stations_only_temprh(
         # data before our requested range
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
             station_id=temp_rh_station.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
         # a station that we don't request, but it theoretically would be supported!
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
@@ -818,28 +900,38 @@ async def test_get_trends_stations_end_not_set(
         # data before our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 8, 0),
             air_temperature=10,
         ),
         # data that will be aggregated by the materialized view
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 10),
             air_temperature=10,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 20),
             air_temperature=11,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 9, 30),
             air_temperature=15,
         ),
         # data after our requested range
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 30),
             air_temperature=16,
         ),
@@ -912,12 +1004,15 @@ async def test_get_trends_stations_does_not_provide_param(
     biomet_station, = stations
     biomet_data = BiometData(
         station_id=biomet_station.station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 9, 30),
         mrt=70.5,
     )
     db.add(biomet_data)
     temp_rh_data = TempRHData(
         station_id=temp_rh_station.station_id,
+        sensor_id='DEC1',
         measured_at=datetime(2024, 8, 1, 10, 0),
         air_temperature=10.5,
         relative_humidity=65,
@@ -984,6 +1079,8 @@ async def test_get_trends_stations_units_correctly_extracted(
     # view works as expected
     data = BiometData(
         station_id=stations[0].station_id,
+        sensor_id='DEC1',
+        blg_sensor_id='DEC2',
         measured_at=datetime(2024, 8, 1, 8, 10),
         absolute_humidity=3,
         atmospheric_pressure=3,
@@ -1031,6 +1128,25 @@ async def test_get_trends_districts(
         app: AsyncClient,
         db: AsyncSession,
 ) -> None:
+    sensors = [
+        Sensor(
+            sensor_id='DEC3',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+        ),
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
     # 1st create a few stations, we get two biomet stations from the fixture
     temp_rh_station_1 = Station(
         station_id='DOB1',
@@ -1097,64 +1213,82 @@ async def test_get_trends_districts(
         # temp rh station 1
         TempRHData(
             station_id=temp_rh_station_1.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=10,
         ),
         TempRHData(
             station_id=temp_rh_station_1.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, 20),
             air_temperature=12,
         ),
         TempRHData(
             station_id=temp_rh_station_1.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 2, 10, 30),
             air_temperature=15,
         ),
         # temp rh station 2
         TempRHData(
             station_id=temp_rh_station_2.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=12,
         ),
         TempRHData(
             station_id=temp_rh_station_2.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, 20),
             air_temperature=14,
         ),
         TempRHData(
             station_id=temp_rh_station_2.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 2, 10, 30),
             air_temperature=18,
         ),
         # biomet station 1
         BiometData(
             station_id=biomet_station_1.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=15,
         ),
         BiometData(
             station_id=biomet_station_1.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=16,
         ),
         BiometData(
             station_id=biomet_station_1.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 2, 10, 19),
             air_temperature=17,
         ),
         # biomet station 2
         BiometData(
             station_id=biomet_station_2.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=15,
         ),
         BiometData(
             station_id=biomet_station_2.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=16,
         ),
         BiometData(
             station_id=biomet_station_2.station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 2, 10, 19),
             air_temperature=17,
         ),
@@ -1212,6 +1346,8 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
     data = [
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=10,
             wind_direction=90,
@@ -1220,6 +1356,8 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=5,
             wind_direction=270,
@@ -1229,6 +1367,8 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         # biomet station 2
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12,
             wind_direction=90,
@@ -1237,6 +1377,8 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         ),
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=14,
             wind_direction=270,
@@ -1325,6 +1467,8 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
     data = [
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=10,
             wind_direction=90,
@@ -1333,6 +1477,8 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=5,
             wind_direction=270,
@@ -1342,6 +1488,8 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         # biomet station 2
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12,
             wind_direction=90,
@@ -1350,6 +1498,8 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         ),
         BiometData(
             station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 14),
             maximum_wind_speed=14,
             wind_direction=270,
@@ -1358,21 +1508,25 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         ),
         TempRHData(
             station_id=temp_rh_station_1.station_id,
+            sensor_id='DEC1',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=10,
         ),
         TempRHData(
             station_id=temp_rh_station_1.station_id,
+            sensor_id='DEC1',
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=10,
         ),
         TempRHData(
             station_id=temp_rh_station_2.station_id,
+            sensor_id='DEC1',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=20,
         ),
         TempRHData(
             station_id=temp_rh_station_2.station_id,
+            sensor_id='DEC1',
             measured_at=datetime(2024, 8, 1, 10, 14),
             air_temperature=20,
         ),
@@ -1470,6 +1624,8 @@ async def test_get_biomet_data_multiple_params(
     data = [
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             mrt=minute*2,
@@ -1535,10 +1691,17 @@ async def test_get_temp_rh_data_multiple_params(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
     data = [
         TempRHData(
             station_id=station.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             relative_humidity=minute*2,
@@ -1594,12 +1757,16 @@ async def test_get_data_biomet_hourly_null_values_are_filled(
     data = [
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12.0,
             relative_humidity=50.5,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 12, 10),
             maximum_wind_speed=6.0,
             relative_humidity=60.5,
@@ -1652,12 +1819,16 @@ async def test_get_data_biomet_hourly_no_gap_filling(
     data = [
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 10, 10),
             maximum_wind_speed=12.0,
             relative_humidity=50.5,
         ),
         BiometData(
             station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
             measured_at=datetime(2024, 8, 1, 12, 10),
             maximum_wind_speed=6.0,
             relative_humidity=60.5,
@@ -1715,17 +1886,25 @@ async def test_get_data_temprh_hourly_null_values_are_filled(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
     # create data for two stations
     data = [
         TempRHData(
             station_id=station.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, 10),
             air_temperature=12.0,
             relative_humidity=50.5,
         ),
         TempRHData(
             station_id=station.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 12, 10),
             air_temperature=6.0,
             relative_humidity=60.5,
@@ -1783,6 +1962,8 @@ async def test_get_data_biomet_daily_null_values_are_filled(
         tmp_data = [
             BiometData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=stations[0].station_id,
                 maximum_wind_speed=12,
                 relative_humidity=50.5,
@@ -1791,6 +1972,8 @@ async def test_get_data_biomet_daily_null_values_are_filled(
             BiometData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
                 station_id=stations[0].station_id,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 maximum_wind_speed=6,
                 relative_humidity=60.5,
             ),
@@ -1853,6 +2036,12 @@ async def test_get_data_temprh_daily_null_values_are_filled(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
 
     # to exceed the threshold, we need to insert enough values
@@ -1863,12 +2052,14 @@ async def test_get_data_temprh_daily_null_values_are_filled(
             TempRHData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
                 station_id=station.station_id,
+                sensor_id='DEC3',
                 air_temperature=12,
                 relative_humidity=50.5,
             ),
             # two days are missing inbetween
             TempRHData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
+                sensor_id='DEC3',
                 station_id=station.station_id,
                 air_temperature=6,
                 relative_humidity=60.5,
@@ -1932,6 +2123,12 @@ async def test_get_data_biomet_daily_no_gap_filling(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
 
     # to exceed the threshold, we need to insert enough values
@@ -1942,6 +2139,7 @@ async def test_get_data_biomet_daily_no_gap_filling(
             TempRHData(
                 measured_at=datetime(2024, 8, 1, 0, tzinfo=timezone.utc) + step,
                 station_id=station.station_id,
+                sensor_id='DEC3',
                 air_temperature=12,
                 relative_humidity=50.5,
             ),
@@ -1949,6 +2147,7 @@ async def test_get_data_biomet_daily_no_gap_filling(
             TempRHData(
                 measured_at=datetime(2024, 8, 3, 0, tzinfo=timezone.utc) + step,
                 station_id=station.station_id,
+                sensor_id='DEC3',
                 air_temperature=6,
                 relative_humidity=60.5,
             ),
@@ -2008,11 +2207,18 @@ async def test_get_temp_rh_data_daily_multiple_params(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
     data = [
         TempRHData(
             station_id=station.station_id,
             measured_at=datetime(2024, 8, 1, 10, minute),
+            sensor_id='DEC3',
             air_temperature=minute/2,
             relative_humidity=minute*2,
         ) for minute in range(0, 40, 10)
@@ -2065,10 +2271,17 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
         plz=12345,
     )
     db.add(station)
+    sht_sensor = Sensor(
+        sensor_id='DEC3',
+        device_id=33333,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sht_sensor)
     await db.commit()
     data = [
         TempRHData(
             station_id=station.station_id,
+            sensor_id='DEC3',
             measured_at=datetime(2024, 8, 1, 10, minute),
             air_temperature=minute/2,
             relative_humidity=minute*2,
@@ -2207,6 +2420,8 @@ async def test_get_network_values_hourly(
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
                 station_id=biomet_station.station_id,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 air_temperature=value,
                 wind_speed=value / 2,
             )
@@ -2214,6 +2429,7 @@ async def test_get_network_values_hourly(
             # insert some values for temprh
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
                 station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
@@ -2301,6 +2517,8 @@ async def test_get_network_values_hourly_missing_values_are_null(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=biomet_station.station_id,
                 air_temperature=value,
                 wind_speed=value / 2,
@@ -2310,6 +2528,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
             # make this offset compared to the biomet data!
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * (value - 1)),
+                sensor_id='DEC1',
                 station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
@@ -2441,6 +2660,8 @@ async def test_get_network_values_daily(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=biomet_station.station_id,
                 air_temperature=value,
                 wind_speed=value / 2,
@@ -2449,6 +2670,7 @@ async def test_get_network_values_daily(
             # insert some values for temprh
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
                 station_id=temp_rh_station.station_id,
                 air_temperature=value,
             )
@@ -2531,6 +2753,8 @@ async def test_get_network_values_daily_missing_values_are_null(
         tmp_data = [
             BiometData(
                 measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=stations[0].station_id,
                 air_temperature=10.5,
                 wind_speed=3.5,
@@ -2538,12 +2762,15 @@ async def test_get_network_values_daily_missing_values_are_null(
             # 1 day missing inbetween
             BiometData(
                 measured_at=datetime(2024, 1, 3, 0, tzinfo=timezone.utc) + step,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=stations[0].station_id,
                 air_temperature=12.0,
                 wind_speed=1.5,
             ),
             TempRHData(
                 measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + step,
+                sensor_id='DEC1',
                 station_id=temp_rh_station.station_id,
                 air_temperature=11.4,
             ),
@@ -2551,6 +2778,7 @@ async def test_get_network_values_daily_missing_values_are_null(
             TempRHData(
                 measured_at=datetime(2024, 1, 4, 0, tzinfo=timezone.utc) + step,
                 station_id=temp_rh_station.station_id,
+                sensor_id='DEC1',
                 air_temperature=9.5,
             ),
         ]
@@ -2673,6 +2901,8 @@ async def test_get_network_values_daily_temprh_supports_no_param(
             # insert some values for biomet
             biomet_data = BiometData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
                 station_id=biomet_station.station_id,
                 utci=value * 2,
                 wind_speed=value / 2,
@@ -2681,6 +2911,7 @@ async def test_get_network_values_daily_temprh_supports_no_param(
             # insert some values for temprh (event though we don't request them)
             temp_rh_data = TempRHData(
                 measured_at=start_date + (step * value),
+                sensor_id='DEC1',
                 station_id=temp_rh_station.station_id,
             )
             db.add(temp_rh_data)
@@ -2715,3 +2946,5 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         },
         # the other two stations are omitted
     ]
+
+# TODO: we need to test the get_data API for double stations
