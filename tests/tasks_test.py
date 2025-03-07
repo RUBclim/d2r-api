@@ -175,7 +175,7 @@ async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db', 'deployed_temprh_station')
+@pytest.mark.usefixtures('deployed_temprh_station')
 async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
     mock_data = pd.read_csv(
         'testing/DEC0054A4_data.csv',
@@ -214,7 +214,7 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db', 'deployed_temprh_station')
+@pytest.mark.usefixtures('deployed_temprh_station')
 async def test_download_temp_rh(db: AsyncSession) -> None:
     # add some data to the database, so we can check when to start
     station_data = SHT35DataRaw(
