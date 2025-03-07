@@ -485,11 +485,31 @@ async def test_view_relations(db: AsyncSession) -> None:
     ).scalars().all()
     assert len(latest_data) == 2
     assert [i.station_id for i in latest_data] == ['DOB1', 'DOT1']
+    assert [i.station.station_id for i in latest_data] == ['DOB1', 'DOT1']
 
     await BiometDataHourly.refresh()
-    hourly_data = (await db.execute(select(BiometDataHourly))).scalars().all()
-    assert len(hourly_data) == 1
-    assert hourly_data[0].station_id == 'DOB1'
+    hourly_data_biomet = (await db.execute(select(BiometDataHourly))).scalars().all()
+    assert len(hourly_data_biomet) == 1
+    assert hourly_data_biomet[0].station_id == 'DOB1'
+    assert hourly_data_biomet[0].station.station_id == 'DOB1'
+
+    await TempRHDataHourly.refresh()
+    hourly_data_temprh = (await db.execute(select(TempRHDataHourly))).scalars().all()
+    assert len(hourly_data_temprh) == 1
+    assert hourly_data_temprh[0].station_id == 'DOT1'
+    assert hourly_data_temprh[0].station.station_id == 'DOT1'
+
+    await BiometDataDaily.refresh()
+    daily_data_biomet = (await db.execute(select(BiometDataDaily))).scalars().all()
+    assert len(daily_data_biomet) == 1
+    assert daily_data_biomet[0].station_id == 'DOB1'
+    assert daily_data_biomet[0].station.station_id == 'DOB1'
+
+    await TempRHDataDaily.refresh()
+    daily_data_temprh = (await db.execute(select(TempRHDataDaily))).scalars().all()
+    assert len(daily_data_temprh) == 1
+    assert daily_data_temprh[0].station_id == 'DOT1'
+    assert daily_data_temprh[0].station.station_id == 'DOT1'
 
 
 @pytest.mark.anyio

@@ -690,7 +690,7 @@ class LatestData(
     __tablename__ = 'latest_data'
 
     station_id: Mapped[str] = mapped_column(
-        Text,
+        ForeignKey('station.station_id'),
         nullable=False,
         unique=True,
         index=True,
@@ -714,6 +714,8 @@ class LatestData(
         comment='hPa',
     )
     vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
+
+    station: Mapped[Station] = relationship(lazy='selectin')
 
     # we exclude the temprh part of a double station here and only use the biomet part
     creation_sql = text('''\
