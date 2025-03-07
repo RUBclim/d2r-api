@@ -106,10 +106,10 @@ class DashboardVisitor(FastHttpUser):
             days=random.randint(0, (MAX_DATE - MIN_DATE).days),
         )
         for s in stations:
-            name = s['name']
+            station_id = s['station_id']
             with self.rest(
                 method='GET',
-                url=f'/v1/data/{name}',
+                url=f'/v1/data/{station_id}',
                 params={
                     'start_date': random_date,
                     'end_date': random_date + timedelta(days=1),
@@ -144,10 +144,10 @@ class DashboardVisitor(FastHttpUser):
             days=random.randint(0, (MAX_DATE - MIN_DATE).days),
         ) + timedelta(hours=random.randint(0, 23)),
         for s in stations:
-            name = s['name']
+            station_id = s['station_id']
             with self.rest(
                 method='GET',
-                url=f'/v1/data/{name}',
+                url=f'/v1/data/{station_id}',
                 params={
                     'start_date': random_date,
                     'end_date': random_date,
@@ -183,10 +183,10 @@ class DashboardVisitor(FastHttpUser):
             days=random.randint(0, (MAX_DATE - MIN_DATE).days),
         )
         for s in stations:
-            name = s['name']
+            station_id = s['station_id']
             with self.rest(
                 method='GET',
-                url=f'/v1/data/{name}',
+                url=f'/v1/data/{station_id}',
                 params={
                     'start_date': random_date,
                     'end_date': random_date + timedelta(days=1),
@@ -223,10 +223,10 @@ class DashboardVisitor(FastHttpUser):
         )
         end_date = random_date + timedelta(days=random.randint(1, 30))
         for s in stations:
-            name = s['name']
+            station_id = s['station_id']
             with self.rest(
                 method='GET',
-                url=f'/v1/data/{name}',
+                url=f'/v1/data/{station_id}',
                 params={
                     'start_date': random_date,
                     'end_date': end_date,

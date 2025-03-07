@@ -1,39 +1,50 @@
 from collections.abc import Awaitable
 from collections.abc import Callable
 from datetime import datetime
+from datetime import timedelta
 from datetime import timezone
 from unittest import mock
 from unittest.mock import call
 
 import pandas as pd
 import pytest
+from pandas.testing import assert_frame_equal
+from sqlalchemy import delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.tasks
 from app.models import ATM41DataRaw
 from app.models import BiometData
+from app.models import BiometDataDaily
+from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import HeatStressCategories
+from app.models import LatestData
+from app.models import Sensor
+from app.models import SensorDeployment
+from app.models import SensorType
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
+from app.models import TempRHDataDaily
+from app.models import TempRHDataHourly
+from app.tasks import _download_sensor_data
 from app.tasks import _sync_data_wrapper
 from app.tasks import calculate_biomet
 from app.tasks import calculate_temp_rh
-from app.tasks import download_biomet_data
-from app.tasks import download_temp_rh_data
+from app.tasks import check_for_new_sensors
+from app.tasks import download_station_data
 from app.tasks import ElementApi
+from app.tasks import refresh_all_views
+from app.tasks import self_test_integrity
 
 
-@pytest.mark.filterwarnings('ignore::RuntimeWarning')
-@pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
-async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
+@pytest.fixture
+async def deployed_temprh_station(db: AsyncSession, clean_db: None) -> None:
     station = Station(
-        name='DEC0054A4',
-        device_id=21668,
+        station_id='DOTWFH',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -47,26 +58,111 @@ async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
         plz=12345,
     )
     db.add(station)
+    sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=11111,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sensor)
+    deployment = SensorDeployment(
+        sensor_id='DEC1',
+        station_id='DOTWFH',
+        setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+    )
+    db.add(deployment)
+    await db.commit()
+
+
+@pytest.fixture
+async def deployed_biomet_station(db: AsyncSession, clean_db: None) -> None:
+    station = Station(
+        station_id='DOBFRP',
+        long_name='Friedensplatz',
+        latitude=51.49605,
+        longitude=7.45847,
+        altitude=150,
+        station_type=StationType.biomet,
+        leuchtennummer=0,
+        district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+
+    deployments = [
+        SensorDeployment(
+            sensor_id='DEC1',
+            station_id='DOBFRP',
+            setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            sensor_id='DEC2',
+            station_id='DOBFRP',
+            setup_date=datetime(2024, 9, 9, 0, 15, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in deployments:
+        db.add(d)
+
+    await db.commit()
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_download_sensor_data_undeployed_sensor(db: AsyncSession) -> None:
+    sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=11111,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sensor)
+    await db.commit()
+    r = await _download_sensor_data(sensor=sensor, target_table=SHT35DataRaw, con=db)
+    assert r.empty is True
+    assert_frame_equal(r, pd.DataFrame())
+
+
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
+@pytest.mark.anyio
+@pytest.mark.usefixtures('deployed_temprh_station')
+async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
     station_data = SHT35DataRaw(
-        name='DEC0054A4',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
     )
     db.add(station_data)
     await db.commit()
-
     with mock.patch.object(
         ElementApi,
         'get_readings',
         return_value=pd.DataFrame(),
     ) as readings:
-        await download_temp_rh_data('DEC0054A4')
+        await download_station_data('DOTWFH')
         readings.assert_called_once()
         assert readings.call_args == call(
-            device_name='DEC0054A4',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
-            start=datetime(2024, 9, 9, 0, 30, 0, 1, tzinfo=timezone.utc),
+            start=datetime(2024, 9, 9, 0, 30, 0, 1,  tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
     # check if we have data in the database
     data_in_db = (
@@ -79,26 +175,8 @@ async def test_download_temp_rh_data_no_new_data(db: AsyncSession) -> None:
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_temprh_station')
 async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC0054A4',
-        device_id=21668,
-        long_name='Westfalenhalle',
-        latitude=51.49605,
-        longitude=7.45847,
-        altitude=0.0,
-        station_type=StationType.temprh,
-        leuchtennummer=0,
-        district='44139',
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-    await db.commit()
-
     mock_data = pd.read_csv(
         'testing/DEC0054A4_data.csv',
         index_col='measured_at',
@@ -108,14 +186,17 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
     with (
         mock.patch.object(ElementApi, 'get_readings', return_value=mock_data) as rd,
     ):
-        await download_temp_rh_data('DEC0054A4')
+        await download_station_data('DOTWFH')
         rd.assert_called_once()
         assert rd.call_args == call(
-            device_name='DEC0054A4',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
-            start=None,
+            # this should take the exact date of the deployment
+            start=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
 
     # check if we have data in the database
@@ -133,27 +214,11 @@ async def test_download_temp_rh_data_no_data_in_db(db: AsyncSession) -> None:
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_temprh_station')
 async def test_download_temp_rh(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC0054A4',
-        device_id=21668,
-        long_name='Westfalenhalle',
-        latitude=51.49605,
-        longitude=7.45847,
-        altitude=0.0,
-        station_type=StationType.temprh,
-        leuchtennummer=0,
-        district='44139',
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
     # add some data to the database, so we can check when to start
     station_data = SHT35DataRaw(
-        name='DEC0054A4',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
     )
     db.add(station_data)
@@ -166,14 +231,16 @@ async def test_download_temp_rh(db: AsyncSession) -> None:
     with (
         mock.patch.object(ElementApi, 'get_readings', return_value=mock_data) as rd,
     ):
-        await download_temp_rh_data('DEC0054A4')
+        await download_station_data('DOTWFH')
         rd.assert_called_once()
         assert rd.call_args == call(
-            device_name='DEC0054A4',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
             start=datetime(2024, 9, 9, 0, 30, 0, 1, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
     # check if we have data in the database
     data_in_db = (
@@ -191,28 +258,10 @@ async def test_download_temp_rh(db: AsyncSession) -> None:
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_download_biomet_data_blg_and_atm_no_new_data(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
     station_data = ATM41DataRaw(
-        name='DEC00546D',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
     )
     db.add(station_data)
@@ -223,22 +272,27 @@ async def test_download_biomet_data_blg_and_atm_no_new_data(db: AsyncSession) ->
         'get_readings',
         return_value=pd.DataFrame(),
     ) as readings:
-        await download_biomet_data('DEC00546D')
+        await download_station_data('DOBFRP')
         assert readings.call_count == 2
         assert readings.call_args_list[0] == call(
-            device_name='DEC00546D',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
+            # determined by the latest data
             start=datetime(2024, 9, 9, 0, 30, 0, 1, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
         assert readings.call_args_list[1] == call(
-            device_name='DEC005491',
+            device_name='DEC2',
             sort='measured_at',
             sort_direction='asc',
-            # there was no blackglobe data in the db
-            start=None,
+            # there was no blackglobe data in the db, hence determined by setup_date
+            start=datetime(2024, 9, 9, 0, 15, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
 
     # check if we have data in the database
@@ -255,27 +309,8 @@ async def test_download_biomet_data_blg_and_atm_no_new_data(db: AsyncSession) ->
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-    await db.commit()
     mock_data_biomet = pd.read_csv(
         'testing/DEC00546D_data.csv',
         index_col='measured_at',
@@ -294,21 +329,26 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
             side_effect=[mock_data_biomet, mock_data_blg],
         ) as rd,
     ):
-        await download_biomet_data('DEC00546D')
+        await download_station_data('DOBFRP')
         assert rd.call_count == 2
         assert rd.call_args_list[0] == call(
-            device_name='DEC00546D',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
-            start=None,
+            # this comes via the setup date
+            start=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
         assert rd.call_args_list[1] == call(
-            device_name='DEC005491',
+            device_name='DEC2',
             sort='measured_at',
             sort_direction='asc',
-            start=None,
+            start=datetime(2024, 9, 9, 0, 15, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
 
     # check if we have data in the database
@@ -336,34 +376,16 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_download_biomet_data(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
     # add some data to the database
     atm_41_data = ATM41DataRaw(
-        name='DEC00546D',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 40, tzinfo=timezone.utc),
     )
     db.add(atm_41_data)
     blg_data = BLGDataRaw(
-        name='DEC005491',
+        sensor_id='DEC2',
         measured_at=datetime(2024, 9, 9, 0, 38, tzinfo=timezone.utc),
     )
     db.add(blg_data)
@@ -387,21 +409,25 @@ async def test_download_biomet_data(db: AsyncSession) -> None:
             side_effect=[mock_data_biomet, mock_data_blg],
         ) as rd,
     ):
-        await download_biomet_data('DEC00546D')
+        await download_station_data('DOBFRP')
         assert rd.call_count == 2
         assert rd.call_args_list[0] == call(
-            device_name='DEC00546D',
+            device_name='DEC1',
             sort='measured_at',
             sort_direction='asc',
             start=datetime(2024, 9, 9, 0, 40, 0, 1, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
         assert rd.call_args_list[1] == call(
-            device_name='DEC005491',
+            device_name='DEC2',
             sort='measured_at',
             sort_direction='asc',
             start=datetime(2024, 9, 9, 0, 38, 0, 1, tzinfo=timezone.utc),
             as_dataframe=True,
+            stream=True,
+            timeout=120000,
         )
 
     # check if we have data in the database
@@ -428,16 +454,24 @@ async def test_download_biomet_data(db: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_temprh_station')
 async def test_calculate_temp_rh_no_data_in_db(db: AsyncSession) -> None:
+    await calculate_temp_rh('DOTWFH')
+    # check nothing was inserted
+    data = (await db.execute(select(TempRHData))).all()
+    assert len(data) == 0
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_calculate_values_for_double_stations(db: AsyncSession) -> None:
     station = Station(
-        name='DEC0054A4',
-        device_id=21668,
-        long_name='Westfalenhalle',
+        station_id='DODSTH',
+        long_name='Some Station',
         latitude=51.49605,
         longitude=7.45847,
         altitude=0.0,
-        station_type=StationType.temprh,
+        station_type=StationType.double,
         leuchtennummer=0,
         district='44139',
         city='Dortmund',
@@ -445,12 +479,17 @@ async def test_calculate_temp_rh_no_data_in_db(db: AsyncSession) -> None:
         street='test-street',
         plz=12345,
     )
+    # now add sensors and deployments
+    # TODO: we need to add the sensors and deployments
     db.add(station)
     await db.commit()
-    await calculate_temp_rh('DEC0054A4')
+    await calculate_temp_rh('DODSTH')
+    await calculate_biomet('DODSTH')
     # check nothing was inserted
-    data = (await db.execute(select(TempRHData))).all()
-    assert len(data) == 0
+    temprh_data = (await db.execute(select(TempRHData))).all()
+    assert len(temprh_data) == 0
+    biomet_data = (await db.execute(select(BiometData))).all()
+    assert len(biomet_data) == 0
 
 
 @pytest.mark.anyio
@@ -460,8 +499,7 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         db: AsyncSession,
 ) -> None:
     station = Station(
-        name='DEC0054A4',
-        device_id=21668,
+        station_id='DOTWFH',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -473,23 +511,11 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         country='Germany',
         street='test-street',
         plz=12345,
-        # offset 1 means the station is 1 K too warm compared to the reference hence
-        # this has to be subtracted
-        temp_calib_offset=1,
-        relhum_calib_offset=-2,
     )
     db.add(station)
-    # add some data where the calibration pushes the relative humidity > 100
-    station_data = SHT35DataRaw(
-        name='DEC0054A4',
-        measured_at=datetime(2024, 9, 10, 5, 25, tzinfo=timezone.utc),
-        relative_humidity=99.5,
-    )
-    db.add(station_data)
     # 2nd station (which should not be touched)
     station_2 = Station(
-        name='DEC0054A5',
-        device_id=21669,
+        station_id='DOTWFP',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -503,9 +529,48 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         plz=12345,
     )
     db.add(station_2)
+    # add sensors to the stations
+    sensors = [
+        Sensor(
+            sensor_id='DEC0054A4',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+            temp_calib_offset=1,
+            relhum_calib_offset=-2,
+        ),
+        Sensor(
+            sensor_id='DEC0054A5',
+            device_id=22222,
+            sensor_type=SensorType.sht35,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+    deployments = [
+        SensorDeployment(
+            sensor_id='DEC0054A4',
+            station_id='DOTWFH',
+            setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            sensor_id='DEC0054A5',
+            station_id='DOTWFP',
+            setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+        ),
+    ]
+    for deployment in deployments:
+        db.add(deployment)
+    # add some data where the calibration pushes the relative humidity > 100
+    station_data = SHT35DataRaw(
+        sensor_id='DEC0054A4',
+        measured_at=datetime(2024, 9, 10, 5, 25, tzinfo=timezone.utc),
+        relative_humidity=99.5,
+    )
+    db.add(station_data)
+
     # some data that should not be touched
     data_2 = SHT35DataRaw(
-        name='DEC0054A5',
+        sensor_id='DEC0054A5',
         measured_at=datetime(2024, 9, 10, 5, 20, tzinfo=timezone.utc),
         air_temperature=10.5,
         relative_humidity=65.5,
@@ -527,7 +592,7 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
         ),
     )
     await db.commit()
-    await calculate_temp_rh('DEC0054A4')
+    await calculate_temp_rh('DOTWFH')
     # check something was inserted
     data = (
         await db.execute(
@@ -539,7 +604,7 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     assert d.measured_at == datetime(
         2024, 9, 10, 5, 5, 15, 858960, tzinfo=timezone.utc,
     )
-    assert d.name == 'DEC0054A4'
+    assert d.sensor_id == 'DEC0054A4'
     # test all calculations
     assert float(d.air_temperature_raw) == pytest.approx(12.47, abs=1e-2)
     assert float(d.relative_humidity_raw) == pytest.approx(85.62, abs=1e-2)
@@ -560,8 +625,6 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     # the calibration would have pushed it > 100, make sure we manually set it back
     assert data[-1].relative_humidity == 100
 
-# merge both, one side completely missing
-
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
@@ -570,8 +633,7 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         db: AsyncSession,
 ) -> None:
     station = Station(
-        name='DEC0054A4',
-        device_id=21668,
+        station_id='DOTWFH',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -583,14 +645,11 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         country='Germany',
         street='test-street',
         plz=12345,
-        temp_calib_offset=1,
-        relhum_calib_offset=2,
     )
     db.add(station)
-    # other station with much newer data
+    # 2nd station (which should not be touched)
     station_2 = Station(
-        name='DEC0054A5',
-        device_id=21669,
+        station_id='DOTWFP',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -604,13 +663,47 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         plz=12345,
     )
     db.add(station_2)
+    # add sensors to the stations
+    sensors = [
+        Sensor(
+            sensor_id='DEC0054A4',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+            temp_calib_offset=1,
+            relhum_calib_offset=-2,
+        ),
+        Sensor(
+            sensor_id='DEC0054A5',
+            device_id=22222,
+            sensor_type=SensorType.sht35,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+    deployments = [
+        SensorDeployment(
+            sensor_id='DEC0054A4',
+            station_id='DOTWFH',
+            setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            sensor_id='DEC0054A5',
+            station_id='DOTWFP',
+            setup_date=datetime(2024, 9, 9, 0, 10, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in deployments:
+        db.add(d)
+
     data = TempRHData(
-        name=station.name,
+        station_id='DOTWFH',
+        sensor_id='DEC0054A4',
         measured_at=datetime(2024, 9, 10, 5, 17, tzinfo=timezone.utc),
     )
     db.add(data)
     data_2 = TempRHData(
-        name='DEC0054A5',
+        station_id='DOTWFP',
+        sensor_id='DEC0054A5',
         measured_at=datetime(2024, 9, 10, 5, 30, tzinfo=timezone.utc),
     )
     db.add(data_2)
@@ -630,87 +723,48 @@ async def test_calculate_temp_rh_previous_data_exists_in_final_table(
         ),
     )
     await db.commit()
-    await calculate_temp_rh('DEC0054A4')
+    await calculate_temp_rh('DOTWFH')
     # check something was inserted
     ret_data = (
         await db.execute(
-            select(TempRHData).order_by(TempRHData.measured_at, TempRHData.name),
+            select(TempRHData).order_by(TempRHData.measured_at, TempRHData.sensor_id),
         )
     ).scalars().all()
     assert len(ret_data) == 3
     # this was already there
     assert ret_data[0].measured_at == datetime(2024, 9, 10, 5, 17, tzinfo=timezone.utc)
-    assert ret_data[0].name == 'DEC0054A4'
+    assert ret_data[0].sensor_id == 'DEC0054A4'
     # this was inserted
     assert ret_data[1].measured_at == datetime(
         2024, 9, 10, 5, 20, 17, 549835, tzinfo=timezone.utc,
     )
-    assert ret_data[1].name == 'DEC0054A4'
+    assert ret_data[1].sensor_id == 'DEC0054A4'
     # last station?
-    assert ret_data[2].name == 'DEC0054A5'
-
-# merge both, one side completely missing
+    assert ret_data[2].sensor_id == 'DEC0054A5'
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_calculate_biomet_no_data_available(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-    await db.commit()
-    await calculate_biomet('DEC00546D')
+    await calculate_biomet('DOBFRP')
     # check nothing was inserted into the database
     data = (await db.execute(select(BiometData))).all()
     assert len(data) == 0
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_calculate_biomet_only_null_values_available(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-    await db.commit()
     atm_data = ATM41DataRaw(
-        name='DEC00546D',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 10, 5, 15, tzinfo=timezone.utc),
         air_temperature=None,
         battery_voltage=3.178,
         protocol_version=2,
     )
     blg_data = BLGDataRaw(
-        name='DEC005491',
+        sensor_id='DEC2',
         measured_at=datetime(2024, 9, 10, 5, 15, tzinfo=timezone.utc),
         black_globe_temperature=30.5,
     )
@@ -718,7 +772,7 @@ async def test_calculate_biomet_only_null_values_available(db: AsyncSession) -> 
     db.add(blg_data)
     await db.commit()
     # check that we can perform our calculation even though we're missing most data
-    await calculate_biomet('DEC00546D')
+    await calculate_biomet('DOBFRP')
     # check a single row was inserted into the database
     data = (await db.execute(select(BiometData))).all()
     assert len(data) == 1
@@ -726,28 +780,8 @@ async def test_calculate_biomet_only_null_values_available(db: AsyncSession) -> 
 
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_calculate_biomet_only_atm41_data_available(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=0.0,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-    await db.commit()
-    # add some data
     con = await db.connection()
     temp_rh_data = pd.read_csv(
         'testing/ATM41_DEC00546D_raw_data.csv',
@@ -762,36 +796,19 @@ async def test_calculate_biomet_only_atm41_data_available(db: AsyncSession) -> N
         ),
     )
     await db.commit()
-    await calculate_biomet('DEC00546D')
+    await calculate_biomet('DOBFRP')
     # check nothing was inserted into the database, because there was no blg data
     data = (await db.execute(select(BiometData))).all()
     assert len(data) == 0
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=150,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
     # add some data
     biomet_existing_data = BiometData(
-        name=station.name,
+        station_id='DOBFRP',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 10, 5, 15, tzinfo=timezone.utc),
     )
     db.add(biomet_existing_data)
@@ -824,7 +841,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     )
     await db.commit()
 
-    await calculate_biomet('DEC00546D')
+    await calculate_biomet('DOBFRP')
     # check nothing was inserted into the database, because there was no blg data
     data = (
         await db.execute(select(BiometData).order_by(BiometData.measured_at))
@@ -835,7 +852,8 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     # check all calculations for the other value
     d = data[1]
     assert d.measured_at == datetime(2024, 9, 10, 5, 18, 52, 21037, tzinfo=timezone.utc)
-    assert d.name == 'DEC00546D'
+    assert d.station_id == 'DOBFRP'
+    assert d.sensor_id == 'DEC1'
     # check offset is correct
     # atm41 date: 2024-09-10 05:18:52.021037
     # blg date: 2024-09-10 05:20:59.092966+00
@@ -881,41 +899,22 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 async def test_calculate_biomet_blg_exceeds_join_tolerance(db: AsyncSession) -> None:
-    station = Station(
-        name='DEC00546D',
-        device_id=21613,
-        long_name='Westfalenhalle',
-        latitude=51.49626168307185,
-        longitude=7.458186573064577,
-        altitude=150,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
-        city='Dortmund',
-        country='Germany',
-        street='test-street',
-        plz=12345,
-    )
-    db.add(station)
-
     atm41_data = ATM41DataRaw(
-        name='DEC00546D',
+        sensor_id='DEC1',
         measured_at=datetime(2024, 9, 10, 0, tzinfo=timezone.utc),
     )
     db.add(atm41_data)
     blg_data = BLGDataRaw(
-        name='DEC005491',
+        sensor_id='DEC2',
         measured_at=datetime(2024, 9, 10, 0, 5, 1, tzinfo=timezone.utc),
     )
     db.add(blg_data)
     await db.commit()
 
-    await calculate_biomet('DEC00546D')
+    await calculate_biomet('DOBFRP')
     data = (await db.execute(select(BiometData))).all()
     assert len(data) == 0
 
@@ -925,8 +924,7 @@ async def test_calculate_biomet_blg_exceeds_join_tolerance(db: AsyncSession) -> 
 @pytest.mark.usefixtures('clean_db')
 async def test_wrapper_for_update(db: AsyncSession) -> None:
     temp_rh_station = Station(
-        name='DEC0054A4',
-        device_id=21668,
+        station_id='DOTWFH',
         long_name='Westfalenhalle',
         latitude=51.49605,
         longitude=7.45847,
@@ -941,8 +939,7 @@ async def test_wrapper_for_update(db: AsyncSession) -> None:
     )
     db.add(temp_rh_station)
     biomet_station = Station(
-        name='DEC00546D',
-        device_id=21613,
+        station_id='DOTWFP',
         long_name='Westfalenhalle',
         latitude=51.49626168307185,
         longitude=7.458186573064577,
@@ -950,32 +947,49 @@ async def test_wrapper_for_update(db: AsyncSession) -> None:
         station_type=StationType.biomet,
         leuchtennummer=0,
         district='44139',
-        blg_name='DEC005491',
-        blg_device_id=21649,
         city='Dortmund',
         country='Germany',
         street='test-street',
         plz=12345,
     )
     db.add(biomet_station)
-
+    double_station = Station(
+        station_id='DOTHPL',
+        long_name='Hansaplatz',
+        latitude=51.5,
+        longitude=7.5,
+        altitude=0,
+        station_type=StationType.double,
+        leuchtennummer=0,
+        district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(double_station)
     await db.commit()
 
     with (
-        mock.patch.object(app.tasks, 'download_temp_rh_data') as dl_trh,
-        mock.patch.object(app.tasks, 'download_biomet_data') as dl_bio,
+        mock.patch.object(app.tasks, 'download_station_data') as dl_data,
         mock.patch.object(app.tasks, 'refresh_all_views'),
         mock.patch.object(app.tasks, 'chord') as chord,
         mock.patch.object(app.tasks, 'chain'),
-        mock.patch.object(app.tasks, 'calculate_temp_rh'),
-        mock.patch.object(app.tasks, 'calculate_biomet'),
+        mock.patch.object(app.tasks, 'calculate_temp_rh') as calc_temp_rh,
+        mock.patch.object(app.tasks, 'calculate_biomet') as calc_biomet,
     ):
         # the underlying functions are never awaited, which causes a resource warning we
         # ignore here since it's not part of the test. AFAIK there is no way to avoid
         # this.
         await _sync_data_wrapper()
-        dl_trh.s.assert_called_once_with('DEC0054A4')
-        dl_bio.s.assert_called_once_with('DEC00546D')
+        assert dl_data.s.call_count == 3
+        assert dl_data.s.call_args_list[0] == call('DOTHPL')
+        assert dl_data.s.call_args_list[1] == call('DOTWFH')
+        assert dl_data.s.call_args_list[2] == call('DOTWFP')
+        # the calculation functions
+        # once for the temprh station, once for the double station
+        assert calc_temp_rh.s.call_count == 2
+        assert calc_biomet.s.call_count == 2
         chord.assert_called_once()
 
 
@@ -988,4 +1002,338 @@ async def test_calculation_task_none_passed(
     assert res is None
 
 
-# TODO: check that views are refreshed!
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_fails_on_duped_deployment(db: AsyncSession) -> None:
+    # create a structure to test
+    stations = [
+        Station(
+            station_id='DOT1',
+            long_name='temprh-station-1',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOT2',
+            long_name='temprh-station-2',
+            latitude=51.547,
+            longitude=7.368,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=121,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='other-test-street',
+            plz=12345,
+        ),
+    ]
+    for s in stations:
+        db.add(s)
+
+    sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=11111,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sensor)
+    # now deploy the sensor at two statiosn
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOT2',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in deployments:
+        db.add(d)
+    await db.commit()
+
+    with pytest.raises(ValueError) as exc_info:
+        await self_test_integrity()
+    assert exc_info.value.args[0] == (
+        'Found duplicate sensor deployments affecting theses sensor(s): DEC1'
+    )
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_ok(db: AsyncSession) -> None:
+    # create a structure to test
+    stations = [
+        Station(
+            station_id='DOT1',
+            long_name='temprh-station-1',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOT2',
+            long_name='temprh-station-2',
+            latitude=51.547,
+            longitude=7.368,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=121,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='other-test-street',
+            plz=12345,
+        ),
+    ]
+    for s in stations:
+        db.add(s)
+
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.sht35,
+        ),
+    ]
+    for sensor in sensors:
+        db.add(sensor)
+
+    # now deploy the sensor at two statiosn
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC2',
+            station_id='DOT2',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in deployments:
+        db.add(d)
+    await db.commit()
+
+    # no error etc.
+    assert await self_test_integrity() is None
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_refresh_all_views(db: AsyncSession) -> None:
+    # add some data
+    stations = [
+        Station(
+            station_id='DOTWFH',
+            long_name='Westfalenhalle',
+            latitude=51.49605,
+            longitude=7.45847,
+            altitude=0.0,
+            station_type=StationType.temprh,
+            leuchtennummer=0,
+            district='44139',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOBFRP',
+            long_name='Friedensplatz',
+            latitude=51.39605,
+            longitude=7.25847,
+            altitude=0.0,
+            station_type=StationType.biomet,
+            leuchtennummer=0,
+            district='44139',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+    ]
+    for s in stations:
+        db.add(s)
+
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC3',
+            device_id=33333,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for sensor in sensors:
+        db.add(sensor)
+
+    start = datetime(2025, 1, 1, 0, 5)
+    for i in range(287):
+        db.add(
+            BiometData(
+                measured_at=start + (i * timedelta(minutes=5)),
+                station_id='DOBFRP',
+                sensor_id='DEC2',
+                blg_sensor_id='DEC3',
+                air_temperature=10.5,
+            ),
+        )
+        db.add(
+            TempRHData(
+                measured_at=start + (i * timedelta(minutes=5)),
+                station_id='DOTWFH',
+                sensor_id='DEC1',
+                air_temperature=12.5,
+            ),
+        )
+    await db.commit()
+    # check the data is there...
+    assert len((await db.execute(select(BiometData))).all()) == 287
+    assert len((await db.execute(select(TempRHData))).all()) == 287
+    # ...but the views are empty
+    assert len((await db.execute(select(LatestData))).all()) == 0
+    assert len((await db.execute(select(BiometDataHourly))).all()) == 0
+    assert len((await db.execute(select(BiometDataDaily))).all()) == 0
+    assert len((await db.execute(select(TempRHDataHourly))).all()) == 0
+    assert len((await db.execute(select(TempRHDataDaily))).all()) == 0
+
+    await refresh_all_views()
+    # however, after refreshing them they should contain data
+    assert len((await db.execute(select(LatestData))).all()) == 2
+    assert len((await db.execute(select(BiometDataHourly))).all()) == 24
+    # we calculate daily at UTC+1 which shifts the date by one hour
+    assert len((await db.execute(select(BiometDataDaily))).all()) == 2
+    assert len((await db.execute(select(TempRHDataHourly))).all()) == 24
+    assert len((await db.execute(select(TempRHDataDaily))).all()) == 2
+    # now delete the data and refresh again
+    assert (await db.execute(delete(BiometData)))
+    assert (await db.execute(delete(TempRHData)))
+    await db.commit()
+    await refresh_all_views()
+    # the views are empty again
+    # ...but the views are empty
+    assert len((await db.execute(select(LatestData))).all()) == 0
+    assert len((await db.execute(select(BiometDataHourly))).all()) == 0
+    assert len((await db.execute(select(BiometDataDaily))).all()) == 0
+    assert len((await db.execute(select(TempRHDataHourly))).all()) == 0
+    assert len((await db.execute(select(TempRHDataDaily))).all()) == 0
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_check_for_new_sensors(db: AsyncSession) -> None:
+    # create some sensors in the database
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC3',
+            device_id=33333,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+
+    await db.commit()
+    with (
+        mock.patch.object(
+            ElementApi,
+            'get_folder_slugs',
+            return_value=[
+                'stadt-dortmund-klimasensoren-aktiv',
+                'stadt-dortmund-klimasensoren-lager',
+                'Erlebnisroute',
+            ],
+        ),
+        mock.patch.object(
+            ElementApi,
+            'get_device_addresses',
+            # intentioally make them overlap
+            side_effect=[['DEC1', 'DEC2', 'DEC3'], ['DEC3', 'DEC4']],
+        ) as get_device_address,
+        mock.patch.object(
+            ElementApi,
+            'get_device',
+            return_value={
+                'body': {
+                    'fields': {
+                        'gerateinformation': {
+                            'geratetyp': 'DL-BLG-001',
+                        },
+                    },
+                },
+            },
+        ) as get_device,
+        mock.patch.object(
+            ElementApi,
+            'decentlab_id_from_address',
+            return_value=44444,
+        ) as dl_id_from_addr,
+    ):
+        await check_for_new_sensors()
+        assert get_device_address.call_count == 2
+        # check that the correct folders were selected
+        assert get_device_address.call_args_list[0] == call(
+            'stadt-dortmund-klimasensoren-aktiv',
+        )
+        assert get_device_address.call_args_list[1] == call(
+            'stadt-dortmund-klimasensoren-lager',
+        )
+
+        # check we only check a single device
+        assert get_device.call_count == 1
+        assert get_device.call_args_list[0] == call(address='DEC4')
+        assert dl_id_from_addr.call_count == 1
+        assert dl_id_from_addr.call_args_list[0] == call('DEC4')
+        # now check that it was added to the database
+        new_sensor = (
+            await db.execute(select(Sensor).where(Sensor.sensor_id == 'DEC4'))
+        ).scalars().one()
+        assert new_sensor.sensor_id == 'DEC4'
+        assert new_sensor.device_id == 44444
+        assert new_sensor.sensor_type == SensorType.blg

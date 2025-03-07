@@ -239,8 +239,8 @@ class Response(BaseModel, Generic[T]):
 
 class StationMetadata(BaseModel):
     """Metadata of a deployed measurement station"""
-    name: str = Field(
-        examples=['DEC005476'],
+    station_id: str = Field(
+        examples=['DOBHAP'],
         description='The unique identifier of the station',
     )
     long_name: str = Field(
@@ -396,6 +396,16 @@ class Parameters(BaseModel):
             'log-interval in **m/s**'
         ),
         ge=0,
+    )
+    u_wind: float | None = Field(
+        None,
+        examples=[3.5],
+        description='The u-component of the wind vector in **m/s**',
+    )
+    v_wind: float | None = Field(
+        None,
+        examples=[-1.5],
+        description='The v-component of the wind vector in **m/s**',
     )
 
 # TODO: we may also generate these at some point from either the enums or the basic
@@ -603,7 +613,7 @@ class StationDataAgg(ParametersAgg, Parameters):
 
 
 class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | None]]):
-    """Key-Value pair where the key is either the station name or the district name.
+    """Key-Value pair where the key is either the station id or the district name.
     Value can be really anything that is stored as data.
     """
     pass
@@ -612,8 +622,8 @@ class TrendValue(RootModel[dict[str, float | datetime | HeatStressCategories | N
 class Trends(BaseModel):
     """Trends for a single or multiple stations/districts"""
     supported_ids: list[str] = Field(
-        examples=[['DEC005476']],
-        description='Either names of stations or names of districts.',
+        examples=[['DOBHAP']],
+        description='Either ids of stations or names of districts.',
     )
     unit: Units = Field(
         examples=[Units.wm2],
@@ -624,7 +634,7 @@ class Trends(BaseModel):
             [
                 TrendValue(
                     {
-                        'DEC005476': 855.1,
+                        'DOBHAP': 855.1,
                         'measured_at': datetime(2024, 8, 1, 10, 0, tzinfo=timezone.utc),
                     },
                 ),
@@ -639,8 +649,8 @@ class NetworkValue(Parameters, ParametersAgg):
         examples=[datetime(2024, 8, 28, 18, 0, 0, 0)],
         description='The exact time the value was aggregated to in **UTC**',
     )
-    name: str = Field(
-        examples=['DEC005476'],
+    station_id: str = Field(
+        examples=['DOBHAP'],
         description='The unique identifier of the station',
     )
     station_type: StationType = Field(

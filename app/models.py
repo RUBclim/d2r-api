@@ -28,6 +28,13 @@ from app.database import sessionmanager
 class StationType(StrEnum):
     temprh = 'temprh'
     biomet = 'biomet'
+    double = 'double'
+
+
+class SensorType(StrEnum):
+    atm41 = 'atm41'
+    sht35 = 'sht35'
+    blg = 'blg'
 
 
 class HeatStressCategories(StrEnum):
@@ -69,20 +76,13 @@ _HeatStressCategories = ENUM(HeatStressCategories)
 
 
 class Station(Base):
-    """Representation of a station"""
+    """Representation of a station which has a physical location and sensor(s) attached
+    to it."""
     __tablename__ = 'station'
 
     # IDs
-    name: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
-    device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    station_id: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
-    # the biomet stations have two components (ATM41 and BLG)
-    blg_name: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
-    blg_device_id: Mapped[int | None] = mapped_column(
-        BigInteger,
-        unique=True,
-        nullable=True,
-    )
     station_type: Mapped[StationType] = mapped_column(nullable=False)
 
     # geographical position
@@ -128,7 +128,6 @@ class Station(Base):
     )
 
     # mounting information
-    setup_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     mounting_type: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -199,40 +198,65 @@ class Station(Base):
             'station from the mounting structure'
         ),
     )
-
-    # calibration information
-    temp_calib_offset: Mapped[Decimal] = mapped_column(
-        nullable=False, default=0,
-        server_default='0',
-    )
-    relhum_calib_offset: Mapped[Decimal] = mapped_column(
-        nullable=False,
-        default=0,
-        server_default='0',
-    )
-
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # relationships
-    blg_data_raw: Mapped[list[BLGDataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    active_sensors: Mapped[list[Sensor]] = relationship(
+        'Sensor',
+        secondary='sensor_deployment',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployment.station_id,'
+            '    SensorDeployment.teardown_date == None'
+            ')'
+        ),
+        secondaryjoin='Sensor.sensor_id == SensorDeployment.sensor_id',
+        viewonly=True,
+        lazy='selectin',
+        order_by='SensorDeployment.setup_date',
     )
-    atm41_data_raw: Mapped[list[ATM41DataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    former_sensors: Mapped[list[Sensor]] = relationship(
+        'Sensor',
+        secondary='sensor_deployment',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployment.station_id,'
+            '    SensorDeployment.teardown_date != None'
+            ')'
+        ),
+        secondaryjoin='Sensor.sensor_id == SensorDeployment.sensor_id',
+        viewonly=True,
+        lazy='selectin',
+        order_by='SensorDeployment.setup_date',
     )
-    sht35_data_raw: Mapped[list[SHT35DataRaw]] = relationship(
-        back_populates='station',
-        lazy=True,
+    active_deployments: Mapped[list[SensorDeployment]] = relationship(
+        'SensorDeployment',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployment.station_id,'
+            '    SensorDeployment.teardown_date == None'
+            ')'
+        ),
+        viewonly=True,
+        lazy='selectin',
+        order_by='SensorDeployment.setup_date',
     )
-    biomet_data: Mapped[list[BiometData]] = relationship(
-        back_populates='station',
-        lazy=True,
+    former_deployments: Mapped[list[SensorDeployment]] = relationship(
+        'SensorDeployment',
+        primaryjoin=(
+            'and_('
+            '    Station.station_id == SensorDeployment.station_id,'
+            '    SensorDeployment.teardown_date != None'
+            ')'
+        ),
+        viewonly=True,
+        lazy='selectin',
+        order_by='SensorDeployment.setup_date',
     )
-    temp_rh_data: Mapped[list[TempRHData]] = relationship(
+    deployments: Mapped[list[SensorDeployment]] = relationship(
         back_populates='station',
-        lazy=True,
+        lazy='selectin',
+        order_by='SensorDeployment.setup_date, SensorDeployment.deployment_id',
     )
 
     @property
@@ -248,18 +272,154 @@ class Station(Base):
         ]
         return ''.join(address)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'station_id={self.station_id!r}, '
+            f'long_name={self.long_name!r}, '
+            f'station_type={self.station_type!r}, '
+            f'latitude={self.latitude!r}, '
+            f'longitude={self.longitude!r}, '
+            f'altitude={self.altitude!r}, '
+            f'street={self.street!r}, '
+            f'number={self.number!r}, '
+            f'plz={self.plz!r}, '
+            f'city={self.city!r}, '
+            f'country={self.country!r}, '
+            f'district={self.district!r}, '
+            f'lcz={self.lcz!r}, '
+            f'dominant_land_use={self.dominant_land_use!r}, '
+            f'urban_atlas_class_name={self.urban_atlas_class_name!r}, '
+            f'urban_atlas_class_nr={self.urban_atlas_class_nr!r}, '
+            f'orographic_setting={self.orographic_setting!r}, '
+            f'svf={self.svf!r}, '
+            f'artificial_heat_sources={self.artificial_heat_sources!r}, '
+            f'proximity_to_building={self.proximity_to_building!r}, '
+            f'proximity_to_parking={self.proximity_to_parking!r}, '
+            f'proximity_to_tree={self.proximity_to_tree!r}, '
+            f'surrounding_land_cover_description={self.surrounding_land_cover_description!r}, '  # noqa: E501
+            f'mounting_type={self.mounting_type!r}, '
+            f'leuchtennummer={self.leuchtennummer!r}, '
+            f'mounting_structure_material={self.mounting_structure_material!r}, '
+            f'mounting_structure_height_agl={self.mounting_structure_height_agl!r}, '
+            f'mounting_structure_diameter={self.mounting_structure_diameter!r}, '
+            f'mounting_structure_light_extension_offset={self.mounting_structure_light_extension_offset!r}, '  # noqa: E501
+            f'sensor_height_agl={self.sensor_height_agl!r}, '
+            f'sensor_distance_from_mounting_structure={self.sensor_distance_from_mounting_structure!r}, '  # noqa: E501
+            f'sensor_orientation={self.sensor_orientation!r}, '
+            f'blg_sensor_height_agl={self.blg_sensor_height_agl!r}, '
+            f'blg_sensor_distance_from_mounting_structure={self.blg_sensor_distance_from_mounting_structure!r}, '  # noqa: E501
+            f'blg_sensor_orientation={self.blg_sensor_orientation!r}, '
+            f'comment={self.comment!r}'
+            f')'
+        )
+
+
+class SensorDeployment(Base):
+    """Deployment of a sensor at a station"""
+    __tablename__ = 'sensor_deployment'
+
+    deployment_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    sensor_id: Mapped[str] = mapped_column(ForeignKey('sensor.sensor_id'))
+    station_id: Mapped[str] = mapped_column(ForeignKey('station.station_id'))
+    setup_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    teardown_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    sensor: Mapped[Sensor] = relationship(
+        'Sensor',
+        back_populates='deployments',
+        lazy='selectin',
+    )
+    station: Mapped[Station] = relationship(
+        back_populates='deployments',
+        lazy='selectin',
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'deployment_id={self.deployment_id!r}, '
+            f'sensor_id={self.sensor_id!r}, '
+            f'station_id={self.station_id!r}, '
+            f'setup_date={self.setup_date!r}, '
+            f'teardown_date={self.teardown_date!r} '
+            f')'
+        )
+
+
+class Sensor(Base):
+    """Pool of sensors that can be installed at a station"""
+    __tablename__ = 'sensor'
+
+    sensor_id: Mapped[str] = mapped_column(primary_key=True)
+    device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sensor_type: Mapped[SensorType] = mapped_column(nullable=False)
+    # calibration information
+    temp_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default='0',
+    )
+    relhum_calib_offset: Mapped[Decimal] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default='0',
+    )
+
+    # relationships
+    deployments: Mapped[list[SensorDeployment]] = relationship(
+        back_populates='sensor',
+        lazy='selectin',
+    )
+    current_station: Mapped[Station | None] = relationship(
+        secondary='sensor_deployment',
+        primaryjoin=(
+            'and_('
+            '    Sensor.sensor_id == SensorDeployment.sensor_id,'
+            '    SensorDeployment.teardown_date == None'
+            ')'
+        ),
+        secondaryjoin='Station.station_id == SensorDeployment.station_id',
+        viewonly=True,
+        lazy='selectin',
+    )
+    former_stations: Mapped[list[Station]] = relationship(
+        'Station',
+        secondary='sensor_deployment',
+        primaryjoin=(
+            'and_('
+            '    Sensor.sensor_id == SensorDeployment.sensor_id,'
+            '    SensorDeployment.teardown_date != None'
+            ')'
+        ),
+        secondaryjoin='Station.station_id == SensorDeployment.station_id',
+        viewonly=True,
+        lazy='selectin',
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'sensor_id={self.sensor_id!r}, '
+            f'device_id={self.device_id!r}, '
+            f'sensor_type={self.sensor_type!r}, '
+            f'temp_calib_offset={self.temp_calib_offset!r}, '
+            f'relhum_calib_offset={self.relhum_calib_offset!r}'
+            f')'
+        )
+
 
 class _Data(Base):
     __abstract__ = True
 
     measured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        primary_key=True,
-        index=True,
-    )
-    name: Mapped[str] = mapped_column(
-        Text,
-        ForeignKey('station.name'),
         primary_key=True,
         index=True,
     )
@@ -276,7 +436,25 @@ class _SHT35DataRawBase(_Data):
 
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
-    station: Mapped[Station] = relationship(back_populates='sht35_data_raw', lazy=True)
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
+    sensor: Mapped[Sensor] = relationship(lazy='selectin')
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'sensor_id={self.sensor_id!r}, '
+            f'measured_at={self.measured_at!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'protocol_version={self.protocol_version!r}'
+            f')'
+        )
 
 
 class _ATM41DataRawBase(_Data):
@@ -308,7 +486,13 @@ class _ATM41DataRawBase(_Data):
 
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
-    station: Mapped[Station] = relationship(back_populates='atm41_data_raw', lazy=True)
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        primary_key=True,
+        index=True,
+    )
+    sensor: Mapped[Sensor] = relationship(lazy='selectin')
 
 
 class _BLGDataRawBase(_Data):
@@ -326,12 +510,13 @@ class _BLGDataRawBase(_Data):
 
 class BLGDataRaw(_BLGDataRawBase):
     __tablename__ = 'blg_data_raw'
-    name: Mapped[str] = mapped_column(
+    sensor_id: Mapped[str] = mapped_column(
         Text,
-        ForeignKey('station.blg_name'),
+        ForeignKey('sensor.sensor_id'),
         primary_key=True,
+        index=True,
     )
-    station: Mapped[Station] = relationship(back_populates='blg_data_raw', lazy=True)
+    sensor: Mapped[Sensor] = relationship(lazy='selectin')
 
 
 class _TempRHDerivatives(Base):
@@ -373,30 +558,63 @@ class BiometData(
     __tablename__ = 'biomet_data'
     __table_args__ = (
         Index(
-            'ix_biomet_data_name_measured_at_desc',
-            'name',
+            'ix_biomet_data_station_id_measured_at_desc',
+            'station_id',
             desc('measured_at'),
         ),
     )
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+    )
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        index=True,
+    )
+    blg_sensor_id: Mapped[str | None] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        index=True,
+        # this needs to be nullable, since we may have measurements of the ATM41 sensor
+        # that do not have corresponding blackglobe measurements
+        nullable=True,
+    )
 
-    # TODO: QC fields?
-    station: Mapped[Station] = relationship(back_populates='biomet_data', lazy=True)
+    station: Mapped[Station] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(
+        # this should only ever be a biomet sensor, but just to make sure!
+        primaryjoin='and_(BiometData.sensor_id == Sensor.sensor_id, Sensor.sensor_type == "atm41")',  # noqa: E501
+        viewonly=True,
+        lazy='selectin',
+    )
+    blg_sensor: Mapped[Sensor | None] = relationship(
+        primaryjoin='and_(BiometData.blg_sensor_id == Sensor.sensor_id, Sensor.sensor_type == "blg")',  # noqa: E501
+        viewonly=True,
+        lazy='selectin',
+    )
 
 
-class TempRHData(_SHT35DataRawBase, _TempRHDerivatives):
+class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
     __tablename__ = 'temp_rh_data'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_name_measured_at_desc',
-            'name',
+            'ix_temp_rh_data_station_id_measured_at_desc',
+            'station_id',
             desc('measured_at'),
         ),
     )
-
-    air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    # TODO: QC fields?
-    station: Mapped[Station] = relationship(back_populates='temp_rh_data', lazy=True)
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+    )
+    sensor_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey('sensor.sensor_id'),
+        index=True,
+    )
+    station: Mapped[Station] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(lazy=True)
 
 
 class MaterializedView(Base):
@@ -404,6 +622,12 @@ class MaterializedView(Base):
     __abstract__ = True
     # is this a timescale continuous aggregate?
     is_continuous_aggregate = False
+
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            'station.station_id',
+        ), primary_key=True, index=True,
+    )
 
     @classmethod
     async def refresh(
@@ -464,7 +688,13 @@ class LatestData(
     The query for creating this materialized view is saved above.
     """
     __tablename__ = 'latest_data'
-    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
+
+    station_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        unique=True,
+        index=True,
+    )
     long_name: Mapped[str] = mapped_column(Text, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
@@ -485,11 +715,12 @@ class LatestData(
     )
     vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
 
+    # we exclude the temprh part of a double station here and only use the biomet part
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
     (
-        SELECT DISTINCT ON (name)
-            name,
+        SELECT DISTINCT ON (station_id)
+            station_id,
             long_name,
             latitude,
             longitude,
@@ -518,14 +749,24 @@ class LatestData(
             vapor_pressure,
             wind_direction,
             wind_speed,
-            maximum_wind_speed
-        FROM biomet_data INNER JOIN station USING(name)
-        ORDER BY name, measured_at DESC
+            maximum_wind_speed,
+            u_wind,
+            v_wind,
+            sensor_temperature_internal,
+            x_orientation_angle,
+            y_orientation_angle,
+            black_globe_temperature,
+            thermistor_resistance,
+            voltage_ratio,
+            battery_voltage,
+            protocol_version
+        FROM biomet_data INNER JOIN station USING(station_id)
+        ORDER BY station_id, measured_at DESC
     )
     UNION ALL
     (
-        SELECT DISTINCT ON (name)
-            name,
+        SELECT DISTINCT ON (station_id)
+            station_id,
             long_name,
             latitude,
             longitude,
@@ -554,11 +795,68 @@ class LatestData(
             NULL,
             NULL,
             NULL,
-            NULL
-        FROM temp_rh_data INNER JOIN station USING(name)
-        ORDER BY name, measured_at DESC
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            battery_voltage,
+            protocol_version
+        FROM temp_rh_data INNER JOIN station USING(station_id)
+        WHERE station.station_type <> 'double'
+        ORDER BY station_id, measured_at DESC
     )
     ''')
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'station_id={self.station_id!r}, '
+            f'long_name={self.long_name!r}, '
+            f'latitude={self.latitude!r}, '
+            f'longitude={self.longitude!r}, '
+            f'altitude={self.altitude!r}, '
+            f'district={self.district!r}, '
+            f'lcz={self.lcz!r}, '
+            f'station_type={self.station_type!r}, '
+            f'measured_at={self.measured_at!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'dew_point={self.dew_point!r}, '
+            f'absolute_humidity={self.absolute_humidity!r}, '
+            f'heat_index={self.heat_index!r}, '
+            f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
+            f'atmospheric_pressure={self.atmospheric_pressure!r}, '
+            f'atmospheric_pressure_reduced={self.atmospheric_pressure_reduced!r}, '
+            f'lightning_average_distance={self.lightning_average_distance!r}, '
+            f'lightning_strike_count={self.lightning_strike_count!r}, '
+            f'mrt={self.mrt!r}, '
+            f'pet={self.pet!r}, '
+            f'pet_category={self.pet_category!r}, '
+            f'precipitation_sum={self.precipitation_sum!r}, '
+            f'solar_radiation={self.solar_radiation!r}, '
+            f'utci={self.utci!r}, '
+            f'utci_category={self.utci_category!r}, '
+            f'vapor_pressure={self.vapor_pressure!r}, '
+            f'wind_direction={self.wind_direction!r}, '
+            f'wind_speed={self.wind_speed!r}, '
+            f'maximum_wind_speed={self.maximum_wind_speed!r}, '
+            f'u_wind={self.u_wind!r}, '
+            f'v_wind={self.v_wind!r}, '
+            f'sensor_temperature_internal={self.sensor_temperature_internal!r}, '
+            f'x_orientation_angle={self.x_orientation_angle!r}, '
+            f'y_orientation_angle={self.y_orientation_angle!r}, '
+            f'black_globe_temperature={self.black_globe_temperature!r}, '
+            f'thermistor_resistance={self.thermistor_resistance!r}, '
+            f'voltage_ratio={self.voltage_ratio!r}, '
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'protocol_version={self.protocol_version!r}'
+            f')'
+        )
 
 
 # START_GENERATED
@@ -576,8 +874,8 @@ class BiometDataHourly(
     __tablename__ = 'biomet_data_hourly'
     __table_args__ = (
         Index(
-            'ix_biomet_data_hourly_name_measured_at',
-            'name',
+            'ix_biomet_data_hourly_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
@@ -691,15 +989,107 @@ class BiometDataHourly(
     y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     station: Mapped[Station] = relationship(lazy=True)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'measured_at={self.measured_at!r}, '
+            f'absolute_humidity={self.absolute_humidity!r}, '
+            f'absolute_humidity_min={self.absolute_humidity_min!r}, '
+            f'absolute_humidity_max={self.absolute_humidity_max!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'air_temperature_min={self.air_temperature_min!r}, '
+            f'air_temperature_max={self.air_temperature_max!r}, '
+            f'atmospheric_pressure={self.atmospheric_pressure!r}, '
+            f'atmospheric_pressure_min={self.atmospheric_pressure_min!r}, '
+            f'atmospheric_pressure_max={self.atmospheric_pressure_max!r}, '
+            f'atmospheric_pressure_reduced={self.atmospheric_pressure_reduced!r}, '
+            f'atmospheric_pressure_reduced_min={self.atmospheric_pressure_reduced_min!r}, '  # noqa: E501
+            f'atmospheric_pressure_reduced_max={self.atmospheric_pressure_reduced_max!r}, '  # noqa: E501
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'battery_voltage_min={self.battery_voltage_min!r}, '
+            f'battery_voltage_max={self.battery_voltage_max!r}, '
+            f'black_globe_temperature={self.black_globe_temperature!r}, '
+            f'black_globe_temperature_min={self.black_globe_temperature_min!r}, '
+            f'black_globe_temperature_max={self.black_globe_temperature_max!r}, '
+            f'blg_battery_voltage={self.blg_battery_voltage!r}, '
+            f'blg_battery_voltage_min={self.blg_battery_voltage_min!r}, '
+            f'blg_battery_voltage_max={self.blg_battery_voltage_max!r}, '
+            f'blg_time_offset={self.blg_time_offset!r}, '
+            f'blg_time_offset_min={self.blg_time_offset_min!r}, '
+            f'blg_time_offset_max={self.blg_time_offset_max!r}, '
+            f'dew_point={self.dew_point!r}, '
+            f'dew_point_min={self.dew_point_min!r}, '
+            f'dew_point_max={self.dew_point_max!r}, '
+            f'heat_index={self.heat_index!r}, '
+            f'heat_index_min={self.heat_index_min!r}, '
+            f'heat_index_max={self.heat_index_max!r}, '
+            f'lightning_average_distance={self.lightning_average_distance!r}, '
+            f'lightning_average_distance_min={self.lightning_average_distance_min!r}, '
+            f'lightning_average_distance_max={self.lightning_average_distance_max!r}, '
+            f'lightning_strike_count={self.lightning_strike_count!r}, '
+            f'maximum_wind_speed={self.maximum_wind_speed!r}, '
+            f'mrt={self.mrt!r}, '
+            f'mrt_min={self.mrt_min!r}, '
+            f'mrt_max={self.mrt_max!r}, '
+            f'pet={self.pet!r}, '
+            f'pet_min={self.pet_min!r}, '
+            f'pet_max={self.pet_max!r}, '
+            f'pet_category={self.pet_category!r}, '
+            f'precipitation_sum={self.precipitation_sum!r}, '
+            f'protocol_version={self.protocol_version!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'relative_humidity_min={self.relative_humidity_min!r}, '
+            f'relative_humidity_max={self.relative_humidity_max!r}, '
+            f'sensor_temperature_internal={self.sensor_temperature_internal!r}, '
+            f'sensor_temperature_internal_min={self.sensor_temperature_internal_min!r}, '  # noqa: E501
+            f'sensor_temperature_internal_max={self.sensor_temperature_internal_max!r}, '  # noqa: E501
+            f'solar_radiation={self.solar_radiation!r}, '
+            f'solar_radiation_min={self.solar_radiation_min!r}, '
+            f'solar_radiation_max={self.solar_radiation_max!r}, '
+            f'thermistor_resistance={self.thermistor_resistance!r}, '
+            f'thermistor_resistance_min={self.thermistor_resistance_min!r}, '
+            f'thermistor_resistance_max={self.thermistor_resistance_max!r}, '
+            f'u_wind={self.u_wind!r}, '
+            f'u_wind_min={self.u_wind_min!r}, '
+            f'u_wind_max={self.u_wind_max!r}, '
+            f'utci={self.utci!r}, '
+            f'utci_min={self.utci_min!r}, '
+            f'utci_max={self.utci_max!r}, '
+            f'utci_category={self.utci_category!r}, '
+            f'v_wind={self.v_wind!r}, '
+            f'v_wind_min={self.v_wind_min!r}, '
+            f'v_wind_max={self.v_wind_max!r}, '
+            f'vapor_pressure={self.vapor_pressure!r}, '
+            f'vapor_pressure_min={self.vapor_pressure_min!r}, '
+            f'vapor_pressure_max={self.vapor_pressure_max!r}, '
+            f'voltage_ratio={self.voltage_ratio!r}, '
+            f'voltage_ratio_min={self.voltage_ratio_min!r}, '
+            f'voltage_ratio_max={self.voltage_ratio_max!r}, '
+            f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
+            f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
+            f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
+            f'wind_direction={self.wind_direction!r}, '
+            f'wind_speed={self.wind_speed!r}, '
+            f'wind_speed_min={self.wind_speed_min!r}, '
+            f'wind_speed_max={self.wind_speed_max!r}, '
+            f'x_orientation_angle={self.x_orientation_angle!r}, '
+            f'x_orientation_angle_min={self.x_orientation_angle_min!r}, '
+            f'x_orientation_angle_max={self.x_orientation_angle_max!r}, '
+            f'y_orientation_angle={self.y_orientation_angle!r}, '
+            f'y_orientation_angle_min={self.y_orientation_angle_min!r}, '
+            f'y_orientation_angle_max={self.y_orientation_angle_max!r}, '
+            f')'
+        )
+
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_hourly AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM biomet_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
@@ -709,25 +1099,25 @@ class BiometDataHourly(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM biomet_data
+        SELECT DISTINCT station_id FROM biomet_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS atmospheric_pressure,
@@ -745,6 +1135,7 @@ class BiometDataHourly(
                 NULL AS pet,
                 NULL AS pet_category,
                 NULL AS precipitation_sum,
+                NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS sensor_temperature_internal,
                 NULL AS solar_radiation,
@@ -766,7 +1157,7 @@ class BiometDataHourly(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 atmospheric_pressure,
@@ -784,6 +1175,7 @@ class BiometDataHourly(
                 pet,
                 pet_category,
                 precipitation_sum,
+                protocol_version,
                 relative_humidity,
                 sensor_temperature_internal,
                 solar_radiation,
@@ -803,7 +1195,7 @@ class BiometDataHourly(
         )
     ) SELECT
         time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
-        name,
+        station_id,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
         max(absolute_humidity) AS absolute_humidity_max,
@@ -847,6 +1239,7 @@ class BiometDataHourly(
         max(pet) AS pet_max,
         mode() WITHIN GROUP (ORDER BY pet_category ASC) AS pet_category,
         sum(precipitation_sum) AS precipitation_sum,
+        mode() WITHIN GROUP (ORDER BY protocol_version ASC) AS protocol_version,
         avg(relative_humidity) AS relative_humidity,
         min(relative_humidity) AS relative_humidity_min,
         max(relative_humidity) AS relative_humidity_max,
@@ -889,8 +1282,8 @@ class BiometDataHourly(
         min(y_orientation_angle) AS y_orientation_angle_min,
         max(y_orientation_angle) AS y_orientation_angle_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -907,8 +1300,8 @@ class TempRHDataHourly(
     __tablename__ = 'temp_rh_data_hourly'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_hourly_name_measured_at',
-            'name',
+            'ix_temp_rh_data_hourly_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
@@ -958,15 +1351,50 @@ class TempRHDataHourly(
     )
     station: Mapped[Station] = relationship(lazy=True)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'measured_at={self.measured_at!r}, '
+            f'absolute_humidity={self.absolute_humidity!r}, '
+            f'absolute_humidity_min={self.absolute_humidity_min!r}, '
+            f'absolute_humidity_max={self.absolute_humidity_max!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'air_temperature_min={self.air_temperature_min!r}, '
+            f'air_temperature_max={self.air_temperature_max!r}, '
+            f'air_temperature_raw={self.air_temperature_raw!r}, '
+            f'air_temperature_raw_min={self.air_temperature_raw_min!r}, '
+            f'air_temperature_raw_max={self.air_temperature_raw_max!r}, '
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'battery_voltage_min={self.battery_voltage_min!r}, '
+            f'battery_voltage_max={self.battery_voltage_max!r}, '
+            f'dew_point={self.dew_point!r}, '
+            f'dew_point_min={self.dew_point_min!r}, '
+            f'dew_point_max={self.dew_point_max!r}, '
+            f'heat_index={self.heat_index!r}, '
+            f'heat_index_min={self.heat_index_min!r}, '
+            f'heat_index_max={self.heat_index_max!r}, '
+            f'protocol_version={self.protocol_version!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'relative_humidity_min={self.relative_humidity_min!r}, '
+            f'relative_humidity_max={self.relative_humidity_max!r}, '
+            f'relative_humidity_raw={self.relative_humidity_raw!r}, '
+            f'relative_humidity_raw_min={self.relative_humidity_raw_min!r}, '
+            f'relative_humidity_raw_max={self.relative_humidity_raw_max!r}, '
+            f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
+            f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
+            f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
+            f')'
+        )
+
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_hourly AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM temp_rh_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
@@ -976,31 +1404,32 @@ class TempRHDataHourly(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM temp_rh_data
+        SELECT DISTINCT station_id FROM temp_rh_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS air_temperature_raw,
                 NULL AS battery_voltage,
                 NULL AS dew_point,
                 NULL AS heat_index,
+                NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS relative_humidity_raw,
                 NULL AS wet_bulb_temperature
@@ -1010,13 +1439,14 @@ class TempRHDataHourly(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 air_temperature_raw,
                 battery_voltage,
                 dew_point,
                 heat_index,
+                protocol_version,
                 relative_humidity,
                 relative_humidity_raw,
                 wet_bulb_temperature
@@ -1024,7 +1454,7 @@ class TempRHDataHourly(
         )
     ) SELECT
         time_bucket('1 hour', ma) + '1 hour'::INTERVAL AS measured_at,
-        name,
+        station_id,
         avg(absolute_humidity) AS absolute_humidity,
         min(absolute_humidity) AS absolute_humidity_min,
         max(absolute_humidity) AS absolute_humidity_max,
@@ -1043,6 +1473,7 @@ class TempRHDataHourly(
         avg(heat_index) AS heat_index,
         min(heat_index) AS heat_index_min,
         max(heat_index) AS heat_index_max,
+        mode() WITHIN GROUP (ORDER BY protocol_version ASC) AS protocol_version,
         avg(relative_humidity) AS relative_humidity,
         min(relative_humidity) AS relative_humidity_min,
         max(relative_humidity) AS relative_humidity_max,
@@ -1053,8 +1484,8 @@ class TempRHDataHourly(
         min(wet_bulb_temperature) AS wet_bulb_temperature_min,
         max(wet_bulb_temperature) AS wet_bulb_temperature_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -1072,8 +1503,8 @@ class BiometDataDaily(
     __tablename__ = 'biomet_data_daily'
     __table_args__ = (
         Index(
-            'ix_biomet_data_daily_name_measured_at',
-            'name',
+            'ix_biomet_data_daily_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
@@ -1187,15 +1618,107 @@ class BiometDataDaily(
     y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
     station: Mapped[Station] = relationship(lazy=True)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'measured_at={self.measured_at!r}, '
+            f'absolute_humidity={self.absolute_humidity!r}, '
+            f'absolute_humidity_min={self.absolute_humidity_min!r}, '
+            f'absolute_humidity_max={self.absolute_humidity_max!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'air_temperature_min={self.air_temperature_min!r}, '
+            f'air_temperature_max={self.air_temperature_max!r}, '
+            f'atmospheric_pressure={self.atmospheric_pressure!r}, '
+            f'atmospheric_pressure_min={self.atmospheric_pressure_min!r}, '
+            f'atmospheric_pressure_max={self.atmospheric_pressure_max!r}, '
+            f'atmospheric_pressure_reduced={self.atmospheric_pressure_reduced!r}, '
+            f'atmospheric_pressure_reduced_min={self.atmospheric_pressure_reduced_min!r}, '  # noqa: E501
+            f'atmospheric_pressure_reduced_max={self.atmospheric_pressure_reduced_max!r}, '  # noqa: E501
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'battery_voltage_min={self.battery_voltage_min!r}, '
+            f'battery_voltage_max={self.battery_voltage_max!r}, '
+            f'black_globe_temperature={self.black_globe_temperature!r}, '
+            f'black_globe_temperature_min={self.black_globe_temperature_min!r}, '
+            f'black_globe_temperature_max={self.black_globe_temperature_max!r}, '
+            f'blg_battery_voltage={self.blg_battery_voltage!r}, '
+            f'blg_battery_voltage_min={self.blg_battery_voltage_min!r}, '
+            f'blg_battery_voltage_max={self.blg_battery_voltage_max!r}, '
+            f'blg_time_offset={self.blg_time_offset!r}, '
+            f'blg_time_offset_min={self.blg_time_offset_min!r}, '
+            f'blg_time_offset_max={self.blg_time_offset_max!r}, '
+            f'dew_point={self.dew_point!r}, '
+            f'dew_point_min={self.dew_point_min!r}, '
+            f'dew_point_max={self.dew_point_max!r}, '
+            f'heat_index={self.heat_index!r}, '
+            f'heat_index_min={self.heat_index_min!r}, '
+            f'heat_index_max={self.heat_index_max!r}, '
+            f'lightning_average_distance={self.lightning_average_distance!r}, '
+            f'lightning_average_distance_min={self.lightning_average_distance_min!r}, '
+            f'lightning_average_distance_max={self.lightning_average_distance_max!r}, '
+            f'lightning_strike_count={self.lightning_strike_count!r}, '
+            f'maximum_wind_speed={self.maximum_wind_speed!r}, '
+            f'mrt={self.mrt!r}, '
+            f'mrt_min={self.mrt_min!r}, '
+            f'mrt_max={self.mrt_max!r}, '
+            f'pet={self.pet!r}, '
+            f'pet_min={self.pet_min!r}, '
+            f'pet_max={self.pet_max!r}, '
+            f'pet_category={self.pet_category!r}, '
+            f'precipitation_sum={self.precipitation_sum!r}, '
+            f'protocol_version={self.protocol_version!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'relative_humidity_min={self.relative_humidity_min!r}, '
+            f'relative_humidity_max={self.relative_humidity_max!r}, '
+            f'sensor_temperature_internal={self.sensor_temperature_internal!r}, '
+            f'sensor_temperature_internal_min={self.sensor_temperature_internal_min!r}, '  # noqa: E501
+            f'sensor_temperature_internal_max={self.sensor_temperature_internal_max!r}, '  # noqa: E501
+            f'solar_radiation={self.solar_radiation!r}, '
+            f'solar_radiation_min={self.solar_radiation_min!r}, '
+            f'solar_radiation_max={self.solar_radiation_max!r}, '
+            f'thermistor_resistance={self.thermistor_resistance!r}, '
+            f'thermistor_resistance_min={self.thermistor_resistance_min!r}, '
+            f'thermistor_resistance_max={self.thermistor_resistance_max!r}, '
+            f'u_wind={self.u_wind!r}, '
+            f'u_wind_min={self.u_wind_min!r}, '
+            f'u_wind_max={self.u_wind_max!r}, '
+            f'utci={self.utci!r}, '
+            f'utci_min={self.utci_min!r}, '
+            f'utci_max={self.utci_max!r}, '
+            f'utci_category={self.utci_category!r}, '
+            f'v_wind={self.v_wind!r}, '
+            f'v_wind_min={self.v_wind_min!r}, '
+            f'v_wind_max={self.v_wind_max!r}, '
+            f'vapor_pressure={self.vapor_pressure!r}, '
+            f'vapor_pressure_min={self.vapor_pressure_min!r}, '
+            f'vapor_pressure_max={self.vapor_pressure_max!r}, '
+            f'voltage_ratio={self.voltage_ratio!r}, '
+            f'voltage_ratio_min={self.voltage_ratio_min!r}, '
+            f'voltage_ratio_max={self.voltage_ratio_max!r}, '
+            f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
+            f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
+            f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
+            f'wind_direction={self.wind_direction!r}, '
+            f'wind_speed={self.wind_speed!r}, '
+            f'wind_speed_min={self.wind_speed_min!r}, '
+            f'wind_speed_max={self.wind_speed_max!r}, '
+            f'x_orientation_angle={self.x_orientation_angle!r}, '
+            f'x_orientation_angle_min={self.x_orientation_angle_min!r}, '
+            f'x_orientation_angle_max={self.x_orientation_angle_max!r}, '
+            f'y_orientation_angle={self.y_orientation_angle!r}, '
+            f'y_orientation_angle_min={self.y_orientation_angle_min!r}, '
+            f'y_orientation_angle_max={self.y_orientation_angle_max!r}, '
+            f')'
+        )
+
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS biomet_data_daily AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM biomet_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM biomet_data)),
@@ -1205,25 +1728,25 @@ class BiometDataDaily(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM biomet_data
+        SELECT DISTINCT station_id FROM biomet_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS atmospheric_pressure,
@@ -1241,6 +1764,7 @@ class BiometDataDaily(
                 NULL AS pet,
                 NULL AS pet_category,
                 NULL AS precipitation_sum,
+                NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS sensor_temperature_internal,
                 NULL AS solar_radiation,
@@ -1262,7 +1786,7 @@ class BiometDataDaily(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 atmospheric_pressure,
@@ -1280,6 +1804,7 @@ class BiometDataDaily(
                 pet,
                 pet_category,
                 precipitation_sum,
+                protocol_version,
                 relative_humidity,
                 sensor_temperature_internal,
                 solar_radiation,
@@ -1299,7 +1824,7 @@ class BiometDataDaily(
         )
     ) SELECT
         (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
-        name,
+        station_id,
         CASE
             WHEN (count(*) FILTER (
                     WHERE absolute_humidity IS NOT NULL) / 288.0
@@ -1560,6 +2085,12 @@ class BiometDataDaily(
         END AS precipitation_sum,
         CASE
             WHEN (count(*) FILTER (
+                    WHERE protocol_version IS NOT NULL) / 288.0
+                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY protocol_version ASC)
+            ELSE NULL
+        END AS protocol_version,
+        CASE
+            WHEN (count(*) FILTER (
                     WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
@@ -1805,8 +2336,8 @@ class BiometDataDaily(
             ELSE NULL
         END AS y_orientation_angle_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 
 
@@ -1823,8 +2354,8 @@ class TempRHDataDaily(
     __tablename__ = 'temp_rh_data_daily'
     __table_args__ = (
         Index(
-            'ix_temp_rh_data_daily_name_measured_at',
-            'name',
+            'ix_temp_rh_data_daily_station_id_measured_at',
+            'station_id',
             'measured_at',
             unique=True,
         ),
@@ -1874,15 +2405,50 @@ class TempRHDataDaily(
     )
     station: Mapped[Station] = relationship(lazy=True)
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+            f'measured_at={self.measured_at!r}, '
+            f'absolute_humidity={self.absolute_humidity!r}, '
+            f'absolute_humidity_min={self.absolute_humidity_min!r}, '
+            f'absolute_humidity_max={self.absolute_humidity_max!r}, '
+            f'air_temperature={self.air_temperature!r}, '
+            f'air_temperature_min={self.air_temperature_min!r}, '
+            f'air_temperature_max={self.air_temperature_max!r}, '
+            f'air_temperature_raw={self.air_temperature_raw!r}, '
+            f'air_temperature_raw_min={self.air_temperature_raw_min!r}, '
+            f'air_temperature_raw_max={self.air_temperature_raw_max!r}, '
+            f'battery_voltage={self.battery_voltage!r}, '
+            f'battery_voltage_min={self.battery_voltage_min!r}, '
+            f'battery_voltage_max={self.battery_voltage_max!r}, '
+            f'dew_point={self.dew_point!r}, '
+            f'dew_point_min={self.dew_point_min!r}, '
+            f'dew_point_max={self.dew_point_max!r}, '
+            f'heat_index={self.heat_index!r}, '
+            f'heat_index_min={self.heat_index_min!r}, '
+            f'heat_index_max={self.heat_index_max!r}, '
+            f'protocol_version={self.protocol_version!r}, '
+            f'relative_humidity={self.relative_humidity!r}, '
+            f'relative_humidity_min={self.relative_humidity_min!r}, '
+            f'relative_humidity_max={self.relative_humidity_max!r}, '
+            f'relative_humidity_raw={self.relative_humidity_raw!r}, '
+            f'relative_humidity_raw_min={self.relative_humidity_raw_min!r}, '
+            f'relative_humidity_raw_max={self.relative_humidity_raw_max!r}, '
+            f'wet_bulb_temperature={self.wet_bulb_temperature!r}, '
+            f'wet_bulb_temperature_min={self.wet_bulb_temperature_min!r}, '
+            f'wet_bulb_temperature_max={self.wet_bulb_temperature_max!r}, '
+            f')'
+        )
+
     creation_sql = text('''\
     CREATE MATERIALIZED VIEW IF NOT EXISTS temp_rh_data_daily AS
     WITH data_bounds AS (
         SELECT
-            name,
+            station_id,
             MIN(measured_at) AS start_time,
             MAX(measured_at) AS end_time
         FROM temp_rh_data
-        GROUP BY name
+        GROUP BY station_id
     ), filling_time_series AS (
         SELECT generate_series(
             DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM temp_rh_data)),
@@ -1892,31 +2458,32 @@ class TempRHDataDaily(
     ),
     stations_subset AS (
         -- TODO: this could be faster if check the station table by station_type
-        SELECT DISTINCT name FROM temp_rh_data
+        SELECT DISTINCT station_id FROM temp_rh_data
     ),
     time_station_combinations AS (
         SELECT
             measured_at,
-            stations_subset.name,
+            stations_subset.station_id,
             start_time,
             end_time
         FROM filling_time_series
         CROSS JOIN stations_subset
         JOIN data_bounds
-            ON data_bounds.name = stations_subset.name
+            ON data_bounds.station_id = stations_subset.station_id
         WHERE filling_time_series.measured_at >= data_bounds.start_time
         AND filling_time_series.measured_at <= data_bounds.end_time
     ), all_data AS(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 NULL AS absolute_humidity,
                 NULL AS air_temperature,
                 NULL AS air_temperature_raw,
                 NULL AS battery_voltage,
                 NULL AS dew_point,
                 NULL AS heat_index,
+                NULL AS protocol_version,
                 NULL AS relative_humidity,
                 NULL AS relative_humidity_raw,
                 NULL AS wet_bulb_temperature
@@ -1926,13 +2493,14 @@ class TempRHDataDaily(
         (
             SELECT
                 measured_at AS ma,
-                name,
+                station_id,
                 absolute_humidity,
                 air_temperature,
                 air_temperature_raw,
                 battery_voltage,
                 dew_point,
                 heat_index,
+                protocol_version,
                 relative_humidity,
                 relative_humidity_raw,
                 wet_bulb_temperature
@@ -1940,7 +2508,7 @@ class TempRHDataDaily(
         )
     ) SELECT
         (time_bucket('1day', ma, 'CET') + '1 hour'::INTERVAL)::DATE AS measured_at,
-        name,
+        station_id,
         CASE
             WHEN (count(*) FILTER (
                     WHERE absolute_humidity IS NOT NULL) / 288.0
@@ -2051,6 +2619,12 @@ class TempRHDataDaily(
         END AS heat_index_max,
         CASE
             WHEN (count(*) FILTER (
+                    WHERE protocol_version IS NOT NULL) / 288.0
+                ) > 0.7 THEN mode() WITHIN GROUP (ORDER BY protocol_version ASC)
+            ELSE NULL
+        END AS protocol_version,
+        CASE
+            WHEN (count(*) FILTER (
                     WHERE relative_humidity IS NOT NULL) / 288.0
                 ) > 0.7 THEN avg(relative_humidity)
             ELSE NULL
@@ -2104,8 +2678,8 @@ class TempRHDataDaily(
             ELSE NULL
         END AS wet_bulb_temperature_max
     FROM all_data
-    GROUP BY measured_at, name
-    ORDER BY measured_at, name
+    GROUP BY measured_at, station_id
+    ORDER BY measured_at, station_id
     ''')  # noqa: E501
 # END_GENERATED
 

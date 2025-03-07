@@ -33,11 +33,11 @@ _VIEW_TEMPLATE_BASE = '''
 CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name} AS
 WITH data_bounds AS (
     SELECT
-        name,
+        station_id,
         MIN(measured_at) AS start_time,
         MAX(measured_at) AS end_time
     FROM {target_table}
-    GROUP BY name
+    GROUP BY station_id
 ), filling_time_series AS (
     SELECT generate_series(
         DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM {target_table})),
@@ -47,25 +47,25 @@ WITH data_bounds AS (
 ),
 stations_subset AS (
     -- TODO: this could be faster if check the station table by station_type
-    SELECT DISTINCT name FROM {target_table}
+    SELECT DISTINCT station_id FROM {target_table}
 ),
 time_station_combinations AS (
     SELECT
         measured_at,
-        stations_subset.name,
+        stations_subset.station_id,
         start_time,
         end_time
     FROM filling_time_series
     CROSS JOIN stations_subset
     JOIN data_bounds
-        ON data_bounds.name = stations_subset.name
+        ON data_bounds.station_id = stations_subset.station_id
     WHERE filling_time_series.measured_at >= data_bounds.start_time
     AND filling_time_series.measured_at <= data_bounds.end_time
 ), all_data AS(
     (
         SELECT
             measured_at AS ma,
-            name,
+            station_id,
 {null_column_names}
         FROM time_station_combinations
     )
@@ -73,17 +73,17 @@ time_station_combinations AS (
     (
         SELECT
             measured_at AS ma,
-            name,
+            station_id,
 {basic_column_names}
         FROM {target_table}
     )
 ) SELECT
     {time_bucket_function} AS measured_at,
-    name,
+    station_id,
 {columns}
 FROM all_data
-GROUP BY measured_at, name
-ORDER BY measured_at, name'''  # noqa: E501
+GROUP BY measured_at, station_id
+ORDER BY measured_at, station_id'''  # noqa: E501
 
 VIEW_TEMPLATE_DAILY = partial(
     _VIEW_TEMPLATE_BASE.format,
@@ -115,12 +115,22 @@ class {view_name}{inherits}:
 
 {attributes}
 
+    def __repr__(self) -> str:
+        return (
+            f'{{type(self).__name__}}('
+{repr_attrs}
+            f')'
+        )
+
     creation_sql = text('''\\{creation_sql}
     '''){noqa}
 """
 
 
-AVG_EXCLUDES = {'name', 'measured_at', 'protocol_version'}
+AVG_EXCLUDES = {
+    'name', 'measured_at', 'station_id', 'sensor_id',
+    'blg_sensor_id', 'deployment_id',
+}
 
 
 class Col(NamedTuple):
@@ -143,7 +153,7 @@ class Col(NamedTuple):
             agg_func = func.max(self.sqlalchemy_col)
         elif '_min' in self.full_name:
             agg_func = func.min(self.sqlalchemy_col)
-        elif 'category' in self.full_name:
+        elif 'category' in self.full_name or 'version' in self.full_name:
             agg_func = func.mode().within_group(self.sqlalchemy_col.asc())
         elif 'direction' in self.full_name:
             agg_func = func.avg_angle(self.sqlalchemy_col)
@@ -271,7 +281,7 @@ def generate_sqlalchemy_class(
             ),
         )
         # we don't want them to get a _min or _max column
-        other_aggs = {'category', 'count', 'sum', 'max', 'direction'}
+        other_aggs = {'category', 'count', 'sum', 'max', 'direction', 'version'}
         if col.key not in AVG_EXCLUDES and not any(i in col.key for i in other_aggs):
             for suffix in ('_min', '_max'):
                 cols.append(
@@ -293,16 +303,11 @@ def generate_sqlalchemy_class(
         target_agg=target_agg,
     )
 
-    # sort by name but keep the columns name and measured at the first two
+    # sort by name but keep measured as the first column
     cols = [
         Col(
             name='measured_at',
             sqlalchemy_col=table.measured_at,
-            skip_py=avgs_defined_by_inheritance,
-        ),
-        Col(
-            name='name',
-            sqlalchemy_col=table.name,
             skip_py=avgs_defined_by_inheritance,
         ),
         *sorted_cols,
@@ -356,6 +361,14 @@ def generate_sqlalchemy_class(
     # cagg = textwrap.indent('\nis_continuous_aggregate = True',  ' ' * 4)
 
     # finally combine everything and generate the full class
+    repr_attrs_base = [f"f'{i.full_name}={{self.{i.full_name}!r}}, '" for i in cols]
+    repr_attrs = []
+    for i in repr_attrs_base:
+        if len(i) > 76:
+            repr_attrs.append(f'{i}  # noqa: E501')
+        else:
+            repr_attrs.append(i)
+
     class_def = CLASS_TEMPLATE.format(
         view_name=f'{table.__name__}{target_agg.title()}',
         docstring=f'\"""{docstring}\n    \"""' if docstring else '',
@@ -363,6 +376,7 @@ def generate_sqlalchemy_class(
         inherits=inherit_str,
         creation_sql=creation_sql,
         attributes=textwrap.indent(text='\n'.join(py_cols), prefix=' ' * 4),
+        repr_attrs=textwrap.indent(text='\n'.join(repr_attrs), prefix=' ' * 12),
         noqa=noqa,
         table_args=table_args_str,
         is_cagg=cagg,
@@ -391,8 +405,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_biomet_data_hourly_name_measured_at',
-                'name',
+                'ix_biomet_data_hourly_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -414,8 +428,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_temp_rh_data_hourly_name_measured_at',
-                'name',
+                'ix_temp_rh_data_hourly_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -436,8 +450,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_biomet_data_daily_name_measured_at',
-                'name',
+                'ix_biomet_data_daily_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),
@@ -460,8 +474,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         docstring=docstring,
         table_args=(
             Index(
-                'ix_temp_rh_data_daily_name_measured_at',
-                'name',
+                'ix_temp_rh_data_daily_station_id_measured_at',
+                'station_id',
                 'measured_at',
                 unique=True,
             ),

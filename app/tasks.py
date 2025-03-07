@@ -1,7 +1,10 @@
 import os
+from collections.abc import Sequence
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone
 from typing import Any
+from typing import NamedTuple
 from typing import overload
 from typing import Union
 from urllib.error import HTTPError
@@ -39,6 +42,9 @@ from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import LatestData
 from app.models import PET_STRESS_CATEGORIES
+from app.models import Sensor
+from app.models import SensorDeployment
+from app.models import SensorType
 from app.models import SHT35DataRaw
 from app.models import Station
 from app.models import StationType
@@ -60,6 +66,16 @@ def setup_periodic_tasks(
         crontab(minute='*/5'),
         _sync_data_wrapper.s(),
         name='download-data-periodic',
+    )
+    sender.add_periodic_task(
+        crontab(minute='2', hour='*/1'),
+        check_for_new_sensors.s(),
+        name='check-new-sensors-periodic',
+    )
+    sender.add_periodic_task(
+        crontab(minute='2', hour='1'),
+        self_test_integrity.s(),
+        name='self_test_integrity',
     )
 
 
@@ -158,52 +174,62 @@ def estimate_sat_vap_pressure(
     return r
 
 
-async def _download_data(
-        name: str,
+async def _download_sensor_data(
+        sensor: Sensor,
         target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw],
         con: AsyncSession,
-) -> tuple[Station, pd.DataFrame]:
-    """Download data for a station
+) -> pd.DataFrame:
+    """Download data for a sensor if it is deployed.
 
-    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
+    :param sensor: The sensor object from the database
     :param target_table: The target table to insert the data into. This has to
-        correspond to the type of the station provided via ``name``.
+        correspond to the type of the sensor provided via ``sensor``.
     :param con: A async database session
     """
-    station = (
-        # one of which has to be present. The "name" should be unique across all
-        # devices
-        await con.execute(
-            select(Station).where((Station.name == name) | (Station.blg_name == name)),
-        )
-    ).scalar_one()
-
     start_date = (
         await con.execute(
             select(
                 func.max(target_table.measured_at).label('newest_data'),
-            ).where(target_table.name == name),
+            ).where(target_table.sensor_id == sensor.sensor_id),
         )
     ).scalar_one_or_none()
     if start_date is not None:
         # the API request is inclusive, so we need to move forward one tick
         start_date += timedelta(microseconds=1)
     else:
-        start_date = station.setup_date
+        # if we don't have any data from the sensor in the db yet, we need to check all
+        # deployments and find the earliest one
+        start_date = (
+            await con.execute(
+                select(SensorDeployment.setup_date).where(
+                    SensorDeployment.sensor_id == sensor.sensor_id,
+                ).order_by(SensorDeployment.setup_date).limit(1),
+            )
+        ).scalar_one_or_none()
+        if start_date is None:
+            # there never were any deployments of that sensor, hence we cannot get any
+            # data for that sensor
+            return pd.DataFrame()
 
+    # when we download "sensor" data, we can always download up until now (just in case)
+    # selecting the relevant temporal bits based on the deployments can happen when we
+    # perform the calculations.
     data = api.get_readings(
-        device_name=name,
+        device_name=sensor.sensor_id,
         sort='measured_at',
         sort_direction='asc',
         start=start_date,
         as_dataframe=True,
+        stream=True,
+        # the server will end the stream after that timeout
+        timeout=120_000,
     )
     # we cannot trust the api, we need to double check that we don't pass too much data
     # an cause an error when trying to insert into the database
     if not data.empty:
         data = data.loc[start_date:]  # type: ignore[misc]
 
-    return station, data
+    return data
 
 
 @async_task(app=celery_app, name='refresh-all-views')
@@ -220,147 +246,44 @@ async def refresh_all_views(*args: Any, **kwargs: Any) -> None:
     await TempRHDataDaily.refresh()
 
 
-@async_task(
-    app=celery_app,
-    name='download_temp_rh_data',
-    autoretry_for=(HTTPError, TimeoutError),
-    max_retries=3,
-    default_retry_delay=20,
-)
-async def download_temp_rh_data(name: str) -> str | None:
-    """Download data from the a temp-rh station via the Element-Api. This task also
-    enqueues another task for calculating derived parameters for this station.
-
-    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
-    """
-    async with sessionmanager.session() as sess:
-        _, data = await _download_data(name=name, target_table=SHT35DataRaw, con=sess)
-        if data.empty:
-            return None
-
-        data = data.copy()
-        data['name'] = name
-        data = data.rename(columns=RENAMER)
-        data = data[[
-            'name', 'battery_voltage', 'protocol_version',
-            'air_temperature', 'relative_humidity',
-        ]]
-        con = await sess.connection()
-        await con.run_sync(
-            lambda con: data.to_sql(
-                name=SHT35DataRaw.__tablename__,
-                con=con,
-                if_exists='append',
-                chunksize=1024,
-                method='multi',
-            ),
-        )
-        await sess.commit()
-        return name
-
-
-@async_task(
-    app=celery_app,
-    name='download-biomet-data',
-    autoretry_for=(HTTPError, TimeoutError),
-    max_retries=3,
-    default_retry_delay=20,
-)
-async def download_biomet_data(name: str) -> str | None:
-    """Download data from the a biomet station via the Element-Api. This task also
-    enqueues another task for calculating derived parameters for this station.
-
-    :param name: The name of the device as the hexadecimal address e.g. ``DEC0054B0``.
-    """
-    async with sessionmanager.session() as sess:
-        station, data = await _download_data(
-            name=name,
-            target_table=ATM41DataRaw,
-            con=sess,
-        )
-        # if we have no data, simply skip this, but still try getting data for
-        # from the blackglobe. Either station may be unavailable at some point.
-        if not data.empty:
-            # yes, it's stupid, but the only way to silence the warnings in pandas
-            data = data.copy()
-            data.loc[:, 'name'] = name
-            data = data.rename(columns=RENAMER)
-            data = data[[
-                'air_temperature', 'relative_humidity', 'atmospheric_pressure',
-                'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind', 'v_wind',
-                'maximum_wind_speed', 'precipitation_sum', 'solar_radiation',
-                'lightning_average_distance', 'lightning_strike_count',
-                'sensor_temperature_internal', 'x_orientation_angle',
-                'y_orientation_angle', 'name', 'battery_voltage',
-                'protocol_version',
-            ]]
-            con = await sess.connection()
-            await con.run_sync(
-                lambda con: data.to_sql(
-                    name=ATM41DataRaw.__tablename__,
-                    con=con,
-                    if_exists='append',
-                    chunksize=1024,
-                    method='multi',
-                ),
-            )
-        # now download the corresponding blackglobe data
-        assert station.blg_name is not None
-        _, blg_data = await _download_data(
-            name=station.blg_name,
-            target_table=BLGDataRaw,
-            con=sess,
-        )
-        if blg_data.empty:
-            return None
-
-        blg_data = blg_data.copy()
-        blg_data['name'] = station.blg_name
-        blg_data = blg_data.rename(columns=RENAMER)
-        blg_data = blg_data[[
-            'battery_voltage', 'protocol_version', 'black_globe_temperature',
-            'thermistor_resistance', 'voltage_ratio', 'name',
-        ]]
-        con = await sess.connection()
-        await con.run_sync(
-            lambda sync_cont: blg_data.to_sql(
-                name=BLGDataRaw.__tablename__,
-                con=sync_cont,
-                if_exists='append',
-                chunksize=1024,
-                method='multi',
-            ),
-        )
-        await sess.commit()
-        # return the station name for the next task to be picked up
-        return station.name
-
-
 @async_task(app=celery_app, name='download-data')
 async def _sync_data_wrapper() -> None:
     """This enqueues all individual tasks for downloading data from biomet and temp-rh
     stations. The result of the task is no awaited and checked.
     """
     async with sessionmanager.session() as sess:
-        stations = (await sess.execute(select(Station))).scalars().all()
+        stations = (
+            await sess.execute(select(Station).order_by(Station.station_id))
+        ).scalars().all()
         tasks = []
         for station in stations:
-            if station.station_type == StationType.biomet:
-                tasks.append(
-                    chain(
-                        download_biomet_data.s(station.name),
-                        # we don't pass an arg here manually, as the task will return
-                        # the name of the station, which will be passed on
-                        calculate_biomet.s(),
-                    ),
-                )
-            else:
-                tasks.append(
-                    chain(
-                        download_temp_rh_data.s(station.name),
-                        calculate_temp_rh.s(),
-                    ),
-                )
+            match station.station_type:
+                case StationType.biomet:
+                    tasks.append(
+                        chain(
+                            download_station_data.s(station.station_id),
+                            # we don't pass an arg here manually, as the task will
+                            # return the name of the station, which will be passed on
+                            calculate_biomet.s(),
+                        ),
+                    )
+                case StationType.temprh:
+                    tasks.append(
+                        chain(
+                            download_station_data.s(station.station_id),
+                            calculate_temp_rh.s(),
+                        ),
+                    )
+                case StationType.double:
+                    tasks.append(
+                        chain(
+                            download_station_data.s(station.station_id),
+                            group([calculate_biomet.s(), calculate_temp_rh.s()]),
+                        ),
+                    )
+                case _:
+                    raise NotImplementedError
+
         # we now have all tasks prepared and can create a group and run them in parallel
         # the result ([None, ...]) will be passed to the refresh_all_views task, which
         # makes it wait for them. This way we can ensure that the views are only
@@ -370,8 +293,66 @@ async def _sync_data_wrapper() -> None:
         task_chord(refresh_all_views.s())
 
 
+class DeploymentInfo(NamedTuple):
+    latest: datetime
+    station: Station
+    deployments: Sequence[SensorDeployment]
+
+
+async def get_station_deployments(
+        station_id: str,
+        target_table: type[BiometData | TempRHData],
+        con: AsyncSession,
+) -> DeploymentInfo:
+    """Get the deployments for a station and the latest data for that station.
+
+    :param station_id: The station id
+    :param target_table: The target table to check for the latest data
+    :param con: The database connection
+
+    :return: A named tuple with the latest date with data, the station object and the
+        deployments that are relevant.
+    """
+
+    station = (
+        await con.execute(select(Station).where(Station.station_id == station_id))
+    ).scalar_one()
+    # 1. get the newest biomet data, so we can start from there
+    latest = (
+        await con.execute(
+            select(
+                func.max(target_table.measured_at).label('newest_data'),
+            ).where(target_table.station_id == station_id),
+        )
+    ).scalar_one_or_none()
+    # set it to a date early enough, so there was no data, this specific to this
+    # network in Dortmund
+    if latest is None:
+        latest = datetime(2024, 1, 1)
+
+    # 2. get the biomet data, we potentially need to combine multiple deployments
+    deployments = (
+        await con.execute(
+            select(SensorDeployment).where(
+                (SensorDeployment.station_id == station.station_id) &
+                (SensorDeployment.setup_date < latest) &
+                (
+                    (SensorDeployment.teardown_date > latest) |
+                    # we do not need any older deployment, but the current
+                    (SensorDeployment.teardown_date.is_(None))
+                ),
+            ),
+        )
+    ).scalars().all()
+    # we have no deployments via the query, maybe this is the first time we
+    # calculate data for that station? Just get all of them!
+    if not deployments:
+        deployments = station.deployments
+    return DeploymentInfo(latest=latest, station=station, deployments=deployments)
+
+
 @async_task(app=celery_app, name='calculate-biomet')
-async def calculate_biomet(name: str | None) -> None:
+async def calculate_biomet(station_id: str | None) -> None:
     """Calculate derived parameters for a biomet station and insert the result into the
     respective database table.
 
@@ -392,93 +373,111 @@ async def calculate_biomet(name: str | None) -> None:
     - ``pet``
     - ``pet_category``
     """
-    if name is None:
+    # the previous task did not get any new data, hence we can skip the calculation
+    if station_id is None:
         return
 
     async with sessionmanager.session() as sess:
-        # 1. get information on the current station
-        station = (
-            await sess.execute(select(Station).where(Station.name == name))
-        ).scalar_one()
-        # 2. get the newest biomet data, so we can start from there
-        biomet_latest = (
-            await sess.execute(
-                select(
-                    func.max(BiometData.measured_at).label('newest_data'),
-                ).where(BiometData.name == name),
-            )
-        ).scalar_one_or_none()
-        # set it to a date early enough, so there was no data
-        if biomet_latest is None:
-            biomet_latest = datetime(2024, 1, 1)
-
-        # 3. get the biomet data
+        deployment_info = await get_station_deployments(
+            station_id,
+            target_table=BiometData,
+            con=sess,
+        )
+        df_atm41_list = []
+        df_blg_list = []
         con = await sess.connection()
-        atm41_data = await con.run_sync(
-            lambda con: pd.read_sql(
-                sql=select(ATM41DataRaw).where(
-                    (ATM41DataRaw.name == name) &
-                    (ATM41DataRaw.measured_at > biomet_latest),
-                ).order_by(ATM41DataRaw.measured_at),
-                con=con,
-                # we need explicit types, when nothing is set so calculations can
-                # use NaN
-                dtype={
-                    'air_temperature': 'float64',
-                    'relative_humidity': 'float64',
-                    'atmospheric_pressure': 'float64',
-                    'vapor_pressure': 'float64',
-                    'wind_speed': 'float64',
-                    'wind_direction': 'float64',
-                    'u_wind': 'float64',
-                    'v_wind': 'float64',
-                    'maximum_wind_speed': 'float64',
-                    'precipitation_sum': 'float64',
-                    'solar_radiation': 'float64',
-                    'lightning_average_distance': 'float64',
-                    'lightning_strike_count': 'float64',
-                    'sensor_temperature_internal': 'float64',
-                    'x_orientation_angle': 'float64',
-                    'y_orientation_angle': 'float64',
-                    'battery_voltage': 'float64',
-                    'protocol_version': 'Int64',
-                },
-            ),
-        )
-        # we cannot do anything if there is no biomet data
-        if atm41_data.empty:
+        for deployment in deployment_info.deployments:
+            if deployment.sensor.sensor_type == SensorType.atm41:
+                df_tmp_atm41 = await con.run_sync(
+                    lambda con: pd.read_sql(
+                        sql=select(ATM41DataRaw).where(
+                            (ATM41DataRaw.sensor_id == deployment.sensor_id) &
+                            (ATM41DataRaw.measured_at > deployment_info.latest) &
+                            (
+                                ATM41DataRaw.measured_at <= (
+                                    deployment.teardown_date
+                                    if deployment.teardown_date
+                                    else datetime.now(tz=timezone.utc) + timedelta(hours=1)  # noqa: E501
+                                )
+                            ),
+                        ).order_by(ATM41DataRaw.measured_at),
+                        con=con,
+                        # we need explicit types, when nothing is set so calculations
+                        # can use NaN
+                        dtype={
+                            'air_temperature': 'float64',
+                            'relative_humidity': 'float64',
+                            'atmospheric_pressure': 'float64',
+                            'vapor_pressure': 'float64',
+                            'wind_speed': 'float64',
+                            'wind_direction': 'float64',
+                            'u_wind': 'float64',
+                            'v_wind': 'float64',
+                            'maximum_wind_speed': 'float64',
+                            'precipitation_sum': 'float64',
+                            'solar_radiation': 'float64',
+                            'lightning_average_distance': 'float64',
+                            'lightning_strike_count': 'float64',
+                            'sensor_temperature_internal': 'float64',
+                            'x_orientation_angle': 'float64',
+                            'y_orientation_angle': 'float64',
+                            'battery_voltage': 'float64',
+                            'protocol_version': 'Int64',
+                        },
+                    ),
+                )
+                if df_tmp_atm41.empty:
+                    continue
+                else:
+                    df_atm41_list.append(df_tmp_atm41)
+
+            elif deployment.sensor.sensor_type == SensorType.blg:  # pragma: no branch
+                df_tmp_blg = await con.run_sync(
+                    lambda con: pd.read_sql(
+                        sql=select(
+                            BLGDataRaw.measured_at.label('measured_at_blg'),
+                            BLGDataRaw.sensor_id.label('blg_sensor_id'),
+                            BLGDataRaw.black_globe_temperature,
+                            BLGDataRaw.thermistor_resistance,
+                            BLGDataRaw.voltage_ratio,
+                            BLGDataRaw.battery_voltage.label('blg_battery_voltage'),
+                        ).where(
+                            (BLGDataRaw.sensor_id == deployment.sensor_id) &
+                            # we allow earlier black globe measurements to be able to
+                            # tie it to the closest ATM41 measurement, however it must
+                            # not be before the start of the current deployment
+                            (BLGDataRaw.measured_at > deployment.setup_date) &
+                            (BLGDataRaw.measured_at > (deployment_info.latest - timedelta(minutes=5))) &  # noqa: E501
+                            (
+                                BLGDataRaw.measured_at <= (
+                                    deployment.teardown_date
+                                    if deployment.teardown_date
+                                    else datetime.now(tz=timezone.utc) + timedelta(hours=1)  # noqa: E501
+                                )
+                            ),
+                        ).order_by(BLGDataRaw.measured_at),
+                        con=con,
+                        dtype={
+                            'black_globe_temperature': 'float64',
+                            'thermistor_resistance': 'float64',
+                            'voltage_ratio': 'float64',
+                            'blg_battery_voltage': 'float64',
+                        },
+                    ),
+                )
+                if df_tmp_blg.empty:
+                    continue
+                else:
+                    df_blg_list.append(df_tmp_blg)
+
+        # we can't do anything if one of the two has missing data
+        if not df_atm41_list or not df_blg_list:
             return
 
-        # 4. get the biomet data
-        blg_data = await con.run_sync(
-            lambda con: pd.read_sql(
-                sql=select(
-                    BLGDataRaw.measured_at.label('measured_at_blg'),
-                    BLGDataRaw.black_globe_temperature,
-                    BLGDataRaw.thermistor_resistance,
-                    BLGDataRaw.voltage_ratio,
-                    BLGDataRaw.battery_voltage.label('blg_battery_voltage'),
-                ).where(
-                    (BLGDataRaw.name == station.blg_name) &
-                    # we allow earlier blackglobe measurements to be able to tie
-                    # it to the closes ATM41 measurement
-                    (BLGDataRaw.measured_at > (biomet_latest - timedelta(minutes=5))),
-                ).order_by(BLGDataRaw.measured_at),
-                con=con,
-                dtype={
-                    'black_globe_temperature': 'float64',
-                    'thermistor_resistance': 'float64',
-                    'voltage_ratio': 'float64',
-                    'blg_battery_voltage': 'float64',
-                },
-            ),
-        )
-        # if we have no BLG data we cannot merge both and need to wait until new
-        # data comes up
-        if blg_data.empty:
-            return
+        atm41_data = pd.concat(df_atm41_list).sort_values('measured_at')
+        blg_data = pd.concat(df_blg_list).sort_values('measured_at_blg')
 
-        # 5. merge both with a tolerance of 5 minutes
+        # 3. merge both with a tolerance of 5 minutes
         df_biomet = pd.merge_asof(
             left=atm41_data,
             right=blg_data,
@@ -487,7 +486,7 @@ async def calculate_biomet(name: str | None) -> None:
             direction='nearest',
             tolerance=timedelta(minutes=5),
         )
-        # 6. remove the last rows if they don't have black globe data
+        # 4. remove the last rows if they don't have black globe data
         while (
             not df_biomet.empty and
             pd.isna(df_biomet.iloc[-1]['black_globe_temperature'])
@@ -511,7 +510,7 @@ async def calculate_biomet(name: str | None) -> None:
         df_biomet['vapor_pressure'] = df_biomet['vapor_pressure'] * 10
         df_biomet['atmospheric_pressure_reduced'] = reduce_pressure(
             p=df_biomet['atmospheric_pressure'],
-            alt=station.altitude,
+            alt=deployment_info.station.altitude,
         )
 
         df_biomet['absolute_humidity'] = abshum_from_sat_vap_press(
@@ -554,8 +553,8 @@ async def calculate_biomet(name: str | None) -> None:
         df_biomet['utci'] = utci_values['utci']
         df_biomet['utci_category'] = utci_values['stress_category']
         # TODO (LW): validate this with the Klima Michel
-        # we cannot calculate pet with atmospheric pressures of 0 (sometimes sensors)
-        # send this value we need to set them to a value that is not 0
+        # we cannot calculate pet with atmospheric pressures of 0 (sometimes sensors
+        # send this value) we need to set them to a value that is not 0
         atmospheric_pressure_mask = df_biomet['atmospheric_pressure'] == 0
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 1013.25
         df_biomet['pet'] = pet_steady(
@@ -573,10 +572,10 @@ async def calculate_biomet(name: str | None) -> None:
             height=KLIMA_MICHEL['height'],
             wme=0,  # external work, [W/(m2)]
         ).pet
-        # TODO: do the categories even apply to PET?
         df_biomet['pet_category'] = mapping(df_biomet['pet'], PET_STRESS_CATEGORIES)
         # reset the atmospheric pressure to 0 again
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 0
+        df_biomet['station_id'] = station_id
 
         con = await sess.connection()
         await con.run_sync(
@@ -596,7 +595,7 @@ async def calculate_biomet(name: str | None) -> None:
 
 
 @async_task(app=celery_app, name='calculate-temp_rh')
-async def calculate_temp_rh(name: str | None) -> None:
+async def calculate_temp_rh(station_id: str | None) -> None:
     """Calculate derived parameters for a temp-rh station and insert the result into the
     respective database table.
 
@@ -607,57 +606,66 @@ async def calculate_temp_rh(name: str | None) -> None:
     - ``wet_bulb_temperature``
     - ``heat_index``
     """
-    if name is None:
+    # the previous task did not get any new data, hence we can skip the calculation
+    if station_id is None:
         return
 
     async with sessionmanager.session() as sess:
-        station = (
-            await sess.execute(select(Station).where(Station.name == name))
-        ).scalar_one()
-        # 1. get the newest data, so we can start from there
-        latest = (
-            await sess.execute(
-                select(
-                    func.max(TempRHData.measured_at).label('newest_data'),
-                ).where(TempRHData.name == name),
-            )
-        ).scalar_one_or_none()
-        # set it to a date early enough, so there was no data
-        if latest is None:
-            latest = datetime(2024, 1, 1)
-
-        # 3. get the temp and rh data
-        con = await sess.connection()
-        data = await con.run_sync(
-            lambda con: pd.read_sql(
-                sql=select(SHT35DataRaw).where(
-                    (SHT35DataRaw.name == name) &
-                    (SHT35DataRaw.measured_at > latest),
-                ).order_by(SHT35DataRaw.measured_at),
-                con=con,
-                dtype={
-                    'air_temperature': 'float64',
-                    'relative_humidity': 'float64',
-                    'battery_voltage': 'float64',
-                    'protocol_version': 'Int64',
-                },
-            ),
+        deployment_info = await get_station_deployments(
+            station_id,
+            target_table=TempRHData,
+            con=sess,
         )
-        if data.empty:
+        df_list = []
+        con = await sess.connection()
+        for deployment in deployment_info.deployments:
+            # this is relevant, if this is a double station
+            if deployment.sensor.sensor_type != SensorType.sht35:
+                continue
+            df_tmp = await con.run_sync(
+                lambda con: pd.read_sql(
+                    sql=select(SHT35DataRaw).where(
+                        (SHT35DataRaw.sensor_id == deployment.sensor_id) &
+                        (SHT35DataRaw.measured_at > deployment_info.latest) &
+                        (
+                            SHT35DataRaw.measured_at <= (
+                                deployment.teardown_date
+                                if deployment.teardown_date
+                                else datetime.now(tz=timezone.utc) + timedelta(hours=1)
+                            )
+                        ),
+                    ).order_by(SHT35DataRaw.measured_at),
+                    con=con,
+                    dtype={
+                        'air_temperature': 'float64',
+                        'relative_humidity': 'float64',
+                        'battery_voltage': 'float64',
+                        'protocol_version': 'Int64',
+                    },
+                ),
+            )
+            if df_tmp.empty:
+                continue
+            else:
+                # apply the calibration
+                # also save the original values w/o calibration
+                df_tmp['air_temperature_raw'] = df_tmp['air_temperature']
+                df_tmp['relative_humidity_raw'] = df_tmp['relative_humidity']
+                # now subtract the offset for the calibration
+                df_tmp['air_temperature'] = df_tmp['air_temperature_raw'] - \
+                    float(deployment.sensor.temp_calib_offset)
+                df_tmp['relative_humidity'] = df_tmp['relative_humidity_raw'] - \
+                    float(deployment.sensor.relhum_calib_offset)
+                # if we reach a relhum > 100 after calibration, simply set it to 100
+                df_tmp.loc[df_tmp['relative_humidity'] > 100, 'relative_humidity'] = 100
+                df_list.append(df_tmp)
+
+        if not df_list:
             return
 
+        data = pd.concat(df_list)
+
         data = data.set_index('measured_at')
-        # apply the calibration
-        # also save the original values w/o calibration
-        data['air_temperature_raw'] = data['air_temperature']
-        data['relative_humidity_raw'] = data['relative_humidity']
-        # now subtract the offset for the calibration
-        data['air_temperature'] = data['air_temperature_raw'] - \
-            float(station.temp_calib_offset)
-        data['relative_humidity'] = data['relative_humidity_raw'] - \
-            float(station.relhum_calib_offset)
-        # if we reach a relhum > 100 after calibration, simply set it to 100
-        data.loc[data['relative_humidity'] > 100, 'relative_humidity'] = 100
         # calculate derivates
         data['absolute_humidity'] = abshum_from_sat_vap_press(
             temp=data['air_temperature'],
@@ -677,6 +685,7 @@ async def calculate_temp_rh(name: str | None) -> None:
             tdb=data['air_temperature'],
             rh=data['relative_humidity'],
         ).hi
+        data['station_id'] = station_id
         con = await sess.connection()
         await con.run_sync(
             lambda con: data.to_sql(
@@ -688,3 +697,212 @@ async def calculate_temp_rh(name: str | None) -> None:
             ),
         )
         await sess.commit()
+
+
+async def get_latest_data(station: Station, con: AsyncSession) -> datetime | None:
+    """Get the latest date of data for a station.
+
+    :param station: The station object
+    :param con: The database connection
+
+    :return: The latest date with data for the station
+    """
+    async def _max_date(model: type[TempRHData | BiometData]) -> datetime | None:
+        return (
+            await con.execute(
+                select(func.max(model.measured_at)).where(
+                    model.station_id == station.station_id,
+                ),
+            )
+        ).scalar_one_or_none()
+
+    match station.station_type:
+        case StationType.temprh:
+            return await _max_date(TempRHData)
+        case StationType.biomet:
+            return await _max_date(BiometData)
+        case StationType.double:
+            latest_biomet = await _max_date(BiometData)
+            latest_temprh = await _max_date(TempRHData)
+            if latest_biomet is None or latest_temprh is None:
+                return None
+            else:
+                return min(latest_biomet, latest_temprh)
+        case _:
+            raise NotImplementedError
+
+
+@async_task(
+    app=celery_app,
+    name='download_station_data',
+    autoretry_for=(HTTPError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=20,
+)
+async def download_station_data(station_id: str) -> str | None:
+    if station_id:
+        pass
+    else:
+        raise NotImplementedError('No station id provided')
+
+    new_data = None
+    async with sessionmanager.session() as sess:
+        # check what the latest data for that station is
+        station = (
+            await sess.execute(select(Station).where(Station.station_id == station_id))
+        ).scalar_one()
+        # 1. check what we have in the final data table for the current station
+        latest_data = await get_latest_data(station=station, con=sess)
+        # 2. get the deployments that intersect with the timespan until now
+        if latest_data is not None:
+            deployments = (
+                await sess.execute(
+                    select(SensorDeployment).where(
+                        (SensorDeployment.station_id == station.station_id) &
+                        (SensorDeployment.setup_date < latest_data) &
+                        (
+                            (SensorDeployment.teardown_date > latest_data) |
+                            # we don't need older deployment, but the current
+                            (SensorDeployment.teardown_date.is_(None))
+                        ),
+                    ),
+                )
+            ).scalars().all()
+        else:
+            # we never had any data for that station up until now, so we need all
+            # deployments ever made to that station
+            deployments = station.deployments
+        # if there are no deployments ([]), we simply skip the entire iteration
+        con = await sess.connection()
+        for deployment in deployments:
+            # check what kind of sensor we have
+            target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw]
+            match deployment.sensor.sensor_type:
+                case SensorType.sht35:
+                    target_table = SHT35DataRaw
+                    col_selection = [
+                        'sensor_id', 'battery_voltage', 'protocol_version',
+                        'air_temperature', 'relative_humidity',
+                    ]
+                case SensorType.atm41:
+                    target_table = ATM41DataRaw
+                    col_selection = [
+                        'air_temperature', 'relative_humidity', 'atmospheric_pressure',
+                        'vapor_pressure', 'wind_speed', 'wind_direction', 'u_wind',
+                        'v_wind', 'maximum_wind_speed', 'precipitation_sum',
+                        'solar_radiation', 'lightning_average_distance',
+                        'lightning_strike_count', 'sensor_temperature_internal',
+                        'x_orientation_angle', 'y_orientation_angle', 'sensor_id',
+                        'battery_voltage', 'protocol_version',
+                    ]
+                case SensorType.blg:
+                    target_table = BLGDataRaw
+                    col_selection = [
+                        'battery_voltage', 'protocol_version',
+                        'black_globe_temperature', 'thermistor_resistance',
+                        'voltage_ratio', 'sensor_id',
+                    ]
+                case _:
+                    raise NotImplementedError
+
+            # this function checks the times yet again on a per-sensor basis
+            data = await _download_sensor_data(
+                sensor=deployment.sensor,
+                target_table=target_table,
+                con=sess,
+            )
+            # we did not get any data, so we can skip the rest
+            if data.empty:
+                continue
+
+            data = data.copy()
+            data.loc[:, 'sensor_id'] = deployment.sensor_id
+            data = data.rename(columns=RENAMER)
+            data = data[col_selection]
+            # sometimes sensors have duplicates because Element fucked up internally
+            data = data.reset_index()
+            data = data.drop_duplicates()
+            await con.run_sync(
+                lambda con: data.to_sql(
+                    name=target_table.__tablename__,
+                    con=con,
+                    if_exists='append',
+                    chunksize=1024,
+                    method='multi',
+                    index=False,
+                ),
+            )
+            new_data = True
+        await sess.commit()
+        # return the station name for the next task to be picked up
+        return station.station_id if new_data else None
+
+DEVICE_TYPE_MAPPING = {
+    'ATM41': SensorType.atm41,
+    'SHT35': SensorType.sht35,
+    'DL-BLG-001': SensorType.blg,
+}
+
+
+@async_task(
+    app=celery_app,
+    name='check-new-sensors',
+    autoretry_for=(HTTPError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=20,
+)
+async def check_for_new_sensors() -> None:
+    # compile a list of sensors that are present in the Element system. They may be in
+    # any of the folders assigned to the project
+    project_folders = [
+        f for f in api.get_folder_slugs() if f.startswith('stadt-dortmund-klimasensoren')  # noqa: E501
+    ]
+    # now get all hexadecimal device addresses in those folders
+    _device_addrs: list[str] = []
+    for folder in project_folders:
+        _device_addrs.extend(api.get_device_addresses(folder))
+
+    device_addrs = set(_device_addrs)
+    # now get the sensors that we have in the database and compare both
+    async with sessionmanager.session() as sess:
+        sensors = set((await sess.execute(select(Sensor.sensor_id))).scalars().all())
+        new_sensors = device_addrs - sensors
+        if new_sensors:  # pragma: no branch
+            for sensor_id in new_sensors:
+                # get more detailed information about the sensor
+                sensor_info = api.get_device(address=sensor_id)['body']
+                # we have to omit the calibration information, since new sensors do not
+                # have any calibration information
+                sensor = Sensor(
+                    sensor_id=sensor_id,
+                    device_id=api.decentlab_id_from_address(sensor_id),
+                    sensor_type=DEVICE_TYPE_MAPPING[
+                        sensor_info['fields']['gerateinformation']['geratetyp']
+                    ],
+                )
+                print(f'Adding new sensor: {sensor}')
+                sess.add(sensor)
+            await sess.commit()
+
+
+@async_task(app=celery_app, name='self-test-integrity')
+async def self_test_integrity() -> None:
+    """Ideally this would be superflous and handle by the database definition, but
+    this is hard to implement and complicates all tests. Hence we do it here.
+    """
+    # check that a sensor is not deployed simultaneously at two stations, so the
+    # sensor_id must be unique
+    async with sessionmanager.session() as sess:
+        stm = (
+            select(SensorDeployment.sensor_id)
+            .group_by(SensorDeployment.sensor_id)
+            .having(func.count() > 1)
+        )
+        # get all active deployments
+        duplicates = (await sess.execute(stm)).scalars().all()
+        if duplicates:
+            raise ValueError(
+                f'Found duplicate sensor deployments affecting theses sensor(s): '
+                f'{", ".join(duplicates)}',
+            )
+        # TODO: check that contigous deployments of the same sensor type do not overlap

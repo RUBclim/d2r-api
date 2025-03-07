@@ -27,6 +27,11 @@ optional-dependencies = { dev = { file = ["requirements-dev.txt"] } }
 
 [tool.coverage.report]
 fail_under = 50
+exclude_also = [
+    # needed because of: https://github.com/nedbat/coveragepy/issues/1563
+    "raise NotImplementedError",
+    "case _:\\n\\s*raise NotImplementedError",
+]
 
 [tool.coverage.run]
 parallel = true
