@@ -36,7 +36,10 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.schemas import Deployment
 from app.schemas import NetworkValue
+from app.schemas import NewDeployment
+from app.schemas import OkResponse
 from app.schemas import PublicParams
 from app.schemas import PublicParamsAggregates
 from app.schemas import Response
@@ -808,3 +811,83 @@ async def get_network_snapshot(
 
     data = (await db.execute(query)).mappings().all()
     return Response(data=data)
+
+
+@router.get(
+    '/deployments',
+    response_model=Response[list[Deployment]],
+    tags=['deployments'],
+)
+async def get_deployments(db: AsyncSession = Depends(get_db_session)) -> Any:
+    query = select(
+        SensorDeployment.deployment_id,
+        SensorDeployment.sensor_id,
+        SensorDeployment.station_id,
+        SensorDeployment.setup_date,
+        SensorDeployment.teardown_date,
+    ).order_by(SensorDeployment.deployment_id)
+    data = (await db.execute(query)).mappings().all()
+    return Response(data=data)
+
+
+@router.post(
+    '/deployments',
+    response_model=Response[NewDeployment],
+    tags=['deployments'],
+)
+async def create_deployment(
+        deployment: NewDeployment,
+        db: AsyncSession = Depends(get_db_session),
+) -> Any:
+    new_deployment = SensorDeployment(**deployment.model_dump())
+    db.add(new_deployment)
+    await db.commit()
+    return Response(data=new_deployment)
+
+
+@router.put(
+    '/deployments/{deployment_id}',
+    response_model=Response[NewDeployment],
+    tags=['deployments'],
+)
+async def update_deployment(
+        deployment_id: int,
+        deployment: NewDeployment,
+        db: AsyncSession = Depends(get_db_session),
+) -> Any:
+    db_deployment = (
+        await db.execute(
+            select(SensorDeployment)
+            .where(SensorDeployment.deployment_id == deployment_id),
+        )
+    ).scalar_one_or_none()
+    if db_deployment is None:
+        raise HTTPException(status_code=404, detail='Deployment not found')
+    db_deployment.sensor_id = deployment.sensor_id
+    db_deployment.station_id = deployment.station_id
+    db_deployment.setup_date = deployment.setup_date
+    db_deployment.teardown_date = deployment.teardown_date
+    await db.commit()
+    return Response(data=db_deployment)
+
+
+@router.delete(
+    '/deployments/{deployment_id}',
+    response_model=Response[OkResponse],
+    tags=['deployments'],
+)
+async def delete_deployment(
+        deployment_id: int,
+        db: AsyncSession = Depends(get_db_session),
+) -> Any:
+    db_deployment = (
+        await db.execute(
+            select(SensorDeployment)
+            .where(SensorDeployment.deployment_id == deployment_id),
+        )
+    ).scalar_one_or_none()
+    if db_deployment is None:
+        raise HTTPException(status_code=404, detail='Deployment not found')
+    await db.delete(db_deployment)
+    await db.commit()
+    return Response(data={'ok': True})

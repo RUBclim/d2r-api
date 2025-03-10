@@ -660,3 +660,37 @@ class NetworkValue(Parameters, ParametersAgg):
             'of parameters is available.'
         ),
     )
+
+
+class NewDeployment(BaseModel):
+    sensor_id: str = Field(
+        examples=['DEC005491'],
+        description='The unique identifier of a sensor (hexadecimal) address',
+    )
+    station_id: str = Field(
+        examples=['DOBHAP'],
+        description='The unique identifier of the station',
+    )
+    setup_date: datetime = Field(
+        examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
+        description='The exact time the sensor was deployed in **UTC**',
+    )
+    teardown_date: datetime | None = Field(
+        default=None,
+        examples=[None],
+        description=(
+            'The exact time the sensor was torn down in **UTC**, '
+            '`null` if still active'
+        ),
+    )
+
+
+class Deployment(NewDeployment):
+    deployment_id: int = Field(
+        examples=[42],
+        description='The unique identifier of the deployment',
+    )
+
+
+class OkResponse(BaseModel):
+    ok: bool = Field(default=True)
