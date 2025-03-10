@@ -14,6 +14,7 @@ from app.models import BiometDataHourly
 from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import Sensor
+from app.models import SensorDeployment
 from app.models import SensorType
 from app.models import Station
 from app.models import StationType
@@ -65,7 +66,26 @@ async def test_head_healthcheck(app: AsyncClient) -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('stations', [2], indirect=True)
-async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -> None:
+async def test_get_station_metadata(
+        app: AsyncClient,
+        stations: list[Station],
+        db: AsyncSession,
+) -> None:
+    deployments = [
+        SensorDeployment(
+            sensor_id='DEC1',
+            station_id='DOB1',
+            setup_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            sensor_id='DEC2',
+            station_id='DOB2',
+            setup_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in deployments:
+        db.add(d)
+    await db.commit()
     resp = await app.get('/v1/stations/metadata')
     assert resp.status_code == 200
     assert resp.json()['data'] == [
@@ -93,7 +113,50 @@ async def test_get_station_metadata(app: AsyncClient, stations: list[Station]) -
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_station_metadata_include_inactive(
+        app: AsyncClient,
+        stations: list[Station],
+) -> None:
+    resp = await app.get('/v1/stations/metadata', params={'include_inactive': True})
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-1',
+            'longitude': 7.2627,
+            'station_id': 'DOB1',
+            'station_type': 'biomet',
+        },
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-2',
+            'longitude': 7.2627,
+            'station_id': 'DOB2',
+            'station_type': 'biomet',
+        },
+    ]
+
+
+@pytest.mark.anyio
 async def test_get_station_metadata_no_stations(app: AsyncClient) -> None:
+    resp = await app.get('/v1/stations/metadata')
+    assert resp.status_code == 200
+    assert resp.json()['data'] == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_station_metadata_no_deployments_at_station(
+        app: AsyncClient,
+        stations: list[Station],
+) -> None:
     resp = await app.get('/v1/stations/metadata')
     assert resp.status_code == 200
     assert resp.json()['data'] == []
