@@ -468,11 +468,22 @@ async def test_data_table_relations(db: AsyncSession) -> None:
     assert biomet_data.sensor.sensor_id == 'DEC2'
     assert biomet_data.blg_sensor is not None
     assert biomet_data.blg_sensor.sensor_id == 'DEC3'
+    # mhm, that does not work as expected?
+    assert len(biomet_data.deployments) == 2
+    # make sure the deployments have both station types
+    assert [i.sensor.sensor_type for i in biomet_data.deployments] == [
+        SensorType.atm41,
+        SensorType.blg,
+    ]
+    # an old deployment, but values are still associated with it!
+    assert [i.deployment_id for i in biomet_data.deployments] == [4, 6]
 
     temprh_data = (await db.execute(select(TempRHData))).scalar()
     assert temprh_data is not None
     assert temprh_data.station.station_id == 'DOT1'
     assert temprh_data.sensor.sensor_id == 'DEC1'
+    # this deployment has already ended, but the value is associated with the deployment
+    assert temprh_data.deployment.deployment_id == 2
 
 
 @pytest.mark.anyio

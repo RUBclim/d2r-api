@@ -594,6 +594,21 @@ class BiometData(
         lazy='selectin',
     )
 
+    deployments: Mapped[list[SensorDeployment]] = relationship(
+        SensorDeployment,
+        primaryjoin=(
+            '(BiometData.station_id == foreign(SensorDeployment.station_id)) &'
+            '('
+            '    (BiometData.measured_at.between(SensorDeployment.setup_date, SensorDeployment.teardown_date))'  # noqa: E501
+            '    |'
+            '    ((SensorDeployment.setup_date <= BiometData.measured_at) & SensorDeployment.teardown_date.is_(None))'  # noqa: E501
+            ')'
+        ),
+        order_by=SensorDeployment.deployment_id,
+        lazy='selectin',
+        viewonly=True,
+    )
+
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
     __tablename__ = 'temp_rh_data'
@@ -615,6 +630,20 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
     )
     station: Mapped[Station] = relationship(lazy=True)
     sensor: Mapped[Sensor] = relationship(lazy=True)
+
+    deployment: Mapped[SensorDeployment] = relationship(
+        SensorDeployment,
+        primaryjoin=(
+            '(TempRHData.station_id == foreign(SensorDeployment.station_id)) &'
+            '('
+            '    (TempRHData.measured_at.between(SensorDeployment.setup_date, SensorDeployment.teardown_date))'  # noqa: E501
+            '    |'
+            '    ((SensorDeployment.setup_date <= TempRHData.measured_at) & SensorDeployment.teardown_date.is_(None))'  # noqa: E501
+            ')'
+        ),
+        lazy='selectin',
+        viewonly=True,
+    )
 
 
 class MaterializedView(Base):
