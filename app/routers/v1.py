@@ -14,6 +14,7 @@ from sqlalchemy import and_
 from sqlalchemy import cast
 from sqlalchemy import Column
 from sqlalchemy import CompoundSelect
+from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import Function
 from sqlalchemy import Select
@@ -29,6 +30,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import LatestData
+from app.models import SensorDeployment
 from app.models import Station
 from app.models import StationType
 from app.models import TempRHData
@@ -74,23 +76,38 @@ async def is_healthy(db: AsyncSession = Depends(get_db_session)) -> dict[str, st
     response_model=Response[list[schemas.StationMetadata]],
     tags=['stations'],
 )
-async def get_stations_metadata(db: AsyncSession = Depends(get_db_session)) -> Any:
+async def get_stations_metadata(
+        db: AsyncSession = Depends(get_db_session),
+        include_inactive: bool = Query(
+            False,
+            description=(
+                'If True, also stations that currently do not have an active '
+                'deployment (sensor mounted) are included, otherwise they are omitted.'
+            ),
+        ),
+) -> Any:
     """API-endpoint for retrieving metadata from all available stations. This does
     not take into account whether or not they currently have any up-to-date data."""
-    data = (
-        await db.execute(
-            select(
-                Station.station_id,
-                Station.long_name,
-                Station.latitude,
-                Station.longitude,
-                Station.altitude,
-                Station.district,
-                Station.lcz,
-                Station.station_type,
-            ).order_by(Station.station_id),
-        )
+    query = select(
+        Station.station_id,
+        Station.long_name,
+        Station.latitude,
+        Station.longitude,
+        Station.altitude,
+        Station.district,
+        Station.lcz,
+        Station.station_type,
     )
+    if include_inactive is False:
+        query = query.where(
+            exists().where(
+                (SensorDeployment.station_id == Station.station_id) &
+                # a deployment without a teardown_date is an active deployment
+                (SensorDeployment.teardown_date.is_(None)),
+            ),
+        )
+
+    data = (await db.execute(query.order_by(Station.station_id)))
     return Response(data=data.mappings().all())
 
 
