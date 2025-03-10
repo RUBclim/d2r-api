@@ -25,6 +25,7 @@ repos:
         additional_dependencies:
             - sqlalchemy
             - psycopg[binary] > 3.2.0
+            - passlib
 -   repo: https://github.com/pycqa/flake8
     rev: 7.1.2
     hooks:
@@ -81,5 +82,6 @@ repos:
             'alembic==1.13.3',
             'pandas-stubs==2.2.3.241009',
             'sqlmodel==0.0.22',
-            'pythermalcomfort==3.0.0'
+            'pythermalcomfort==3.0.0',
+            'pyjwt==2.10.1',
         ]

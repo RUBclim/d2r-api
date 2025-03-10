@@ -5,6 +5,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from passlib.context import CryptContext
 from psycopg import sql
 from sqlalchemy import BigInteger
 from sqlalchemy import Connection
@@ -73,6 +74,23 @@ PET_STRESS_CATEGORIES: dict[float, HeatStressCategories] = {
 
 # we need this for pandas to be able to insert enums via .to_sql
 _HeatStressCategories = ENUM(HeatStressCategories)
+
+pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+
+class User(Base):
+    __tablename__ = 'api_user'
+    username: Mapped[str] = mapped_column(Text, primary_key=True)
+    hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
+    disabled: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default='false',
+    )
+
+    def verify_password(self, plain_password: str) -> bool:
+        return pwd_context.verify(plain_password, self.hashed_password)
+
+    def __repr__(self) -> str:
+        return f'{type(self).__name__}(username={self.username!r})'
 
 
 class Station(Base):

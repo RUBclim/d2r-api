@@ -36,6 +36,7 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.routers.auth import get_current_active_user
 from app.schemas import Deployment
 from app.schemas import NetworkValue
 from app.schemas import NewDeployment
@@ -817,6 +818,7 @@ async def get_network_snapshot(
     '/deployments',
     response_model=Response[list[Deployment]],
     tags=['deployments'],
+    dependencies=[Depends(get_current_active_user)],
 )
 async def get_deployments(db: AsyncSession = Depends(get_db_session)) -> Any:
     query = select(
@@ -834,6 +836,7 @@ async def get_deployments(db: AsyncSession = Depends(get_db_session)) -> Any:
     '/deployments',
     response_model=Response[NewDeployment],
     tags=['deployments'],
+    dependencies=[Depends(get_current_active_user)],
 )
 async def create_deployment(
         deployment: NewDeployment,
@@ -849,6 +852,7 @@ async def create_deployment(
     '/deployments/{deployment_id}',
     response_model=Response[NewDeployment],
     tags=['deployments'],
+    dependencies=[Depends(get_current_active_user)],
 )
 async def update_deployment(
         deployment_id: int,
@@ -875,6 +879,7 @@ async def update_deployment(
     '/deployments/{deployment_id}',
     response_model=Response[OkResponse],
     tags=['deployments'],
+    dependencies=[Depends(get_current_active_user)],
 )
 async def delete_deployment(
         deployment_id: int,
