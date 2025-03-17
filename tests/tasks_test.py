@@ -617,10 +617,11 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     assert float(d.protocol_version) == 2
 
     # some applied calculations must be correct
-    assert float(d.dew_point) == pytest.approx(9.5, abs=1e-2)
+    assert float(d.dew_point) == pytest.approx(9.48, abs=1e-2)
     assert float(d.absolute_humidity) == pytest.approx(9.01, abs=1e-2)
-    assert float(d.heat_index) == pytest.approx(25.8, abs=1e-2)
-    assert float(d.wet_bulb_temperature) == pytest.approx(10.1, abs=1e-2)
+    assert float(d.specific_humidity) == pytest.approx(7.3, abs=1e-2)
+    assert float(d.heat_index) == pytest.approx(10.96, abs=1e-2)
+    assert float(d.wet_bulb_temperature) == pytest.approx(10.1, abs=1e-1)
 
     # the calibration would have pushed it > 100, make sure we manually set it back
     assert data[-1].relative_humidity == 100
@@ -868,7 +869,7 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.utci) == pytest.approx(12.00, abs=10e-2)
     assert d.utci_category == HeatStressCategories.no_thermal_stress
 
-    assert float(d.pet) == 9.9
+    assert float(d.pet) == pytest.approx(8.33, abs=10e-2)
     assert d.pet_category == HeatStressCategories.moderate_cold_stress
 
     assert float(d.atmospheric_pressure) == 996.9
@@ -892,10 +893,11 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
     assert float(d.battery_voltage) == 2.866
     assert float(d.blg_battery_voltage) == 3.039
     assert float(d.protocol_version) == 2
-    assert float(d.dew_point) == 10.4
+    assert float(d.dew_point) == pytest.approx(10.41, abs=1e-2)
     assert float(d.absolute_humidity) == pytest.approx(9.55, abs=1e-2)
-    assert float(d.heat_index) == pytest.approx(24.1, abs=1e-1)
-    assert float(d.wet_bulb_temperature) == 11.1
+    assert float(d.specific_humidity) == pytest.approx(7.89, abs=1e-2)
+    assert float(d.heat_index) == pytest.approx(12.07, abs=1e-2)
+    assert float(d.wet_bulb_temperature) == pytest.approx(11.1, abs=1e-1)
 
 
 @pytest.mark.anyio

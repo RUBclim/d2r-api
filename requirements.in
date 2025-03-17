@@ -3,18 +3,13 @@ asgiref
 celery[redis]
 fastapi
 git+https://github.com/RUBclim/element-api@0.2.1
+git+https://github.com/RUBclim/thermal-comfort@0.3.2
 gunicorn
 psycopg[binary] > 3.2.0
 psycopg2-binary
-pythermalcomfort
-# something is fucked in one of the depencies which makes us getting a very old version
-# so we are requesting them to be newer, but are not directly depending on them
-llvmlite>=0.43.0
-numba>=0.60.0
 pydantic<2.10.0
 sentry_sdk[fastapi]
 sqlmodel
-# we want the latest terracotta version, so we can use numpy > 2.0 and the turbo colormap
 terracotta>=0.8.6
 uvicorn
 uvicorn-worker

@@ -2505,7 +2505,7 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
                 'ctx': {
                     'expected': (
                         'absolute_humidity, air_temperature, dew_point, heat_index, '
-                        'relative_humidity, wet_bulb_temperature'
+                        'relative_humidity, specific_humidity, wet_bulb_temperature'
                     ),
                 },
                 'input': 'relative_humidity_max',
@@ -2513,7 +2513,7 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
                 'msg': (
                     'This station is of type "temprh", hence the input should be: '
                     'absolute_humidity, air_temperature, dew_point, heat_index, '
-                    'relative_humidity, wet_bulb_temperature'
+                    'relative_humidity, specific_humidity, wet_bulb_temperature'
                 ),
                 'type': 'enum',
             },
