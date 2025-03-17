@@ -51,10 +51,6 @@ from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
 
-# TODO: the pythermalcomfort imports are incredibly slow - we might as well just
-# vendor the functions we need or even use them in C/fortran as the original
-# ones
-
 
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(
@@ -527,7 +523,6 @@ async def calculate_biomet(station_id: str | None) -> None:
             ),
             axis=1,
         )
-        # TODO: do the categories even apply to PET?
         df_biomet['pet_category'] = category_mapping(
             df_biomet['pet'],
             PET_STRESS_CATEGORIES,

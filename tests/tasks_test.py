@@ -479,8 +479,6 @@ async def test_calculate_values_for_double_stations(db: AsyncSession) -> None:
         street='test-street',
         plz=12345,
     )
-    # now add sensors and deployments
-    # TODO: we need to add the sensors and deployments
     db.add(station)
     await db.commit()
     await calculate_temp_rh('DODSTH')
