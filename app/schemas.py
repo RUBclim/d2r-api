@@ -247,37 +247,124 @@ class Response(BaseModel, Generic[T]):
     )
 
 
+class PublicStationMetadata(StrEnum):
+    long_name = 'long_name'
+    latitude = 'latitude'
+    longitude = 'longitude'
+    altitude = 'altitude'
+    street = 'street'
+    number = 'number'
+    plz = 'plz'
+    city = 'city'
+    country = 'country'
+    district = 'district'
+    urban_atlas_class_name = 'urban_atlas_class_name'
+    urban_atlas_class_nr = 'urban_atlas_class_nr'
+    svf = 'svf'
+    lcz = 'lcz'
+    sensor_height_agl = 'sensor_height_agl'
+    sensor_distance_from_mounting_structure = 'sensor_distance_from_mounting_structure'
+    station_type = 'station_type'
+
+
 class StationMetadata(BaseModel):
     """Metadata of a deployed measurement station"""
     station_id: str = Field(
         examples=['DOBHAP'],
         description='The unique identifier of the station',
     )
-    long_name: str = Field(
+    long_name: str | None = Field(
+        None,
         examples=['Friedensplatz'],
         description='A longer, more descriptive name of the station',
     )
-    latitude: float = Field(
+    latitude: float | None = Field(
+        None,
         examples=[51.51116],
         description='The latitude of the station in **°** (WGS 84)',
     )
-    longitude: float = Field(
+    longitude: float | None = Field(
+        None,
         examples=[7.46607],
         description='The longitude of the station in **°** (WGS 84)',
     )
-    altitude: float = Field(
+    altitude: float | None = Field(
+        None,
         examples=[110.5],
         description='The altitude above sea level of the station in **m**',
     )
+    street: str | None = Field(
+        None,
+        examples=['Schwerter Str'],
+        description='The street the station is installed at',
+    )
+    number: str | None = Field(
+        None,
+        examples=['13a'],
+        description='The number of the closest building',
+    )
+    plz: int | None = Field(
+        None,
+        examples=[44139],
+        description='The ZIP-code (Postleitzahl) of the station',
+    )
+    city: str | None = Field(
+        None,
+        examples=['Dortmund'],
+        description='The city the station is located in',
+    )
+    country: str | None = Field(
+        None,
+        examples=['Germany'],
+        description='The country the station is located in',
+    )
     district: str | None = Field(
+        None,
         examples=['Innenstadt'],
         description='The name of the city district, that station is located in',
     )
+    urban_atlas_class_name: str | None = Field(
+        None,
+        examples=['Other roads and associated land'],
+        description=(
+            'The **name** of the corresponding land use class defined by the '
+            'urban atlas'
+        ),
+    )
+    urban_atlas_class_nr: int | None = Field(
+        None,
+        examples=[12220],
+        description=(
+            'The **number** of the corresponding land use class defined by the '
+            'urban atlas'
+        ),
+    )
+    svf: float | None = Field(
+        None,
+        examples=[0.75],
+        description='The Sky View Factor at the station',
+        ge=0,
+        le=1,
+    )
     lcz: LCZClass | None = Field(
+        None,
         examples=[2],
         description='The abbreviated Local Climate Zone Class',
     )
-    station_type: StationType = Field(
+    sensor_height_agl: float | None = Field(
+        None,
+        examples=[3.3],
+        description='The height of the sensor above ground in **m**',
+        ge=0,
+    )
+    sensor_distance_from_mounting_structure: float | None = Field(
+        None,
+        examples=[0.3],
+        description='The distance of the sensor from the mounting structure in **m**',
+        ge=0,
+    )
+    station_type: StationType | None = Field(
+        None,
         examples=[StationType.biomet],
         description=(
             'The type of the station. Depending on the station type, a different set '
