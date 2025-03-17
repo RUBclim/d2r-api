@@ -457,9 +457,11 @@ async def calculate_biomet(station_id: str | None) -> None:
         # convert kPa to hPa
         df_biomet['atmospheric_pressure'] = df_biomet['atmospheric_pressure'] * 10
         df_biomet['vapor_pressure'] = df_biomet['vapor_pressure'] * 10
+        # we need to add the mounting height above ground
+        mounting_height = deployment_info.station.sensor_height_agl or 0.0
         df_biomet['atmospheric_pressure_reduced'] = reduce_pressure(
             p=df_biomet['atmospheric_pressure'],
-            alt=deployment_info.station.altitude,
+            alt=deployment_info.station.altitude + float(mounting_height),
         )
 
         df_biomet['absolute_humidity'] = absolute_humidity(
