@@ -59,7 +59,7 @@ sqlalchemy==2.0.38
 sqlmodel==0.0.24
 starlette==0.46.1
 terracotta==0.8.6
-thermal-comfort @ git+https://github.com/RUBclim/thermal-comfort@bd07a2973d8cb9735ae1acc2289d43a5c63f77f3
+thermal-comfort @ git+https://github.com/RUBclim/thermal-comfort@62210a156ee3b5d2880cb4196d99dd72d582feb8
 toml==0.10.2
 tqdm==4.67.1
 typing-extensions==4.12.2
