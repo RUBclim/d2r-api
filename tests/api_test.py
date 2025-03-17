@@ -91,23 +91,43 @@ async def test_get_station_metadata(
     assert resp.json()['data'] == [
         {
             'altitude': 100.0,
+            'city': 'Dortmund',
+            'country': 'Germany',
             'district': 'Innenstadt',
             'latitude': 51.446,
             'lcz': '2',
             'long_name': 'test-station-1',
             'longitude': 7.2627,
+            'number': None,
+            'plz': 12345,
+            'sensor_distance_from_mounting_structure': None,
+            'sensor_height_agl': None,
             'station_id': 'DOB1',
             'station_type': 'biomet',
+            'street': 'test-street',
+            'svf': None,
+            'urban_atlas_class_name': None,
+            'urban_atlas_class_nr': None,
         },
         {
             'altitude': 100.0,
+            'city': 'Dortmund',
+            'country': 'Germany',
             'district': 'Innenstadt',
             'latitude': 51.446,
             'lcz': '2',
             'long_name': 'test-station-2',
             'longitude': 7.2627,
+            'number': None,
+            'plz': 12345,
+            'sensor_distance_from_mounting_structure': None,
+            'sensor_height_agl': None,
             'station_id': 'DOB2',
             'station_type': 'biomet',
+            'street': 'test-street',
+            'svf': None,
+            'urban_atlas_class_name': None,
+            'urban_atlas_class_nr': None,
         },
     ]
 
@@ -123,23 +143,43 @@ async def test_get_station_metadata_include_inactive(
     assert resp.json()['data'] == [
         {
             'altitude': 100.0,
+            'city': 'Dortmund',
+            'country': 'Germany',
             'district': 'Innenstadt',
             'latitude': 51.446,
             'lcz': '2',
             'long_name': 'test-station-1',
             'longitude': 7.2627,
+            'number': None,
+            'plz': 12345,
+            'sensor_distance_from_mounting_structure': None,
+            'sensor_height_agl': None,
             'station_id': 'DOB1',
             'station_type': 'biomet',
+            'street': 'test-street',
+            'svf': None,
+            'urban_atlas_class_name': None,
+            'urban_atlas_class_nr': None,
         },
         {
             'altitude': 100.0,
+            'city': 'Dortmund',
+            'country': 'Germany',
             'district': 'Innenstadt',
             'latitude': 51.446,
             'lcz': '2',
             'long_name': 'test-station-2',
             'longitude': 7.2627,
+            'number': None,
+            'plz': 12345,
+            'sensor_distance_from_mounting_structure': None,
+            'sensor_height_agl': None,
             'station_id': 'DOB2',
             'station_type': 'biomet',
+            'street': 'test-street',
+            'svf': None,
+            'urban_atlas_class_name': None,
+            'urban_atlas_class_nr': None,
         },
     ]
 
@@ -160,6 +200,31 @@ async def test_get_station_metadata_no_deployments_at_station(
     resp = await app.get('/v1/stations/metadata')
     assert resp.status_code == 200
     assert resp.json()['data'] == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_station_metadata_subset_of_cols(
+        app: AsyncClient,
+        stations: list[Station],
+) -> None:
+    resp = await app.get(
+        '/v1/stations/metadata',
+        params={'include_inactive': True, 'param': ['altitude', 'city']},
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'station_id': 'DOB1',
+            'altitude': 100.0,
+            'city': 'Dortmund',
+        },
+        {
+            'station_id': 'DOB2',
+            'altitude': 100.0,
+            'city': 'Dortmund',
+        },
+    ]
 
 
 @pytest.mark.anyio

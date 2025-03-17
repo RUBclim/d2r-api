@@ -74,10 +74,17 @@ async def is_healthy(db: AsyncSession = Depends(get_db_session)) -> dict[str, st
 @router.get(
     '/stations/metadata',
     response_model=Response[list[schemas.StationMetadata]],
+    response_model_exclude_unset=True,
     tags=['stations'],
 )
 async def get_stations_metadata(
-        db: AsyncSession = Depends(get_db_session),
+        param: list[schemas.PublicStationMetadata] = Query(
+            None,
+            description=(
+                'The parameter(s) of the metadata to get. If no parameter is set, all '
+                'available parameters will be returned.'
+            ),
+        ),
         include_inactive: bool = Query(
             False,
             description=(
@@ -85,19 +92,16 @@ async def get_stations_metadata(
                 'deployment (sensor mounted) are included, otherwise they are omitted.'
             ),
         ),
+        db: AsyncSession = Depends(get_db_session),
 ) -> Any:
     """API-endpoint for retrieving metadata from all available stations. This does
     not take into account whether or not they currently have any up-to-date data."""
-    query = select(
-        Station.station_id,
-        Station.long_name,
-        Station.latitude,
-        Station.longitude,
-        Station.altitude,
-        Station.district,
-        Station.lcz,
-        Station.station_type,
-    )
+    # if no parameters are specified, send all available params
+    if not param:
+        columns = [getattr(Station, i.value) for i in schemas.PublicStationMetadata]
+    else:
+        columns = [getattr(Station, i) for i in param]
+    query = select(Station.station_id, *columns)
     if include_inactive is False:
         query = query.where(
             exists().where(
