@@ -234,6 +234,7 @@ async def _sync_data_wrapper() -> None:
         # refreshed once all data was inserted.
         task_group = group(tasks)
         task_chord = chord(task_group)
+        # TODO: this is not executed if any of the tasks fail
         task_chord(refresh_all_views.s())
 
 
@@ -778,7 +779,17 @@ async def download_station_data(station_id: str) -> str | None:
             data = data.copy()
             data.loc[:, 'sensor_id'] = deployment.sensor_id
             data = data.rename(columns=RENAMER)
-            data = data[col_selection]
+            # sometimes the API returns a very strange different set of columns
+            # we can only ignore it...
+            try:
+                data = data[col_selection]
+            except KeyError:
+                print(
+                    f'Could not process data for sensor {deployment.sensor_id}. '
+                    f'Expected: {col_selection}, but got: {data.columns}',
+                )
+                return None
+
             # sometimes sensors have duplicates because Element fucked up internally
             data = data.reset_index()
             data = data.drop_duplicates()
