@@ -68,6 +68,8 @@ services:
     ]
     ports:
       - "5001:5000"
+    volumes:
+      - ./app:/usr/src/app/app:ro
 
   nginx:
     ports:
