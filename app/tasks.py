@@ -292,7 +292,7 @@ async def get_station_deployments(
     # we have no deployments via the query, maybe this is the first time we
     # calculate data for that station? Just get all of them!
     if not deployments:
-        deployments = station.deployments
+        deployments = (await station.awaitable_attrs.deployments)
     return DeploymentInfo(latest=latest, station=station, deployments=deployments)
 
 
@@ -333,7 +333,7 @@ async def calculate_biomet(station_id: str | None) -> None:
         df_blg_list = []
         con = await sess.connection()
         for deployment in deployment_info.deployments:
-            if deployment.sensor.sensor_type == SensorType.atm41:
+            if (await deployment.awaitable_attrs.sensor).sensor_type == SensorType.atm41:  # noqa: E501
                 df_tmp_atm41 = await con.run_sync(
                     lambda con: pd.read_sql(
                         sql=select(ATM41DataRaw).where(
@@ -576,7 +576,7 @@ async def calculate_temp_rh(station_id: str | None) -> None:
         con = await sess.connection()
         for deployment in deployment_info.deployments:
             # this is relevant, if this is a double station
-            if deployment.sensor.sensor_type != SensorType.sht35:
+            if (await deployment.awaitable_attrs.sensor).sensor_type != SensorType.sht35:  # noqa: E501
                 continue
             df_tmp = await con.run_sync(
                 lambda con: pd.read_sql(
@@ -732,13 +732,13 @@ async def download_station_data(station_id: str) -> str | None:
         else:
             # we never had any data for that station up until now, so we need all
             # deployments ever made to that station
-            deployments = station.deployments
+            deployments = await station.awaitable_attrs.deployments
         # if there are no deployments ([]), we simply skip the entire iteration
         con = await sess.connection()
         for deployment in deployments:
             # check what kind of sensor we have
             target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw]
-            match deployment.sensor.sensor_type:
+            match (await deployment.awaitable_attrs.sensor).sensor_type:
                 case SensorType.sht35:
                     target_table = SHT35DataRaw
                     col_selection = [

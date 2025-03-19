@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+from typing import ClassVar
+from typing import Protocol
 
 from psycopg import sql
 from sqlalchemy import BigInteger
@@ -86,6 +89,14 @@ UTCI_STRESS_CATEGORIES: dict[float, HeatStressCategories] = {
 
 # we need this for pandas to be able to insert enums via .to_sql
 _HeatStressCategories = ENUM(HeatStressCategories)
+
+
+class _StationAwaitableAttrs(Protocol):
+    active_sensors: Awaitable[list[Sensor]]
+    former_sensors: Awaitable[list[Sensor]]
+    active_deployments: Awaitable[list[SensorDeployment]]
+    former_deployments: Awaitable[list[SensorDeployment]]
+    deployments: Awaitable[list[SensorDeployment]]
 
 
 class Station(Base):
@@ -214,6 +225,7 @@ class Station(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # relationships
+    awaitable_attrs: ClassVar[_StationAwaitableAttrs]  # type: ignore[assignment]
     active_sensors: Mapped[list[Sensor]] = relationship(
         'Sensor',
         secondary='sensor_deployment',
@@ -225,7 +237,7 @@ class Station(Base):
         ),
         secondaryjoin='Sensor.sensor_id == SensorDeployment.sensor_id',
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
         order_by='SensorDeployment.setup_date',
     )
     former_sensors: Mapped[list[Sensor]] = relationship(
@@ -239,7 +251,7 @@ class Station(Base):
         ),
         secondaryjoin='Sensor.sensor_id == SensorDeployment.sensor_id',
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
         order_by='SensorDeployment.setup_date',
     )
     active_deployments: Mapped[list[SensorDeployment]] = relationship(
@@ -251,7 +263,7 @@ class Station(Base):
             ')'
         ),
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
         order_by='SensorDeployment.setup_date',
     )
     former_deployments: Mapped[list[SensorDeployment]] = relationship(
@@ -263,12 +275,12 @@ class Station(Base):
             ')'
         ),
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
         order_by='SensorDeployment.setup_date',
     )
     deployments: Mapped[list[SensorDeployment]] = relationship(
         back_populates='station',
-        lazy='selectin',
+        lazy=True,
         order_by='SensorDeployment.setup_date, SensorDeployment.deployment_id',
     )
 
@@ -328,6 +340,11 @@ class Station(Base):
         )
 
 
+class _SensorDeploymentAwaitableAttrs(Protocol):
+    sensor: Awaitable[Sensor]
+    station: Awaitable[Station]
+
+
 class SensorDeployment(Base):
     """Deployment of a sensor at a station"""
     __tablename__ = 'sensor_deployment'
@@ -344,14 +361,15 @@ class SensorDeployment(Base):
         nullable=True,
     )
 
+    awaitable_attrs: ClassVar[_SensorDeploymentAwaitableAttrs]  # type: ignore[assignment] # noqa: E501
     sensor: Mapped[Sensor] = relationship(
         'Sensor',
         back_populates='deployments',
-        lazy='selectin',
+        lazy=True,
     )
     station: Mapped[Station] = relationship(
         back_populates='deployments',
-        lazy='selectin',
+        lazy=True,
     )
 
     def __repr__(self) -> str:
@@ -388,7 +406,7 @@ class Sensor(Base):
     # relationships
     deployments: Mapped[list[SensorDeployment]] = relationship(
         back_populates='sensor',
-        lazy='selectin',
+        lazy=True,
     )
     current_station: Mapped[Station | None] = relationship(
         secondary='sensor_deployment',
@@ -400,7 +418,7 @@ class Sensor(Base):
         ),
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
     )
     former_stations: Mapped[list[Station]] = relationship(
         'Station',
@@ -413,7 +431,7 @@ class Sensor(Base):
         ),
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
     )
 
     def __repr__(self) -> str:
@@ -426,6 +444,10 @@ class Sensor(Base):
             f'relhum_calib_offset={self.relhum_calib_offset!r}'
             f')'
         )
+
+
+class _RawDataAwaitableAttrs(Protocol):
+    sensor: Awaitable[Sensor]
 
 
 class _Data(Base):
@@ -455,7 +477,8 @@ class SHT35DataRaw(_SHT35DataRawBase):
         primary_key=True,
         index=True,
     )
-    sensor: Mapped[Sensor] = relationship(lazy='selectin')
+    sensor: Mapped[Sensor] = relationship(lazy=True)
+    awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
 
     def __repr__(self) -> str:
         return (
@@ -505,7 +528,8 @@ class ATM41DataRaw(_ATM41DataRawBase):
         primary_key=True,
         index=True,
     )
-    sensor: Mapped[Sensor] = relationship(lazy='selectin')
+    sensor: Mapped[Sensor] = relationship(lazy=True)
+    awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
 
 
 class _BLGDataRawBase(_Data):
@@ -529,7 +553,8 @@ class BLGDataRaw(_BLGDataRawBase):
         primary_key=True,
         index=True,
     )
-    sensor: Mapped[Sensor] = relationship(lazy='selectin')
+    awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
+    sensor: Mapped[Sensor] = relationship(lazy=True)
 
 
 class _TempRHDerivatives(Base):
@@ -566,6 +591,13 @@ class _CalibrationDerivatives(Base):
     relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
 
 
+class _BiometDataAwaitableAttrs(Protocol):
+    station: Awaitable[Station]
+    sensor: Awaitable[Sensor]
+    blg_sensor: Awaitable[Sensor | None]
+    deployments: Awaitable[list[SensorDeployment]]
+
+
 class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
 ):
@@ -595,17 +627,18 @@ class BiometData(
         nullable=True,
     )
 
+    awaitable_attrs: ClassVar[_BiometDataAwaitableAttrs]  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
     sensor: Mapped[Sensor] = relationship(
         # this should only ever be a biomet sensor, but just to make sure!
         primaryjoin='and_(BiometData.sensor_id == Sensor.sensor_id, Sensor.sensor_type == "atm41")',  # noqa: E501
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
     )
     blg_sensor: Mapped[Sensor | None] = relationship(
         primaryjoin='and_(BiometData.blg_sensor_id == Sensor.sensor_id, Sensor.sensor_type == "blg")',  # noqa: E501
         viewonly=True,
-        lazy='selectin',
+        lazy=True,
     )
 
     deployments: Mapped[list[SensorDeployment]] = relationship(
@@ -619,9 +652,15 @@ class BiometData(
             ')'
         ),
         order_by=SensorDeployment.deployment_id,
-        lazy='selectin',
+        lazy=True,
         viewonly=True,
     )
+
+
+class _TempRHDataAwaitableAttrs(Protocol):
+    station: Awaitable[Station]
+    sensor: Awaitable[Sensor]
+    deployment: Awaitable[SensorDeployment]
 
 
 class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
@@ -642,6 +681,7 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
         ForeignKey('sensor.sensor_id'),
         index=True,
     )
+    awaitable_attrs: ClassVar[_TempRHDataAwaitableAttrs]  # type: ignore[assignment]
     station: Mapped[Station] = relationship(lazy=True)
     sensor: Mapped[Sensor] = relationship(lazy=True)
 
@@ -655,9 +695,13 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
             '    ((SensorDeployment.setup_date <= TempRHData.measured_at) & SensorDeployment.teardown_date.is_(None))'  # noqa: E501
             ')'
         ),
-        lazy='selectin',
+        lazy=True,
         viewonly=True,
     )
+
+
+class _ViewAwaitableAttrs(Protocol):
+    station: Awaitable[Station]
 
 
 class MaterializedView(Base):
@@ -671,6 +715,7 @@ class MaterializedView(Base):
             'station.station_id',
         ), primary_key=True, index=True,
     )
+    awaitable_attrs: ClassVar[_ViewAwaitableAttrs]  # type: ignore[assignment]
 
     @classmethod
     async def refresh(
@@ -758,7 +803,7 @@ class LatestData(
     )
     vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
 
-    station: Mapped[Station] = relationship(lazy='selectin')
+    station: Mapped[Station] = relationship(lazy=True)
 
     # we exclude the temprh part of a double station here and only use the biomet part
     creation_sql = text('''\

@@ -314,7 +314,6 @@ async def get_trends(
 
     # we need to to do this completely different depending on whether stations or
     # districts are requested
-    query: Select[Any] | CompoundSelect
     if spatial_level == 'stations':
         # get the supported ids which are needed for the API return, probably for
         # possible comparison
@@ -785,7 +784,7 @@ async def get_network_snapshot(
     columns_temp_rh: list[InstrumentedAttribute[Any] | None] = [
         getattr(tempr_rh_table, i, None) for i in param
     ]
-    query: Select[Any] | CompoundSelect
+    query: Select[Any] | CompoundSelect[Any]
     query = select(
         biomet_table.measured_at,
         biomet_table.station_id,
