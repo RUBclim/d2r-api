@@ -321,42 +321,42 @@ async def make_test_data(db: AsyncSession, clean_db: None) -> None:
         # temprh
         SensorDeployment(
             deployment_id=1,
-            sensor_id=sensors[0].sensor_id,
-            station_id=stations[1].station_id,
+            sensor_id='DEC1',
+            station_id='DOB1',
             setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
             teardown_date=datetime(2023, 1, 10, tzinfo=timezone.utc),
         ),
         SensorDeployment(
             deployment_id=2,
-            sensor_id=sensors[3].sensor_id,
-            station_id=stations[0].station_id,
+            sensor_id='DEC4',
+            station_id='DOT1',
             setup_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
             teardown_date=datetime(2024, 1, 10, tzinfo=timezone.utc),
         ),
         SensorDeployment(
             deployment_id=3,
-            sensor_id=sensors[0].sensor_id,
-            station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            station_id='DOT1',
             setup_date=datetime(2024, 1, 10, tzinfo=timezone.utc),
         ),
         # biomet
         SensorDeployment(
             deployment_id=4,
-            sensor_id=sensors[1].sensor_id,
-            station_id=stations[1].station_id,
+            sensor_id='DEC2',
+            station_id='DOB1',
             setup_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
             teardown_date=datetime(2024, 5, 10, tzinfo=timezone.utc),
         ),
         SensorDeployment(
             deployment_id=5,
-            sensor_id=sensors[4].sensor_id,
-            station_id=stations[1].station_id,
+            sensor_id='DEC5',
+            station_id='DOB1',
             setup_date=datetime(2024, 5, 10, tzinfo=timezone.utc),
         ),
         SensorDeployment(
             deployment_id=6,
-            sensor_id=sensors[2].sensor_id,
-            station_id=stations[1].station_id,
+            sensor_id='DEC3',
+            station_id='DOB1',
             setup_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
         ),
     ]
@@ -402,19 +402,26 @@ async def test_temprh_station_relationships(db: AsyncSession) -> None:
         await db.execute(select(Station).where(Station.station_id == 'DOT1'))
     ).scalar()
     assert temp_station is not None
-    active_sensor_id = [i.sensor_id for i in temp_station.active_sensors]
-    former_sensor_id = [i.sensor_id for i in temp_station.former_sensors]
+    active_sensors = await temp_station.awaitable_attrs.active_sensors
+    active_sensor_id = [i.sensor_id for i in active_sensors]
+    former_sensors = await temp_station.awaitable_attrs.former_sensors
+    former_sensor_id = [i.sensor_id for i in former_sensors]
     assert active_sensor_id == ['DEC1']
     assert former_sensor_id == ['DEC4']
     # deployments
-    active_deployment = [i.sensor_id for i in temp_station.active_deployments]
-    former_deployment = [i.sensor_id for i in temp_station.former_deployments]
-    assert active_deployment == ['DEC1']
-    assert former_deployment == ['DEC4']
-    temp_deployments = [d.sensor_id for d in temp_station.deployments]
-    assert temp_deployments == ['DEC4', 'DEC1']
-    assert [i.sensor_id for i in temp_station.active_sensors] == ['DEC1']
-    assert [i.sensor_id for i in temp_station.former_sensors] == ['DEC4']
+    active_deployments = await temp_station.awaitable_attrs.active_deployments
+    active_deployment_id = [i.sensor_id for i in active_deployments]
+    former_deployments = await temp_station.awaitable_attrs.former_deployments
+    former_deployment_id = [i.sensor_id for i in former_deployments]
+    assert active_deployment_id == ['DEC1']
+    assert former_deployment_id == ['DEC4']
+    temp_deployments = await temp_station.awaitable_attrs.deployments
+    temp_deployments_id = [d.sensor_id for d in temp_deployments]
+    assert temp_deployments_id == ['DEC4', 'DEC1']
+    temp_station_active_sensors = await temp_station.awaitable_attrs.active_sensors
+    assert [i.sensor_id for i in temp_station_active_sensors] == ['DEC1']
+    temp_station_former_sensors = await temp_station.awaitable_attrs.former_sensors
+    assert [i.sensor_id for i in temp_station_former_sensors] == ['DEC4']
 
 
 @pytest.mark.anyio
@@ -425,13 +432,16 @@ async def test_biomet_station_relationships(db: AsyncSession) -> None:
         await db.execute(select(Station).where(Station.station_id == 'DOB1'))
     ).scalar()
     assert biomet_station is not None
-    active_sensor_id = [i.sensor_id for i in biomet_station.active_sensors]
-    former_sensor_id = [i.sensor_id for i in biomet_station.former_sensors]
+    active_sensors = await biomet_station.awaitable_attrs.active_sensors
+    active_sensor_id = [i.sensor_id for i in active_sensors]
+    former_sensors = await biomet_station.awaitable_attrs.former_sensors
+    former_sensor_id = [i.sensor_id for i in former_sensors]
     assert active_sensor_id == ['DEC3', 'DEC5']
     assert former_sensor_id == ['DEC1', 'DEC2']
     # deployments
-    biomet_deployments = [d.sensor_id for d in biomet_station.deployments]
-    assert biomet_deployments == ['DEC1', 'DEC2', 'DEC3', 'DEC5']
+    biomet_deployments = await biomet_station.awaitable_attrs.deployments
+    biomet_deployments_id = [d.sensor_id for d in biomet_deployments]
+    assert biomet_deployments_id == ['DEC1', 'DEC2', 'DEC3', 'DEC5']
 
 
 @pytest.mark.anyio
@@ -442,11 +452,20 @@ async def test_deployments_backreference(db: AsyncSession) -> None:
     ).scalar()
     assert temp_station is not None
     # each sensor deployment should have some back reference to the station
-    temp_station.active_deployments[0].station.station_id == 'DOT1'
-    temp_station.former_deployments[0].sensor.sensor_id == 'DEC1'
+    temp_station_active_deployments = (
+        await temp_station.awaitable_attrs.active_deployments
+    )
+    active_sensor = await temp_station_active_deployments[0].awaitable_attrs.station
+    assert active_sensor.station_id == 'DOT1'
+    temp_station_former_deployments = (
+        await temp_station.awaitable_attrs.former_deployments
+    )
+    sensor = await temp_station_former_deployments[0].awaitable_attrs.sensor
+    assert sensor.sensor_id == 'DEC4'
 
     # sensor relationships
-    temp_station.active_sensors[0].deployments[0].sensor_id == 'DEC1'
+    temp_station_active_sensors = await temp_station.awaitable_attrs.active_sensors
+    assert temp_station_active_sensors[0].sensor_id == 'DEC1'
 
 
 @pytest.mark.anyio
@@ -455,23 +474,24 @@ async def test_data_table_relations(db: AsyncSession) -> None:
     # Now test the data table relations
     sht_data = (await db.execute(select(SHT35DataRaw))).scalar()
     assert sht_data is not None
-    assert sht_data.sensor.sensor_id == 'DEC1'
+    assert (await sht_data.awaitable_attrs.sensor).sensor_id == 'DEC1'
     atm_data = (await db.execute(select(ATM41DataRaw))).scalar()
     assert atm_data is not None
-    assert atm_data.sensor.sensor_id == 'DEC2'
+    assert (await atm_data.awaitable_attrs.sensor).sensor_id == 'DEC2'
     blg_data = (await db.execute(select(BLGDataRaw))).scalar()
     assert blg_data is not None
-    assert blg_data.sensor.sensor_id == 'DEC3'
+    assert (await blg_data.awaitable_attrs.sensor).sensor_id == 'DEC3'
     biomet_data = (await db.execute(select(BiometData))).scalar()
     assert biomet_data is not None
-    assert biomet_data.station.station_id == 'DOB1'
-    assert biomet_data.sensor.sensor_id == 'DEC2'
-    assert biomet_data.blg_sensor is not None
-    assert biomet_data.blg_sensor.sensor_id == 'DEC3'
-    # mhm, that does not work as expected?
-    assert len(biomet_data.deployments) == 2
+    assert (await biomet_data.awaitable_attrs.station).station_id == 'DOB1'
+    assert (await biomet_data.awaitable_attrs.sensor).sensor_id == 'DEC2'
+    blg_sensor = await biomet_data.awaitable_attrs.blg_sensor
+    assert blg_sensor is not None
+    assert blg_sensor.sensor_id == 'DEC3'
+    biomet_data_deployments = await biomet_data.awaitable_attrs.deployments
+    assert len(biomet_data_deployments) == 2
     # make sure the deployments have both station types
-    assert [i.sensor.sensor_type for i in biomet_data.deployments] == [
+    assert [i.sensor.sensor_type for i in biomet_data_deployments] == [
         SensorType.atm41,
         SensorType.blg,
     ]
@@ -480,15 +500,19 @@ async def test_data_table_relations(db: AsyncSession) -> None:
 
     temprh_data = (await db.execute(select(TempRHData))).scalar()
     assert temprh_data is not None
-    assert temprh_data.station.station_id == 'DOT1'
-    assert temprh_data.sensor.sensor_id == 'DEC1'
+    temprh_data_station = await temprh_data.awaitable_attrs.station
+    assert temprh_data_station.station_id == 'DOT1'
+    # get the sensor id
+    temprh_data_sensor = await temprh_data.awaitable_attrs.sensor
+    assert temprh_data_sensor.sensor_id == 'DEC1'
     # this deployment has already ended, but the value is associated with the deployment
-    assert temprh_data.deployment.deployment_id == 2
+    temprh_data_deployment = (await temprh_data.awaitable_attrs.deployment)
+    assert temprh_data_deployment.deployment_id == 2
 
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('make_test_data')
-async def test_view_relations(db: AsyncSession) -> None:
+async def test_view_relations_latest_data(db: AsyncSession) -> None:
     # now test the materialized views
     await LatestData.refresh()
     latest_data = (
@@ -496,31 +520,54 @@ async def test_view_relations(db: AsyncSession) -> None:
     ).scalars().all()
     assert len(latest_data) == 2
     assert [i.station_id for i in latest_data] == ['DOB1', 'DOT1']
-    assert [i.station.station_id for i in latest_data] == ['DOB1', 'DOT1']
+    assert [
+        (await i.awaitable_attrs.station).station_id for i in latest_data
+    ] == ['DOB1', 'DOT1']
 
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('make_test_data')
+async def test_view_relations_biomet_data_hourly(db: AsyncSession) -> None:
     await BiometDataHourly.refresh()
     hourly_data_biomet = (await db.execute(select(BiometDataHourly))).scalars().all()
     assert len(hourly_data_biomet) == 1
     assert hourly_data_biomet[0].station_id == 'DOB1'
-    assert hourly_data_biomet[0].station.station_id == 'DOB1'
+    # access via the station
+    hourly_data_biomet_station = await hourly_data_biomet[0].awaitable_attrs.station
+    assert hourly_data_biomet_station.station_id == 'DOB1'
 
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('make_test_data')
+async def test_view_relations_temprh_data_hourly(db: AsyncSession) -> None:
     await TempRHDataHourly.refresh()
     hourly_data_temprh = (await db.execute(select(TempRHDataHourly))).scalars().all()
     assert len(hourly_data_temprh) == 1
     assert hourly_data_temprh[0].station_id == 'DOT1'
-    assert hourly_data_temprh[0].station.station_id == 'DOT1'
+    hourly_data_temprh_station = await hourly_data_temprh[0].awaitable_attrs.station
+    assert hourly_data_temprh_station.station_id == 'DOT1'
 
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('make_test_data')
+async def test_view_relations_biomet_data_daily(db: AsyncSession) -> None:
     await BiometDataDaily.refresh()
     daily_data_biomet = (await db.execute(select(BiometDataDaily))).scalars().all()
     assert len(daily_data_biomet) == 1
     assert daily_data_biomet[0].station_id == 'DOB1'
-    assert daily_data_biomet[0].station.station_id == 'DOB1'
+    daily_data_biomet_station = await daily_data_biomet[0].awaitable_attrs.station
+    assert daily_data_biomet_station.station_id == 'DOB1'
 
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('make_test_data')
+async def test_view_relations_temprh_data_daily(db: AsyncSession) -> None:
     await TempRHDataDaily.refresh()
     daily_data_temprh = (await db.execute(select(TempRHDataDaily))).scalars().all()
     assert len(daily_data_temprh) == 1
     assert daily_data_temprh[0].station_id == 'DOT1'
-    assert daily_data_temprh[0].station.station_id == 'DOT1'
+    daily_data_temprh_station = await daily_data_temprh[0].awaitable_attrs.station
+    assert daily_data_temprh_station.station_id == 'DOT1'
 
 
 @pytest.mark.anyio
