@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from typing import Literal
 
 import pytest
 from _pytest.fixtures import SubRequest
@@ -31,7 +32,7 @@ from app.models import TempRHDataHourly
 
 
 @pytest.fixture(scope='session', autouse=True)
-async def create_dbs():
+async def create_dbs() -> AsyncGenerator[None]:
     """this is needed so if we start with a test not involving the app fixture. The db
     will be there.
     """
@@ -77,7 +78,7 @@ async def app() -> AsyncGenerator[AsyncClient]:
 
 
 @pytest.fixture(scope='session')
-def anyio_backend():
+def anyio_backend() -> Literal['asyncio']:
     return 'asyncio'
 
 
