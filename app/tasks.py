@@ -279,8 +279,8 @@ async def get_station_deployments(
     deployments = (
         await con.execute(
             select(SensorDeployment).where(
-                (SensorDeployment.station_id == station.station_id) &
-                (SensorDeployment.setup_date < latest) &
+                ((SensorDeployment.station_id == station.station_id) &
+                 (SensorDeployment.setup_date < latest)) |
                 (
                     (SensorDeployment.teardown_date > latest) |
                     # we do not need any older deployment, but the current
@@ -719,14 +719,14 @@ async def download_station_data(station_id: str) -> str | None:
             deployments = (
                 await sess.execute(
                     select(SensorDeployment).where(
-                        (SensorDeployment.station_id == station.station_id) &
-                        (SensorDeployment.setup_date < latest_data) &
+                        ((SensorDeployment.station_id == station.station_id) &
+                         (SensorDeployment.setup_date < latest_data)) |
                         (
                             (SensorDeployment.teardown_date > latest_data) |
                             # we don't need older deployment, but the current
                             (SensorDeployment.teardown_date.is_(None))
                         ),
-                    ),
+                    ).order_by(SensorDeployment.setup_date),
                 )
             ).scalars().all()
         else:
@@ -738,7 +738,8 @@ async def download_station_data(station_id: str) -> str | None:
         for deployment in deployments:
             # check what kind of sensor we have
             target_table: type[SHT35DataRaw | ATM41DataRaw | BLGDataRaw]
-            match (await deployment.awaitable_attrs.sensor).sensor_type:
+            sensor = await deployment.awaitable_attrs.sensor
+            match sensor.sensor_type:
                 case SensorType.sht35:
                     target_table = SHT35DataRaw
                     col_selection = [
@@ -768,7 +769,7 @@ async def download_station_data(station_id: str) -> str | None:
 
             # this function checks the times yet again on a per-sensor basis
             data = await _download_sensor_data(
-                sensor=deployment.sensor,
+                sensor=sensor,
                 target_table=target_table,
                 con=sess,
             )
