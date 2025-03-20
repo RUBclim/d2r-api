@@ -374,6 +374,187 @@ async def test_download_biomet_data_blg_and_atm_no_data_in_db(db: AsyncSession) 
     ]
 
 
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
+async def test_download_station_data_bug_too_few_deployments(
+        db: AsyncSession,
+) -> None:
+    """this was a bug found in production where not all needed deployments were
+    extracted due to a wrong AND/OR condition in the sql-query.
+    """
+    # rebuild the database
+    station = Station(
+        station_id='DOBHAP',
+        long_name='Hansaplatz',
+        latitude=51.5131622588889,
+        longitude=7.464264400429746,
+        altitude=87.38,
+        station_type=StationType.biomet,
+        leuchtennummer=0,
+        district='Mitte',
+        city='Dortmund',
+        country='Germany',
+        street='Hansaplatz',
+        plz=44137,
+    )
+    db.add(station)
+    sensors = [
+        Sensor(
+            sensor_id='DEC005475',
+            device_id=21621,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC005305',
+            device_id=21253,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC00548B',
+            device_id=21643,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for s in sensors:
+        db.add(s)
+    deployments = [
+        SensorDeployment(
+            deployment_id=4,
+            sensor_id='DEC005475',
+            station_id='DOBHAP',
+            setup_date=datetime(2024, 8, 5, 23, 59, tzinfo=timezone.utc),
+            teardown_date=datetime(2025, 1, 31, 11, 20, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=89,
+            sensor_id='DEC00548B',
+            station_id='DOBHAP',
+            setup_date=datetime(2024, 8, 5, 0, 0, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=88,
+            sensor_id='DEC005305',
+            station_id='DOBHAP',
+            # TODO: there is an overlap, that might be the bug?
+            setup_date=datetime(2025, 1, 31, 0, 0, tzinfo=timezone.utc),
+        ),
+    ]
+    for dp in deployments:
+        db.add(dp)
+
+    data = [
+        BLGDataRaw(
+            measured_at=datetime(2025, 3, 20, 18, 17, 14, 975152, tzinfo=timezone.utc),
+            sensor_id='DEC00548B',
+        ),
+        ATM41DataRaw(
+            measured_at=datetime(2025, 1, 23, 12, 44, 30, 315041, tzinfo=timezone.utc),
+            sensor_id='DEC005475',
+        ),
+        BiometData(
+            station_id='DOBHAP',
+            sensor_id='DEC005475',
+            blg_sensor_id='DEC00548B',
+            measured_at=datetime(2025, 1, 8, 14, 23, 8, 763975, tzinfo=timezone.utc),
+        ),
+    ]
+    for d in data:
+        db.add(d)
+
+    await db.commit()
+
+    # 1. blg
+    mock_data_blg = pd.read_csv(
+        'testing/DEC00548B_blg_data.csv',
+        index_col='measured_at',
+        parse_dates=['measured_at'],
+    )
+    mock_data_atm41 = pd.read_csv(
+        'testing/DEC005305_atm41.csv',
+        index_col='measured_at',
+        parse_dates=['measured_at'],
+    )
+    with (
+        mock.patch.object(
+            ElementApi,
+            'get_readings',
+            side_effect=[mock_data_blg, pd.DataFrame(), mock_data_atm41],
+        ) as rd,
+    ):
+        await download_station_data('DOBHAP')
+
+        assert rd.call_count == 3
+        # first the blackglobe
+        assert rd.call_args_list[0] == call(
+            device_name='DEC00548B',
+            sort='measured_at',
+            sort_direction='asc',
+            start=datetime(2025, 3, 20, 18, 17, 14, 975153, tzinfo=timezone.utc),
+            as_dataframe=True,
+            stream=True,
+            timeout=120000,
+        )
+        # next the torn down atm41 sensor
+        assert rd.call_args_list[1] == call(
+            device_name='DEC005475',
+            sort='measured_at',
+            sort_direction='asc',
+            start=datetime(2025, 1, 23, 12, 44, 30, 315042, tzinfo=timezone.utc),
+            as_dataframe=True,
+            stream=True,
+            timeout=120000,
+        )
+        # lastly the new atm41 sensor should be called?
+        assert rd.call_args_list[2] == call(
+            device_name='DEC005305',
+            sort='measured_at',
+            sort_direction='asc',
+            # determined by the measurement the setup date of the sensor
+            start=datetime(2025, 1, 31, 0, 0, tzinfo=timezone.utc),
+            as_dataframe=True,
+            stream=True,
+            timeout=120000,
+        )
+    # check if we have data in the database
+    biomet_data_in_db = (
+        await db.execute(
+            select(ATM41DataRaw.measured_at).order_by(ATM41DataRaw.measured_at),
+        )
+    ).scalars().all()
+
+    assert biomet_data_in_db == [
+        datetime(2025, 1, 23, 12, 44, 30, 315041, tzinfo=timezone.utc),
+        datetime(2025, 1, 31, 0, 21, 35, 359165, tzinfo=timezone.utc),
+        datetime(2025, 3, 20, 19, 36, 54, 692829, tzinfo=timezone.utc),
+    ]
+    # we also got new blackglobe data
+    blg_data_in_db = (
+        await db.execute(
+            select(BLGDataRaw.measured_at).order_by(BLGDataRaw.measured_at),
+        )
+    ).scalars().all()
+    assert blg_data_in_db == [
+        datetime(2025, 3, 20, 18, 17, 14, 975152, tzinfo=timezone.utc),
+        datetime(2025, 3, 20, 18, 22, 15, 757524, tzinfo=timezone.utc),
+        datetime(2025, 3, 20, 19, 37, 12, 236561, tzinfo=timezone.utc),
+    ]
+    # let's calculate the data
+    await calculate_biomet('DOBHAP')
+    # check if we have data in the database
+    final_biomet_data_in_db = (
+        await db.execute(
+            select(BiometData.measured_at).order_by(BiometData.measured_at),
+        )
+    ).scalars().all()
+    assert final_biomet_data_in_db == [
+        datetime(2025, 1, 8, 14, 23, 8, 763975, tzinfo=timezone.utc),
+        datetime(2025, 1, 23, 12, 44, 30, 315041, tzinfo=timezone.utc),
+        datetime(2025, 1, 31, 0, 21, 35, 359165, tzinfo=timezone.utc),
+        datetime(2025, 3, 20, 19, 36, 54, 692829, tzinfo=timezone.utc),
+    ]
+
+
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 @pytest.mark.anyio
 @pytest.mark.usefixtures('deployed_biomet_station')
@@ -566,7 +747,8 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
     )
     db.add(station_data)
 
-    # some data that should not be touched
+    # some data that should not be touched, since it's from the other station, that has
+    # no calibration associated with it
     data_2 = SHT35DataRaw(
         sensor_id='DEC0054A5',
         measured_at=datetime(2024, 9, 10, 5, 20, tzinfo=timezone.utc),
@@ -597,7 +779,8 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
             select(TempRHData).order_by(TempRHData.measured_at),
         )
     ).scalars().all()
-    assert len(data) == 5
+    # 4 rows from csv + 2 rows created manually
+    assert len(data) == 6
     d = data[0]
     assert d.measured_at == datetime(
         2024, 9, 10, 5, 5, 15, 858960, tzinfo=timezone.utc,
