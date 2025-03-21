@@ -16,7 +16,9 @@ from celery import group
 from celery.schedules import crontab
 from element import ElementApi
 from numpy.typing import NDArray
+from sqlalchemy import and_
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from thermal_comfort import absolute_humidity
@@ -279,14 +281,26 @@ async def get_station_deployments(
     deployments = (
         await con.execute(
             select(SensorDeployment).where(
-                ((SensorDeployment.station_id == station.station_id) &
-                 (SensorDeployment.setup_date < latest)) |
-                (
-                    (SensorDeployment.teardown_date > latest) |
-                    # we do not need any older deployment, but the current
-                    (SensorDeployment.teardown_date.is_(None))
+                # only for the station we currently look at
+                SensorDeployment.station_id == station.station_id,
+                or_(
+                    and_(
+                        # the setup must have been before the latest data, but then
+                        # the teardown date must be NULL (an active station) or the
+                        # teardown date must be after the latest data so we can download
+                        # new data from this.
+                        SensorDeployment.setup_date < latest,
+                        or_(
+                            SensorDeployment.teardown_date.is_(None),
+                            SensorDeployment.teardown_date > latest,
+                        ),
+                    ),
+                    # if that's not the case the setup must be after the latest data
+                    # since we want to download up until right now
+                    SensorDeployment.setup_date >= latest,
                 ),
-            ),
+                # start with the oldest deployments first
+            ).order_by(SensorDeployment.setup_date),
         )
     ).scalars().all()
     # we have no deployments via the query, maybe this is the first time we
@@ -719,12 +733,16 @@ async def download_station_data(station_id: str) -> str | None:
             deployments = (
                 await sess.execute(
                     select(SensorDeployment).where(
-                        ((SensorDeployment.station_id == station.station_id) &
-                         (SensorDeployment.setup_date < latest_data)) |
-                        (
-                            (SensorDeployment.teardown_date > latest_data) |
-                            # we don't need older deployment, but the current
-                            (SensorDeployment.teardown_date.is_(None))
+                        SensorDeployment.station_id == station.station_id,
+                        or_(
+                            and_(
+                                SensorDeployment.setup_date < latest_data,
+                                or_(
+                                    SensorDeployment.teardown_date.is_(None),
+                                    SensorDeployment.teardown_date > latest_data,
+                                ),
+                            ),
+                            SensorDeployment.setup_date >= latest_data,
                         ),
                     ).order_by(SensorDeployment.setup_date),
                 )

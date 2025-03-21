@@ -383,22 +383,38 @@ async def test_download_station_data_bug_too_few_deployments(
     """this was a bug found in production where not all needed deployments were
     extracted due to a wrong AND/OR condition in the sql-query.
     """
-    # rebuild the database
-    station = Station(
-        station_id='DOBHAP',
-        long_name='Hansaplatz',
-        latitude=51.5131622588889,
-        longitude=7.464264400429746,
-        altitude=87.38,
-        station_type=StationType.biomet,
-        leuchtennummer=0,
-        district='Mitte',
-        city='Dortmund',
-        country='Germany',
-        street='Hansaplatz',
-        plz=44137,
-    )
-    db.add(station)
+    stations = [
+        Station(
+            station_id='DOBHAP',
+            long_name='Hansaplatz',
+            latitude=51.5131622588889,
+            longitude=7.464264400429746,
+            altitude=87.38,
+            station_type=StationType.biomet,
+            leuchtennummer=0,
+            district='Mitte',
+            city='Dortmund',
+            country='Germany',
+            street='Hansaplatz',
+            plz=44137,
+        ),
+        Station(
+            station_id='DOTABC',
+            long_name='Abc',
+            latitude=51.5131622588889,
+            longitude=7.464264400429746,
+            altitude=87.38,
+            station_type=StationType.temprh,
+            leuchtennummer=0,
+            district='Mitte',
+            city='Dortmund',
+            country='Germany',
+            street='Abc',
+            plz=44137,
+        ),
+    ]
+    for station in stations:
+        db.add(station)
     sensors = [
         Sensor(
             sensor_id='DEC005475',
@@ -414,6 +430,11 @@ async def test_download_station_data_bug_too_few_deployments(
             sensor_id='DEC00548B',
             device_id=21643,
             sensor_type=SensorType.blg,
+        ),
+        Sensor(
+            sensor_id='DEC1234AB',
+            device_id=123456,
+            sensor_type=SensorType.sht35,
         ),
     ]
     for s in sensors:
@@ -436,8 +457,14 @@ async def test_download_station_data_bug_too_few_deployments(
             deployment_id=88,
             sensor_id='DEC005305',
             station_id='DOBHAP',
-            # TODO: there is an overlap, that might be the bug?
             setup_date=datetime(2025, 1, 31, 0, 0, tzinfo=timezone.utc),
+        ),
+        # add an unrelated deployment
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1234AB',
+            station_id='DOTABC',
+            setup_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
         ),
     ]
     for dp in deployments:
@@ -479,7 +506,10 @@ async def test_download_station_data_bug_too_few_deployments(
         mock.patch.object(
             ElementApi,
             'get_readings',
-            side_effect=[mock_data_blg, pd.DataFrame(), mock_data_atm41],
+            side_effect=[
+                mock_data_blg, pd.DataFrame(), mock_data_atm41,
+                pd.DataFrame(),
+            ],
         ) as rd,
     ):
         await download_station_data('DOBHAP')
@@ -779,8 +809,9 @@ async def test_calculate_temp_rh_no_data_in_final_table_but_data_available(
             select(TempRHData).order_by(TempRHData.measured_at),
         )
     ).scalars().all()
-    # 4 rows from csv + 2 rows created manually
-    assert len(data) == 6
+    # 4 rows from csv + 2 rows created manually, where we only use one of them
+    # since we only calculate for DOTWFH
+    assert len(data) == 5
     d = data[0]
     assert d.measured_at == datetime(
         2024, 9, 10, 5, 5, 15, 858960, tzinfo=timezone.utc,
