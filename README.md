@@ -94,6 +94,20 @@ You can run the tests using only `pytest` (without coverage)
 pytest tetsts/
 ```
 
+#### run celery locally
+
+Celery does not support auto-reloading. You can workaround that using the
+[`watchdog`](https://pypi.org/project/watchdog/) package and start celery like this:
+
+```bash
+PGPORT=5433 TC_DATABASE_HOST=localhost CELERY_BROKER_URL=redis://localhost:6379/0 \
+watchmedo auto-restart --directory=app --pattern=*.py --recursive -- \
+celery -A app.tasks worker --concurrency=1
+```
+
+You may have to override additional environment variables, depending on what part you
+are working on.
+
 ### upgrade requirements
 
 We are using `uv pip compile` to manage our requirements
