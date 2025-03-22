@@ -1,3 +1,6 @@
+import csv
+import io
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -10,6 +13,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import and_
 from sqlalchemy import cast
 from sqlalchemy import Column
@@ -17,6 +21,7 @@ from sqlalchemy import CompoundSelect
 from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import Function
+from sqlalchemy import not_
 from sqlalchemy import Select
 from sqlalchemy import select
 from sqlalchemy import TIMESTAMP
@@ -26,6 +31,7 @@ from sqlalchemy.orm import InstrumentedAttribute
 
 from app import schemas
 from app.database import get_db_session
+from app.database import sessionmanager
 from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
@@ -689,7 +695,7 @@ async def get_data(
                     }],
                 )
 
-        columns = [getattr(table, i) for i in param]
+        columns: list[InstrumentedAttribute[Any]] = [getattr(table, i) for i in param]
         # we need to cast to TIMESTAMPTZ here, since the view is in UTC but timescale
         # cannot keep it timezone aware AND make it right-labelled +1 hour
         query = select(
@@ -701,11 +707,9 @@ async def get_data(
         ).order_by(table.measured_at)
 
         if fill_gaps is False:
-            not_noll_condition = [c.isnot(None) for c in columns]
-            query = query.where(
-                # a filled gap is defined by NULL values in all columns
-                and_(*not_noll_condition),
-            )
+            null_condition = [c.is_(None) for c in columns]
+            # a filled gap is defined by NULL values in all columns
+            query = query.where(not_(and_(*null_condition)))
         data = (await db.execute(query))
         return Response(data=data.mappings().all())
     else:
@@ -811,3 +815,119 @@ async def get_network_snapshot(
 
     data = (await db.execute(query)).mappings().all()
     return Response(data=data)
+
+
+async def stream_results(stm: Select[Any]) -> AsyncGenerator[str]:
+    """Stream the results of a query in batches of 250 rows as CSV. This is used to
+    stream large amounts of data to the client without having to load everything into
+    memory.
+
+    :param stm: the database query to execute
+    :param db: the database session to pass from the route
+    :return: an (async) generator that yields CSV-formatted strings in batches
+        of 250 rows.
+    """
+    async with sessionmanager.session() as db:
+        # stream results in batches of 250 rows
+        r = await db.stream(stm.execution_options(stream_results=True, yield_per=250))
+        # we write to the buffer and yield it
+        buffer = io.StringIO(newline='')
+        # use the csv writer to write the header
+        writer = csv.writer(buffer, dialect='excel')
+        # write the header
+        writer.writerow(r.keys())
+        yield buffer.getvalue()
+        buffer.seek(0)
+        async for batch in r.partitions():
+            # clear the previous buffer by truncating it
+            buffer.truncate()
+            # convert the row to csv-like string
+            writer.writerows(batch)
+            # set the pointer to the beginning of the buffer
+            buffer.seek(0)
+            # stream the buffer
+            yield buffer.getvalue()
+            buffer.seek(0)
+
+
+@router.get('/download/{station_id}', tags=['stations'])
+async def download_station_data(
+        station_id: str = Path(
+            description='The unique identifier of the station e.g. `DOBHAP`',
+        ),
+        start_date: datetime = Query(
+            None,
+            description='the start date of the data in UTC. The format must follow the '
+            '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+            'standard. This parameter is optional, and if not provided (the default), '
+            'all available data will be returned.',
+        ),
+        end_date: datetime = Query(
+            None,
+            description='the end date of the data in UTC. The format must follow the '
+            '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
+            'standard. This parameter is optional, and if not provided (the default), '
+            'all available data up until now will be returned.',
+        ),
+        scale: Literal['max', 'hourly', 'daily'] = Query(
+            'max',
+            description=(
+                'The temporal scale to get data for. If using anything other than '
+                '`max`, additional `_min` and `_max` values will be available.'
+            ),
+        ),
+        fill_gaps: bool = Query(
+            False,
+            description=(
+                'Fill gaps of missing timestamps in the result. In hourly and '
+                'daily aggregates gaps are filled with `NULL` values to keep a '
+                'consistent time step interval. To save on the amount of data '
+                'transmitted this can be set to False, omitting filled gaps. This only '
+                'applies to hourly and daily scales and not the original data (`max`).'
+            ),
+        ),
+        db: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """This endpoint allows for downloading large amounts of data on a per-station
+    basis. The data is provided as a CSV-file and always includes all publicly available
+    columns. The set of columns may vary depending on the type of station (`temprh` has
+    a different set of columns than `biomet`) and the temporal scale (`max`, `hourly`,
+    `daily`), where the last two will also provide extreme values (`_min` and `_max`).
+    """
+    station = (
+        await db.execute(select(Station).where(Station.station_id == station_id))
+    ).scalar_one_or_none()
+    if station is None:
+        raise HTTPException(status_code=404, detail='station not found')
+
+    table = TABLE_MAPPING[station.station_type][scale]['table']
+    columns = [
+        getattr(table, i.value)
+        for i in TABLE_MAPPING[station.station_type][scale]['allowed_params']
+    ]
+    stm = select(
+        table.station_id,
+        table.measured_at,
+        *columns,
+    ).where(table.station_id == station_id).order_by(table.measured_at)
+    if fill_gaps is False:
+        null_condition = [c.is_(None) for c in table.__table__.columns]
+        # a filled gap is defined by NULL values in all columns
+        stm = stm.where(not_(and_(*null_condition)))
+    # return data starting from that date up until now
+    if start_date is not None and end_date is None:
+        stm = stm.where(table.measured_at >= start_date)
+    elif start_date is None and end_date is not None:
+        stm = stm.where(table.measured_at <= end_date)
+    elif start_date is not None and end_date is not None:
+        stm = stm.where(table.measured_at.between(start_date, end_date))
+
+    return StreamingResponse(
+        stream_results(stm),
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{station.station_id}_{scale}.csv"'
+            ),
+        },
+    )

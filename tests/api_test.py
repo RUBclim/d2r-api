@@ -6,6 +6,7 @@ from datetime import timezone
 import freezegun
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import BiometData
@@ -3165,3 +3166,226 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         },
         # the other two stations are omitted
     ]
+
+
+@pytest.mark.anyio
+async def test_download_station_data_station_not_found(app: AsyncClient) -> None:
+    resp = await app.get('/v1/download/DOTNOX')
+    assert resp.status_code == 404
+    data = resp.json()
+    assert data == {'detail': 'station not found'}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 10}],
+    indirect=True,
+)
+async def test_download_station_no_data_for_station(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get(
+        '/v1/download/DOB1',
+        params={
+            'fill_gaps': True,
+            'start_date': datetime(2024, 8, 3),
+        },
+    )
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 11 data points + 1 header
+    assert len(csv_file) == 1
+    # header correct
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,specific_humidity,atmospheric_pressure,atmospheric_pressure_reduced,air_temperature,dew_point,heat_index,lightning_average_distance,lightning_strike_count,mrt,pet,pet_category,precipitation_sum,relative_humidity,solar_radiation,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_speed,maximum_wind_speed'  # noqa: E501
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 10}],
+    indirect=True,
+)
+async def test_download_station_data_no_dates_set(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get('/v1/download/DOB1', params={'fill_gaps': True})
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 11 data points + 1 header
+    assert len(csv_file) == 12
+    # header correct
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,specific_humidity,atmospheric_pressure,atmospheric_pressure_reduced,air_temperature,dew_point,heat_index,lightning_average_distance,lightning_strike_count,mrt,pet,pet_category,precipitation_sum,relative_humidity,solar_radiation,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_speed,maximum_wind_speed'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 10}],
+    indirect=True,
+)
+async def test_download_station_data_only_start_date_set(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get(
+        '/v1/download/DOB1',
+        params={
+            'fill_gaps': True,
+            'start_date': datetime(2024, 8, 1, 0, 30),
+        },
+    )
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 11 data points + 1 header
+    assert len(csv_file) == 6
+    assert csv_file[1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 10}],
+    indirect=True,
+)
+async def test_download_station_data_only_end_date_set(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get(
+        '/v1/download/DOB1',
+        params={
+            'fill_gaps': True,
+            'end_date': datetime(2024, 8, 1, 0, 30),
+        },
+    )
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 11 data points + 1 header
+    assert len(csv_file) == 8
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 10}],
+    indirect=True,
+)
+async def test_download_station_data_both_dates_set(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get(
+        '/v1/download/DOB1',
+        params={
+            'fill_gaps': True,
+            'start_date': datetime(2024, 8, 1, 0, 10),
+            'end_date': datetime(2024, 8, 1, 0, 30),
+        },
+    )
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 11 data points + 1 header
+    assert len(csv_file) == 6
+    assert csv_file[1] == 'DOB1,2024-08-01 00:10:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 12}],
+    indirect=True,
+)
+async def test_download_station_data_hourly(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get('/v1/download/DOB1', params={'scale': 'hourly'})
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 1 data point + 1 header
+    assert len(csv_file) == 3
+    # header correct
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 01:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 02:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 12*21}],
+    indirect=True,
+)
+async def test_download_station_data_daily(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get('/v1/download/DOB1', params={'scale': 'daily'})
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # 1 data point + 1 header
+    assert len(csv_file) == 2
+    # header correct
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'biomet_data', [{'n_stations': 1, 'n_data': 12*22*3}],
+    indirect=True,
+)
+async def test_download_station_data_hourly_gaps_filled(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+        db: AsyncSession,
+) -> None:
+    # intentionally create a gap
+    await db.execute(
+        delete(BiometData).where(
+            BiometData.measured_at.between(
+                datetime(2024, 8, 2, 1),
+                datetime(2024, 8, 3, 1),
+            ),
+        ),
+    )
+    await db.commit()
+    await BiometDataDaily.refresh()
+    resp = await app.get(
+        '/v1/download/DOB1',
+        params={'scale': 'daily', 'fill_gaps': True},
+    )
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    assert len(csv_file) == 4
+    # header correct
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[2] == 'DOB1,2024-08-02,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[3] == 'DOB1,2024-08-03,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501

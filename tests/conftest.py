@@ -173,5 +173,6 @@ async def biomet_data(
     await db.commit()
     await LatestData.refresh()
     await BiometDataHourly.refresh()
+    await BiometDataDaily.refresh()
     await db.commit()
     yield biomet_data_list
