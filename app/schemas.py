@@ -90,8 +90,6 @@ UNIT_MAPPING: dict[str, Units] = {
     'wind_speed_max': Units.ms,
     'wind_speed_min': Units.ms,
     'maximum_wind_speed': Units.ms,
-    'maximum_wind_speed_max': Units.ms,
-    'maximum_wind_speed_min': Units.ms,
 }
 
 
@@ -207,8 +205,6 @@ class PublicParamsAggregates(StrEnum):
     wind_speed_max = 'wind_speed_max'
     wind_speed_min = 'wind_speed_min'
     maximum_wind_speed = 'maximum_wind_speed'
-    maximum_wind_speed_max = 'maximum_wind_speed_max'
-    maximum_wind_speed_min = 'maximum_wind_speed_min'
 
 
 T = TypeVar('T')
