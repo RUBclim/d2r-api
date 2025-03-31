@@ -116,6 +116,8 @@ services:
     volumes:
       # cache directory for the raster tiles
       - nginx-cache:/var/cache/nginx/tiles
+      # the folder containing the rasters in read-only mode
+      - ${DATA_DIRECTORY}:/usr/src/app/cog:ro
     healthcheck:
       test: ["CMD-SHELL", "service nginx status || exit 1"]
       interval: 30s
