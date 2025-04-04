@@ -108,6 +108,15 @@ services:
           cpus: "2"
           memory: 1536M
 
+  dashboard:
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          memory: 300M
+
   nginx:
     restart: always
     ports:
