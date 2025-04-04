@@ -71,8 +71,15 @@ services:
     volumes:
       - ./app:/usr/src/app/app:ro
 
+  dashboard:
+    ports:
+      - "3000:3000"
+
   nginx:
     ports:
+      # api
       - "8080:8080"
+      # dashboard
+      - "8081:8081"
     volumes:
       - ./nginx.dev.conf:/etc/nginx/conf.d/nginx.conf:ro
