@@ -23,6 +23,8 @@ def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task:
         # if we are running tests, we don't want this to be converted to a sync
         # function
         if 'PYTEST_VERSION' in os.environ:  # pragma: no branch
+            # give the function it's .s attribute for testing
+            func.s = func  # type: ignore[attr-defined]
             return func
 
         sync_call = sync.AsyncToSync(func)

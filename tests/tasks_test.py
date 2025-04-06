@@ -1,5 +1,7 @@
+import asyncio
 from collections.abc import Awaitable
 from collections.abc import Callable
+from collections.abc import Coroutine
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -1447,19 +1449,39 @@ async def test_refresh_all_views(db: AsyncSession) -> None:
     assert len((await db.execute(select(TempRHDataHourly))).all()) == 0
     assert len((await db.execute(select(TempRHDataDaily))).all()) == 0
 
-    await refresh_all_views()
-    # however, after refreshing them they should contain data
-    assert len((await db.execute(select(LatestData))).all()) == 2
-    assert len((await db.execute(select(BiometDataHourly))).all()) == 24
-    # we calculate daily at UTC+1 which shifts the date by one hour
-    assert len((await db.execute(select(BiometDataDaily))).all()) == 2
-    assert len((await db.execute(select(TempRHDataHourly))).all()) == 24
-    assert len((await db.execute(select(TempRHDataDaily))).all()) == 2
-    # now delete the data and refresh again
-    assert (await db.execute(delete(BiometData)))
-    assert (await db.execute(delete(TempRHData)))
-    await db.commit()
-    await refresh_all_views()
+    class FakeGroup:
+        """mock a celery group"""
+
+        def __init__(
+                self,
+                callables: list[Coroutine[str, None, Awaitable[None]]],
+        ) -> None:
+            self.callables = callables
+
+        async def apply_async(self) -> list[Awaitable[None]]:
+            # We return a list of coroutines that awaits all .s() calls
+            # as if Celery executed them
+            return await asyncio.gather(*self.callables)
+
+    with mock.patch.object(app.tasks, 'group', side_effect=FakeGroup):
+        # we are a bit in async hell with nested coroutines
+        coro = await refresh_all_views()
+        await coro
+
+        # however, after refreshing them they should contain data
+        assert len((await db.execute(select(LatestData))).all()) == 2
+        assert len((await db.execute(select(BiometDataHourly))).all()) == 24
+        # we calculate daily at UTC+1 which shifts the date by one hour
+        assert len((await db.execute(select(BiometDataDaily))).all()) == 2
+        assert len((await db.execute(select(TempRHDataHourly))).all()) == 24
+        assert len((await db.execute(select(TempRHDataDaily))).all()) == 2
+        # now delete the data and refresh again
+        assert (await db.execute(delete(BiometData)))
+        assert (await db.execute(delete(TempRHData)))
+        await db.commit()
+        coro = await refresh_all_views()
+        await coro
+
     # the views are empty again
     # ...but the views are empty
     assert len((await db.execute(select(LatestData))).all()) == 0

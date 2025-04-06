@@ -4,6 +4,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from typing import Any
+from typing import Literal
 from typing import NamedTuple
 from typing import Union
 from urllib.error import HTTPError
@@ -41,6 +42,7 @@ from app.models import BiometDataHourly
 from app.models import BLGDataRaw
 from app.models import HeatStressCategories
 from app.models import LatestData
+from app.models import MaterializedView
 from app.models import PET_STRESS_CATEGORIES
 from app.models import Sensor
 from app.models import SensorDeployment
@@ -177,19 +179,38 @@ async def _download_sensor_data(
 
     return data
 
+TableNames = Literal[
+    'latest_data',
+    'biomet_data_hourly', 'biomet_data_daily',
+    'temprh_data_hourly', 'temprh_data_daily',
+]
+
+# they are ordered by the duration they are expected to run to optimize the runtime
+VIEW_MAPPING: dict[TableNames, type[MaterializedView]] = {
+    'biomet_data_hourly': BiometDataHourly,
+    'temprh_data_hourly': TempRHDataHourly,
+    'temprh_data_daily': TempRHDataDaily,
+    'biomet_data_daily': BiometDataDaily,
+    'latest_data': LatestData,
+}
+
+
+@async_task(app=celery_app, name='refresh-view')
+async def _refresh_view(view_name: TableNames) -> None:
+    """Refresh a view as a celery task."""
+    view = VIEW_MAPPING[view_name]
+    await view.refresh()
+
 
 @async_task(app=celery_app, name='refresh-all-views')
-async def refresh_all_views(*args: Any, **kwargs: Any) -> None:
+async def refresh_all_views(*args: Any, **kwargs: Any) -> tuple[None, ...]:
     """Refresh all views in the database. This is a task that is called after
     all data was inserted. We need to accept any arguments, as the chord task
     will pass the results of the individual tasks to this task. We don't care
     about the results, but need to accept them.
     """
-    await LatestData.refresh()
-    await BiometDataHourly.refresh()
-    await TempRHDataHourly.refresh()
-    await BiometDataDaily.refresh()
-    await TempRHDataDaily.refresh()
+    refresh_group = group(_refresh_view.s(view_name) for view_name in VIEW_MAPPING)
+    return refresh_group.apply_async()
 
 
 @async_task(app=celery_app, name='download-data')
