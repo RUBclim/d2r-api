@@ -13,19 +13,12 @@ from locust import task
 from locust.contrib.fasthttp import LocustUserAgent
 
 from app.database import DB_URL
-from app.schemas import PublicParams
+from app.schemas import PublicParamsAggTempRH
+from app.schemas import PublicParamsBiomet
 
 
-BIOMET_PARAMS = list(PublicParams)
-TEMPRH_PARAMS = (
-    'air_temperature',
-    'relative_humidity',
-    'dew_point',
-    'absolute_humidity',
-    'heat_index',
-    'wet_bulb_temperature',
-)
-
+BIOMET_PARAMS = list(PublicParamsBiomet)
+TEMPRH_PARAMS = list(PublicParamsAggTempRH)
 # TODO: add more params
 RASTER_PARAMS = ('UTCI',)
 
