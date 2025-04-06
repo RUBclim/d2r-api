@@ -3178,6 +3178,50 @@ async def test_download_station_data_station_not_found(app: AsyncClient) -> None
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
+    ('station_id', 'station_type'),
+    (
+        ('DOT', StationType.temprh),
+        ('DOB', StationType.biomet),
+        ('DOD', StationType.double),
+    ),
+)
+@pytest.mark.parametrize('scale', ('max', 'hourly', 'daily'))
+@pytest.mark.usefixtures('clean_db')
+async def test_download_station_data_different_type_and_scale(
+        station_id: str,
+        station_type: StationType,
+        scale: str,
+        db: AsyncSession,
+        app: AsyncClient,
+) -> None:
+    station = Station(
+        station_id=station_id,
+        long_name='test-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=station_type,
+        leuchtennummer=120,
+        district='Innenstadt',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    await db.commit()
+    resp = await app.get(f'/v1/download/{station_id}', params={'scale': scale})
+    assert resp.status_code == 200
+    csv_file = []
+    async for line in resp.aiter_lines():
+        csv_file.append(line.strip())
+
+    # only the header
+    assert len(csv_file) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
     'biomet_data', [{'n_stations': 1, 'n_data': 10}],
     indirect=True,
 )
@@ -3197,7 +3241,6 @@ async def test_download_station_no_data_for_station(
     async for line in resp.aiter_lines():
         csv_file.append(line.strip())
 
-    # 11 data points + 1 header
     assert len(csv_file) == 1
     # header correct
     assert csv_file[0] == 'station_id,measured_at,absolute_humidity,specific_humidity,atmospheric_pressure,atmospheric_pressure_reduced,air_temperature,dew_point,heat_index,lightning_average_distance,lightning_strike_count,mrt,pet,pet_category,precipitation_sum,relative_humidity,solar_radiation,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_speed,maximum_wind_speed'  # noqa: E501

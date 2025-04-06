@@ -43,8 +43,10 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.schemas import NetworkValue
-from app.schemas import PublicParams
-from app.schemas import PublicParamsAggregates
+from app.schemas import PublicParamsAggBiomet
+from app.schemas import PublicParamsAggTempRH
+from app.schemas import PublicParamsBiomet
+from app.schemas import PublicParamsTempRH
 from app.schemas import Response
 from app.schemas import Trends
 from app.schemas import TrendValue
@@ -128,7 +130,7 @@ async def get_stations_metadata(
     tags=['stations'],
 )
 async def get_stations_latest_data(
-        param: list[PublicParams] = Query(
+        param: list[PublicParamsBiomet] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. Only data from stations that provide all specified values '
@@ -185,7 +187,7 @@ async def get_stations_latest_data(
     deprecated=True,
 )
 async def get_districts_latest_data(
-        param: list[PublicParams] = Query(
+        param: list[PublicParamsBiomet] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. Only data from districts that provide all specified values '
@@ -258,7 +260,7 @@ def get_aggregator(
     tags=['districts', 'stations'],
 )
 async def get_trends(
-        param: PublicParamsAggregates = Path(
+        param: PublicParamsAggBiomet | PublicParamsAggTempRH = Path(
             description=(
                 'The parameter to get data for. Only data from districts that provide '
                 'the value will be returned.'
@@ -484,17 +486,17 @@ async def get_trends(
 
 class DataMappingMax(TypedDict):
     table: type[BiometData | TempRHData]
-    allowed_params: type[PublicParams]
+    allowed_params: type[PublicParamsBiomet | PublicParamsTempRH]
 
 
 class DataMappingHourly(TypedDict):
     table: type[BiometDataHourly | TempRHDataHourly]
-    allowed_params: type[PublicParamsAggregates]
+    allowed_params: type[PublicParamsAggBiomet | PublicParamsAggTempRH]
 
 
 class DataMappingDaily(TypedDict):
     table: type[BiometDataDaily | TempRHDataDaily]
-    allowed_params: type[PublicParamsAggregates]
+    allowed_params: type[PublicParamsAggBiomet | PublicParamsAggTempRH]
 
 
 class TableMapping(TypedDict):
@@ -507,44 +509,44 @@ TABLE_MAPPING: dict[StationType, TableMapping] = {
     StationType.temprh: {
         'max': {
             'table': TempRHData,
-            'allowed_params': PublicParams,
+            'allowed_params': PublicParamsTempRH,
         },
         'hourly': {
             'table': TempRHDataHourly,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggTempRH,
         },
         'daily': {
             'table': TempRHDataDaily,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggTempRH,
         },
     },
     StationType.biomet: {
         'max': {
             'table': BiometData,
-            'allowed_params': PublicParams,
+            'allowed_params': PublicParamsBiomet,
         },
         'hourly': {
             'table': BiometDataHourly,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggBiomet,
         },
         'daily': {
             'table': BiometDataDaily,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggBiomet,
         },
     },
     # we simply treat a double station as a biomet station for now
     StationType.double: {
         'max': {
             'table': BiometData,
-            'allowed_params': PublicParams,
+            'allowed_params': PublicParamsBiomet,
         },
         'hourly': {
             'table': BiometDataHourly,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggBiomet,
         },
         'daily': {
             'table': BiometDataDaily,
-            'allowed_params': PublicParamsAggregates,
+            'allowed_params': PublicParamsAggBiomet,
         },
     },
 }
@@ -572,7 +574,7 @@ async def get_data(
             '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
             'standard.',
         ),
-        param: list[PublicParamsAggregates] = Query(
+        param: list[PublicParamsAggBiomet] | list[PublicParamsAggTempRH] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. `_min` and `_max` parameters are only available for '
@@ -723,7 +725,7 @@ async def get_data(
     tags=['stations'],
 )
 async def get_network_snapshot(
-        param: list[PublicParamsAggregates] = Query(
+        param: list[PublicParamsAggBiomet] | list[PublicParamsTempRH] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified.'

@@ -93,20 +93,26 @@ UNIT_MAPPING: dict[str, Units] = {
 }
 
 
-class PublicParams(StrEnum):
+class PublicParamsTempRH(StrEnum):
     """Parameters that are publicly available and data from those parameters can be
-    requested via the API. Not every station supports all of these parameters. Stations
-    of type `StationType.biomet` support all parameters, stations of type
-    `StationType.temprh` only support a subset of parameters, that can be
-    derived from `air_temperature` and `relative_humidity` which are:
+    requested via the API. Stations of type `StationType.temprh` only support this
+    subset of parameters, that can be derived from `air_temperature` and
+    `relative_humidity`.
+    """
+    absolute_humidity = 'absolute_humidity'
+    specific_humidity = 'specific_humidity'
+    air_temperature = 'air_temperature'
+    dew_point = 'dew_point'
+    heat_index = 'heat_index'
+    relative_humidity = 'relative_humidity'
+    wet_bulb_temperature = 'wet_bulb_temperature'
 
-    - `air_temperature`
-    - `relative_humidity`
-    - `dew_point`
-    - `absolute_humidity`
-    - `specific_humidity`
-    - `heat_index`
-    - `wet_bulb_temperature`
+
+class PublicParamsBiomet(StrEnum):
+    """Parameters that are publicly available and data from those parameters can be
+    requested via the API. Stations of type `StationType.biomet`  or
+    `StationType.double` support all parameters. Stations of type `StationType.temprh`
+    only support a subset.
     """
     absolute_humidity = 'absolute_humidity'
     specific_humidity = 'specific_humidity'
@@ -132,7 +138,40 @@ class PublicParams(StrEnum):
     maximum_wind_speed = 'maximum_wind_speed'
 
 
-class PublicParamsAggregates(StrEnum):
+class PublicParamsAggTempRH(StrEnum):
+    """Parameters that are publicly available and data from those parameters can be
+    requested via the API. Stations of type `StationType.temprh` only support this
+    subset of parameters, that can be derived from `air_temperature` and
+    `relative_humidity`.
+
+    This schema also contains extreme values derived from aggregating instantaneous
+    measurements across a time span (e.g. hourly or daily values). Parameters that
+    neither have `_max` nor a `_min` suffix represent averages.
+    """
+    absolute_humidity = 'absolute_humidity'
+    absolute_humidity_max = 'absolute_humidity_max'
+    absolute_humidity_min = 'absolute_humidity_min'
+    specific_humidity = 'specific_humidity'
+    specific_humidity_max = 'specific_humidity_max'
+    specific_humidity_min = 'specific_humidity_min'
+    air_temperature = 'air_temperature'
+    air_temperature_max = 'air_temperature_max'
+    air_temperature_min = 'air_temperature_min'
+    dew_point = 'dew_point'
+    dew_point_max = 'dew_point_max'
+    dew_point_min = 'dew_point_min'
+    heat_index = 'heat_index'
+    heat_index_max = 'heat_index_max'
+    heat_index_min = 'heat_index_min'
+    relative_humidity = 'relative_humidity'
+    relative_humidity_max = 'relative_humidity_max'
+    relative_humidity_min = 'relative_humidity_min'
+    wet_bulb_temperature = 'wet_bulb_temperature'
+    wet_bulb_temperature_max = 'wet_bulb_temperature_max'
+    wet_bulb_temperature_min = 'wet_bulb_temperature_min'
+
+
+class PublicParamsAggBiomet(StrEnum):
     """Parameters that are publicly available and data from those parameters can be
     requested via the API. Not every station supports all of these parameters. Stations
     of type `StationType.biomet` support all parameters, stations of type
