@@ -3,6 +3,32 @@ import pytest
 from app.tc_ingester import _RasterKeys
 
 
+UTCI_CLASSES = {
+    '0': 'extreme cold stress',
+    '1': 'very strong cold stress',
+    '2': 'strong cold stress',
+    '3': 'moderate cold stress',
+    '4': 'slight cold stress',
+    '5': 'no thermal stress',
+    '6': 'moderate heat stress',
+    '7': 'strong heat stress',
+    '8': 'very strong heat stress',
+    '9': 'extreme heat stress',
+}
+
+PET_CLASSES = {
+    '0': 'extreme cold stress',
+    '1': 'strong cold stress',
+    '2': 'moderate cold stress',
+    '3': 'slight cold stress',
+    '4': 'no thermal stress',
+    '5': 'slight heat stress',
+    '6': 'moderate heat stress',
+    '7': 'strong heat stress',
+    '8': 'extreme heat stress',
+}
+
+
 @pytest.mark.parametrize(
     ('fname', 'expected'),
     (
@@ -86,6 +112,8 @@ from app.tc_ingester import _RasterKeys
                 hour='04',
                 city='DO',
                 version='v0.7.0',
+                is_categorical=True,
+                categories=PET_CLASSES,
             ),
         ),
         (
@@ -97,6 +125,8 @@ from app.tc_ingester import _RasterKeys
                 hour='04',
                 city='DO',
                 version='v0.7.0',
+                is_categorical=True,
+                categories=PET_CLASSES,
             ),
         ),
         # RH
@@ -155,6 +185,8 @@ from app.tc_ingester import _RasterKeys
                 hour='09',
                 city='DO',
                 version='v0.7.0',
+                is_categorical=True,
+                categories=UTCI_CLASSES,
             ),
         ),
         (
@@ -166,6 +198,8 @@ from app.tc_ingester import _RasterKeys
                 hour='09',
                 city='DO',
                 version='v0.7.0',
+                is_categorical=True,
+                categories=UTCI_CLASSES,
             ),
         ),
         (

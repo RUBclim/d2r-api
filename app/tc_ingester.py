@@ -10,6 +10,8 @@ from terracotta.cog import check_raster_file
 from terracotta.drivers import TerracottaDriver
 
 from app.celery import celery_app
+from app.models import PET_STRESS_CATEGORIES
+from app.models import UTCI_STRESS_CATEGORIES
 
 FNAME_REGEX = re.compile(
     r'^(?P<city>[A-Za-z]{2}(?=_))?_?(?P<param>[A-Za-z]+(?:\-class)?(?=_))_?(?P<method>[a-z]+(?=_))?_?(?P<resolution>\d+m(?=_))?_?(?P<version_a>v\d+\.\d+\.\d+(?=_))?_?(?P<year>\d{4}(?=_))?_(?P<doy>\d{1,3}(?=_))_?(?P<hour>\d{2})_?(?P<version_b>v\d+\.\d+\.\d+)?(?:_cog)?\.tif$',  # noqa: E501
@@ -31,6 +33,8 @@ class _RasterKeys(NamedTuple):
     resolution: str | None = None
     version: str | None = None
     method: str | None = None
+    is_categorical: bool = False
+    categories: dict[str, str] | None = None
 
     @staticmethod
     def public_keys() -> tuple[str, str, str, str]:
@@ -75,6 +79,25 @@ class _RasterKeys(NamedTuple):
         if d['param'] not in VALID_PARAMS:
             raise ValueError(f"Invalid param value {d['param']}")
 
+        is_categorical = False
+        categories = None
+        if d['param'] == 'UTCI_CLASS':
+            is_categorical = True
+            # This simply numbers the categories from 0 to n (0-8 for PET and
+            # 0-9 for UTCI). This means that 8 is extreme heat stress for PET and 9 is
+            # extreme heat stress for UTCI. So this is inconsistent and likely a bit
+            # harder to handle in the frontend.
+            # the categories can be retrieved via the /metadata endpoint
+            categories = {
+                # the dictionaries are already ordered, so we can use the index as the
+                # key for the raster category
+                str(k): v.value for k, v in enumerate(UTCI_STRESS_CATEGORIES.values())
+            }
+        elif d['param'] == 'PET_CLASS':
+            is_categorical = True
+            categories = {
+                str(k): v.value for k, v in enumerate(PET_STRESS_CATEGORIES.values())
+            }
         return cls(
             param=d['param'],
             year=d['year'],
@@ -84,6 +107,8 @@ class _RasterKeys(NamedTuple):
             resolution=d['resolution'],
             version=version,
             method=d['method'],
+            is_categorical=is_categorical,
+            categories=categories,
         )
 
 
