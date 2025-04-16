@@ -10,6 +10,6 @@ psycopg2-binary
 pydantic<2.10.0
 sentry_sdk[fastapi]
 sqlmodel
-git+https://github.com/DHI/terracotta@1ca54f1ba2e3b52d4a5f7ddc82dd9177a3c6910b
+git+https://github.com/jkittner/terracotta@647b4a71d6e41532ce3e9138c316f0f9cfb825a0
 uvicorn
 uvicorn-worker
