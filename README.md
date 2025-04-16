@@ -115,3 +115,95 @@ are working on.
 ### upgrade requirements
 
 We are using `uv pip compile` to manage our requirements
+
+### backups
+
+**for the network data**
+
+A database backup/dump in production can be done by running these commands from the
+host:
+
+```bash
+docker exec db pg_dump -Fc d2r_db -U dbuser > d2r-db.dump
+```
+
+This will generate some hypertable-related warnings, but they
+[can be ignored](https://github.com/timescale/timescaledb/issues/1581).
+
+The backup can be restored like this:
+
+1. bring up a temporary `db` container and mount the backup you want to restore as a
+   volume
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod run --rm -v "$(pwd)/d2r_db.dump:/backups/d2r_db.dump:ro" --name db db
+   ```
+
+1. prepare the database for restore
+
+   ```bash
+   docker exec -it db psql -U dbuser -d d2r_db -c "SELECT timescaledb_pre_restore();"
+   ```
+
+1. perform the restore - this will take some time!
+
+   ```bash
+   docker exec -it db pg_restore -Fc -d d2r_db -U dbuser /backups/d2r_db.dump
+   ```
+
+1. finish the restore
+
+   ```bash
+   docker exec -it db psql -U dbuser -d d2r_db -c "SELECT timescaledb_post_restore();"
+   ```
+
+1. stop the temporary container
+
+   ```bash
+   docker stop db
+   ```
+
+1. start all services as usual
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+   ```
+
+**for the raster data**
+
+A database backup/dump in production can be done by running these commands from the
+host:
+
+```bash
+docker exec terracotta-db pg_dump -Fc terracotta -U dbuser
+```
+
+The backup can be restored like this:
+
+1. restore the raster files to the correct directory by extracting them from restic (if
+   stored there). This may already be the final destination (e.g. mounted via sshfs), if
+   available, otherwise you will have to copy them from an intermediate directory to the
+   final destination.
+
+   ```bash
+   restic -r d2r restore <ID of the backup> --target /tmp/
+   ```
+
+1. bring up a temporary `terracotta-db` container and mount the backup you want to
+   restore as a volume
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod run --rm -v "$(pwd)/d2r_tc_db.dump:/backups/d2r_tc_db.dump:ro" --name terracotta-db terracotta-db
+   ```
+
+1. create a database to restore into
+
+   ```bash
+   docker exec -it terracotta-db psql -U dbuser -d postgres -c "CREATE DATABASE terracotta;"
+   ```
+
+1. perform the restore
+
+   ```bash
+   docker exec -it terracotta-db pg_restore -Fc -d terracotta -U dbuser /backups/d2r_tc_db.dump
+   ```
