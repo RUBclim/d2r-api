@@ -136,7 +136,15 @@ The backup can be restored like this:
    volume
 
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod run --rm -v "$(pwd)/d2r_db.dump:/backups/d2r_db.dump:ro" --name db db
+   docker compose \
+      -f docker-compose.yml \
+      -f docker-compose.prod.yml \
+      --env-file .env.prod \
+      run \
+      --rm \
+      -v "$(pwd)/d2r_db.dump:/backups/d2r_db.dump:ro" \
+      --name db \
+      db
    ```
 
 1. prepare the database for restore
@@ -166,7 +174,11 @@ The backup can be restored like this:
 1. start all services as usual
 
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+   docker compose \
+      -f docker-compose.yml \
+      -f docker-compose.prod.yml \
+      --env-file .env.prod \
+      up -d
    ```
 
 **for the raster data**
@@ -193,7 +205,14 @@ The backup can be restored like this:
    restore as a volume
 
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod run --rm -v "$(pwd)/d2r_tc_db.dump:/backups/d2r_tc_db.dump:ro" --name terracotta-db terracotta-db
+   docker compose \
+      -f docker-compose.yml \
+      -f docker-compose.prod.yml \
+      --env-file .env.prod run \
+      --rm \
+      -v "$(pwd)/d2r_tc_db.dump:/backups/d2r_tc_db.dump:ro" \
+      --name terracotta-db \
+      terracotta-db
    ```
 
 1. create a database to restore into
@@ -206,4 +225,20 @@ The backup can be restored like this:
 
    ```bash
    docker exec -it terracotta-db pg_restore -Fc -d terracotta -U dbuser /backups/d2r_tc_db.dump
+   ```
+
+1. stop the temporary container
+
+   ```bash
+   docker stop db
+   ```
+
+1. start all services as usual
+
+   ```bash
+   docker compose \
+      -f docker-compose.yml \
+      -f docker-compose.prod.yml \
+      --env-file .env.prod \
+      up -d
    ```
