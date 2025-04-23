@@ -22,6 +22,8 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.routers.v1 import compute_colormap_range
+from app.schemas import ParamSettings
 
 VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+(\.d[0-9]{8}?)?$')
 
@@ -2664,10 +2666,12 @@ async def test_get_network_values_hourly(
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'hourly',
             'date': datetime(2024, 1, 1, 13),
+            'suggest_viz': True,
         },
     )
     assert resp.status_code == 200
-    assert resp.json()['data'] == [
+    json_resp = resp.json()
+    assert json_resp['data'] == [
         {
             'air_temperature': 6.5,
             'measured_at': '2024-01-01T13:00:00Z',
@@ -2698,6 +2702,11 @@ async def test_get_network_values_hourly(
             'wind_speed': None,
         },
     ]
+    # check visualization is suggested correctly
+    assert json_resp['visualization'] == {
+        'air_temperature': {'cmax': 9.5, 'cmin': 3.5},
+        'wind_speed': {'cmax': 3.85, 'cmin': 2.65},
+    }
 
 
 @pytest.mark.anyio
@@ -2909,6 +2918,8 @@ async def test_get_network_values_daily(
         },
     )
     assert resp.status_code == 200
+    # no visualization is requested, hence this must not be set
+    assert resp.json()['visualization'] is None
     assert resp.json()['data'] == [
         {
             'air_temperature': 155.5,
@@ -3166,6 +3177,50 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         },
         # the other two stations are omitted
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [2], indirect=True)
+async def test_get_network_values_hourly_colormap_custom_handles(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    start_date = datetime(2024, 1, 1, 11, 55, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    for biomet_station in stations:
+        for value in range(14):
+            # insert some values for biomet
+            biomet_data = BiometData(
+                measured_at=start_date + (step * value),
+                station_id=biomet_station.station_id,
+                sensor_id='DEC1',
+                blg_sensor_id='DEC2',
+                pet_category=HeatStressCategories.no_thermal_stress,
+                utci_category=HeatStressCategories.no_thermal_stress,
+                wind_direction=180,
+            )
+            db.add(biomet_data)
+
+    await db.commit()
+    await BiometDataHourly.refresh()
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': ['pet_category', 'utci_category', 'wind_direction'],
+            'scale': 'hourly',
+            'date': datetime(2024, 1, 1, 13),
+            'suggest_viz': True,
+        },
+    )
+    assert resp.status_code == 200
+    # check visualization is suggested correctly
+    assert resp.json()['visualization'] == {
+        'pet_category': None,
+        'utci_category': None,
+        'wind_direction': {'cmax': 360, 'cmin': 0},
+    }
 
 
 @pytest.mark.anyio
@@ -3432,3 +3487,87 @@ async def test_download_station_data_hourly_gaps_filled(
     assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
     assert csv_file[2] == 'DOB1,2024-08-02,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'  # noqa: E501
     assert csv_file[3] == 'DOB1,2024-08-03,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+
+
+@pytest.mark.parametrize(
+    ('data_min', 'data_max', 'param_setting'),
+    (
+        (None, None, None),
+        (None, 10, None),
+        (10, None, None),
+    ),
+)
+def test_compute_cmap_invalid_input(
+        data_min: float | None,
+        data_max: float | None,
+        param_setting: None,
+) -> None:
+    vmin, vmax = compute_colormap_range(
+        data_min=data_min,
+        data_max=data_max,
+        param_setting=param_setting,
+    )
+    assert vmin is None
+    assert vmax is None
+
+
+@pytest.mark.parametrize(
+    ('data_min', 'data_max', 'param_setting', 'expected'),
+    (
+        pytest.param(10, 10, None, (10, 10), id='unknown fallback'),
+        pytest.param(
+            11, 12,
+            ParamSettings(percentile_5=5, percentile_95=15, fraction=0.5),
+            (9, 14),
+            id='data range too small',
+        ),
+        pytest.param(
+            10, 10,
+            ParamSettings(percentile_5=5, percentile_95=15, fraction=0.5),
+            (7.5, 12.5),
+            id='min and may equal',
+        ),
+        pytest.param(
+            4, 5,
+            ParamSettings(percentile_5=5, percentile_95=15, valid_min=4, fraction=0.5),
+            (4, 7),
+            id='extension exceed minimum valid range',
+        ),
+        pytest.param(
+            10, 17,
+            ParamSettings(
+                percentile_5=5,
+                percentile_95=15,
+                valid_min=4,
+                valid_max=16,
+                fraction=0.5,
+            ),
+            (10, 16),
+            id='extension exceed maxmimum valid range',
+        ),
+        pytest.param(
+            8, 14,
+            ParamSettings(
+                percentile_5=5,
+                percentile_95=15,
+                valid_min=4,
+                valid_max=16,
+                fraction=0.1,
+            ),
+            (8, 14),
+            id='data range already big enough',
+        ),
+    ),
+)
+def test_compute_cmap(
+        data_min: float,
+        data_max: float,
+        param_setting: ParamSettings,
+        expected: tuple[float, float],
+) -> None:
+    restult = compute_colormap_range(
+        data_min=data_min,
+        data_max=data_max,
+        param_setting=param_setting,
+    )
+    assert restult == expected

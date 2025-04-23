@@ -1,9 +1,11 @@
 import csv
 import io
+import math
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from decimal import Decimal
 from typing import Any
 from typing import Literal
 from typing import TypedDict
@@ -43,6 +45,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.schemas import NetworkValue
+from app.schemas import ParamSettings
 from app.schemas import PublicParamsAggBiomet
 from app.schemas import PublicParamsAggTempRH
 from app.schemas import PublicParamsBiomet
@@ -51,6 +54,9 @@ from app.schemas import Response
 from app.schemas import Trends
 from app.schemas import TrendValue
 from app.schemas import UNIT_MAPPING
+from app.schemas import VisualizationSuggestion
+from app.schemas import VizParamSettings
+from app.schemas import VizResponse
 
 router = APIRouter(prefix='/v1')
 
@@ -718,14 +724,69 @@ async def get_data(
         raise HTTPException(status_code=404, detail='Station not found')
 
 
+def compute_colormap_range(
+        *,
+        data_min: float | Decimal | None,
+        data_max: float | Decimal | None,
+        param_setting: ParamSettings | None,
+) -> tuple[float | Decimal, float | Decimal] | tuple[None, None]:
+    """calculate a colormap range based on the data and the expected range of a
+    parameter.
+
+    :param data_min: the minimum value of the data
+    :param data_max: the maximum value of the data
+    :param param_setting: information on the specific parameter
+
+    :return: the minimum and maximum value for the colormap
+    """
+    if data_min is None or data_max is None:
+        return None, None
+
+    # if we have no info on the param, default to min/max scaling
+    if param_setting is None:
+        return data_min, data_max
+
+    # in case they are Decimals when returned from the db
+    data_min = float(data_min)
+    data_max = float(data_max)
+
+    data_range = data_max - data_min
+    expected_range = param_setting.percentile_95 - param_setting.percentile_5
+    minimum_range = abs(expected_range * param_setting.fraction)
+    # if the data range is greater than n-percent of the expected range simply use the
+    # original data range
+    vmin = data_min
+    vmax = data_max
+    # the range is smaller, we need to extend it
+    if data_range < minimum_range:
+        # some values may be all the same, then just extend it to the minimum range we
+        # expect with the value centered
+        if data_range == 0:
+            vmin = data_min - (minimum_range / 2)
+            vmax = data_max + (minimum_range / 2)
+        else:
+            val_diff = minimum_range - data_range
+            vmin = data_min - (val_diff / 2)
+            vmax = data_max + (val_diff / 2)
+
+    # check if we are below or above the theoretical min and max ?
+    if (vmin < param_setting.valid_min) and math.isfinite(param_setting.valid_min):
+        vmin = param_setting.valid_min
+
+    if (vmax > param_setting.valid_max) and math.isfinite(param_setting.valid_max):
+        vmax = param_setting.valid_max
+
+    return vmin, vmax
+
+
 @router.get(
     '/network-snapshot',
-    response_model=Response[list[NetworkValue]],
+    response_model=VizResponse[list[NetworkValue]],
     response_model_exclude_unset=True,
     tags=['stations'],
 )
 async def get_network_snapshot(
-        param: list[PublicParamsAggBiomet] | list[PublicParamsTempRH] = Query(
+        param: list[PublicParamsAggBiomet] | list[PublicParamsAggTempRH] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified.'
@@ -745,6 +806,14 @@ async def get_network_snapshot(
                 'meaning `2024-01-01 10:15:13.12345` becomes `2024-01-01 10:00`.'
             ),
             examples=[datetime(2024, 1, 1, 10, 0)],
+        ),
+        suggest_viz: bool = Query(
+            False,
+            description=(
+                'If True, a suggestion for the colormap range is returned based on '
+                'the data returned'
+            ),
+            examples=[True],
         ),
         db: AsyncSession = Depends(get_db_session),
 ) -> Any:
@@ -772,13 +841,13 @@ async def get_network_snapshot(
     date = date.replace(minute=0, second=0, microsecond=0)
 
     biomet_table: type[BiometDataHourly | BiometDataDaily]
-    tempr_rh_table: type[TempRHDataHourly | TempRHDataDaily]
+    temp_rh_table: type[TempRHDataHourly | TempRHDataDaily]
     if scale == 'hourly':
         biomet_table = BiometDataHourly
-        tempr_rh_table = TempRHDataHourly
+        temp_rh_table = TempRHDataHourly
     elif scale == 'daily':
         biomet_table = BiometDataDaily
-        tempr_rh_table = TempRHDataDaily
+        temp_rh_table = TempRHDataDaily
     else:
         raise NotImplementedError('unknown scale')
 
@@ -788,7 +857,7 @@ async def get_network_snapshot(
     ]
     # temp_rh is always a subset of biomet
     columns_temp_rh: list[InstrumentedAttribute[Any] | None] = [
-        getattr(tempr_rh_table, i, None) for i in param
+        getattr(temp_rh_table, i, None) for i in param
     ]
     query: Select[Any] | CompoundSelect[Any]
     query = select(
@@ -804,19 +873,47 @@ async def get_network_snapshot(
     if any(columns_temp_rh):
         query = query.union_all(
             select(
-                tempr_rh_table.measured_at,
-                tempr_rh_table.station_id,
+                temp_rh_table.measured_at,
+                temp_rh_table.station_id,
                 Station.station_type,
                 *columns_temp_rh,
             ).join(
-                Station, Station.station_id == tempr_rh_table.station_id,
+                Station, Station.station_id == temp_rh_table.station_id,
             ).where(
-                tempr_rh_table.measured_at == date,
-            ).order_by(tempr_rh_table.station_id),
+                temp_rh_table.measured_at == date,
+            ).order_by(temp_rh_table.station_id),
         )
 
     data = (await db.execute(query)).mappings().all()
-    return Response(data=data)
+    visualizations: dict[
+        PublicParamsAggBiomet |
+        PublicParamsAggTempRH, VisualizationSuggestion | None,
+    ] | None = None
+    if suggest_viz is True and data:
+        # compute a suggestion for visualization based on the data
+        visualizations = {}
+        # now derive some statistics from the query
+        stat_sub_query = query.cte('stat_sub_query')
+        # compile the min/max functions per parameter
+        agg_params = []
+        for p in param:
+            agg_params.append(func.min(stat_sub_query.c[p]).label(f'{p}_min'))
+            agg_params.append(func.max(stat_sub_query.c[p]).label(f'{p}_max'))
+
+        final = select(*agg_params)
+        stat_data = (await db.execute(final)).mappings().one()
+        for p in param:
+            if 'category' in p:
+                visualizations[p] = None
+            else:
+                vmin, vmax = compute_colormap_range(
+                    data_min=stat_data[f'{p}_min'],
+                    data_max=stat_data[f'{p}_max'],
+                    param_setting=VizParamSettings.get(p),
+                )
+                visualizations[p] = VisualizationSuggestion(cmin=vmin, cmax=vmax)
+
+    return VizResponse(data=data, visualization=visualizations)
 
 
 async def stream_results(stm: Select[Any]) -> AsyncGenerator[str]:

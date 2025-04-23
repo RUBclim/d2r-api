@@ -1,10 +1,12 @@
 from datetime import datetime
 from datetime import timezone
+from decimal import Decimal
 from enum import StrEnum
 from functools import lru_cache
 from importlib.metadata import version
 from typing import Generic
 from typing import Literal
+from typing import NamedTuple
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -246,6 +248,162 @@ class PublicParamsAggBiomet(StrEnum):
     maximum_wind_speed = 'maximum_wind_speed'
 
 
+class ParamSettings(NamedTuple):
+    """Settings for a measured or calculated parameter. The typical range is indicated
+    by the 5th (``percentile_5``) and 95th (``percentile_95``) percentile. The valid
+    range is indicated by the ``valid_min`` and ``valid_max`` values. The ``fraction``
+    indicates the fraction of the expected range that has to be present at all times
+    for potential visualization.
+    """
+    percentile_5: int
+    percentile_95: int
+    valid_min: float = - float('inf')
+    valid_max: float = float('inf')
+    fraction: float = 1
+
+
+# define a setting for each parameter measured by the stations
+_VizParamSettings: dict[
+    PublicParamsAggBiomet | PublicParamsAggTempRH | str,
+    ParamSettings,
+] = {
+    PublicParamsTempRH.absolute_humidity: ParamSettings(
+        percentile_5=3,
+        percentile_95=24,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsTempRH.specific_humidity: ParamSettings(
+        percentile_5=2,
+        percentile_95=10,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsTempRH.air_temperature: ParamSettings(
+        percentile_5=0,
+        percentile_95=24,
+        fraction=0.25,
+    ),
+    PublicParamsTempRH.dew_point: ParamSettings(
+        percentile_5=-3,
+        percentile_95=17,
+        fraction=0.3,
+    ),
+    PublicParamsTempRH.heat_index: ParamSettings(
+        percentile_5=-3,
+        percentile_95=25,
+        fraction=0.3,
+    ),
+    PublicParamsTempRH.relative_humidity: ParamSettings(
+        percentile_5=44,
+        percentile_95=100,
+        valid_min=0,
+        valid_max=100,
+        fraction=0.3,
+    ),
+    PublicParamsTempRH.wet_bulb_temperature: ParamSettings(
+        percentile_5=-2,
+        percentile_95=16,
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.atmospheric_pressure: ParamSettings(
+        percentile_5=983,
+        percentile_95=1016,
+        valid_min=860,
+        valid_max=1055,
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.atmospheric_pressure_reduced: ParamSettings(
+        percentile_5=998,
+        percentile_95=1031,
+        valid_min=860,
+        valid_max=1055,
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.lightning_average_distance: ParamSettings(
+        percentile_5=0,
+        percentile_95=15,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.lightning_strike_count: ParamSettings(
+        percentile_5=0,
+        percentile_95=30,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.mrt: ParamSettings(
+        percentile_5=-4,
+        percentile_95=44,
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.pet: ParamSettings(
+        percentile_5=-5,
+        percentile_95=25,
+        fraction=0.7,
+    ),
+    PublicParamsBiomet.precipitation_sum: ParamSettings(
+        percentile_5=0,
+        percentile_95=5,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.1,
+    ),
+    PublicParamsBiomet.solar_radiation: ParamSettings(
+        percentile_5=0,
+        percentile_95=603,
+        valid_min=0,
+        valid_max=1400,
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.utci: ParamSettings(
+        percentile_5=-3,
+        percentile_95=24,
+        fraction=0.7,
+    ),
+    PublicParamsBiomet.vapor_pressure: ParamSettings(
+        percentile_5=5,
+        percentile_95=16,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.wind_direction: ParamSettings(
+        percentile_5=0,
+        percentile_95=360,
+        valid_min=0,
+        valid_max=360,
+        fraction=1,
+    ),
+    PublicParamsBiomet.wind_speed: ParamSettings(
+        percentile_5=0,
+        percentile_95=4,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+    PublicParamsBiomet.maximum_wind_speed: ParamSettings(
+        percentile_5=0,
+        percentile_95=8,
+        valid_min=0,
+        valid_max=float('inf'),
+        fraction=0.3,
+    ),
+}
+
+# extend the settings for the aggregated parameters since we do not differentiate
+# between extreme values and averages for the visualization
+VizParamSettings = {
+    k: _VizParamSettings[base]
+    for k in (*PublicParamsAggBiomet, *PublicParamsAggTempRH)
+    for base in _VizParamSettings
+    if (k.startswith(base) and 'category' not in k)
+}
+
 T = TypeVar('T')
 
 
@@ -279,6 +437,39 @@ class Response(BaseModel, Generic[T]):
             'The current time as a unix timestamp in UTC. This provides precise timing '
             'information for the API-response.'
         ),
+    )
+
+
+class VisualizationSuggestion(BaseModel):
+    """Visualization suggestion for a specific parameter i.e. the min and max of a
+    colormap to be created.
+    """
+    cmin: float | Decimal | None = Field(
+        description='The suggested minimum value for visualization',
+    )
+    cmax: float | Decimal | None = Field(
+        description='The suggested maximum value for visualization',
+    )
+
+
+class VizResponse(Response[T]):
+    """Generic structure of an API response containing visualization suggestions."""
+    visualization: dict[
+        PublicParamsAggBiomet | PublicParamsAggTempRH,
+        VisualizationSuggestion | None,
+    ] | None = Field(
+        None,
+        examples=[{
+            PublicParamsAggBiomet.air_temperature: VisualizationSuggestion(
+                cmin=3.5,
+                cmax=14.5,
+            ),
+            PublicParamsAggBiomet.relative_humidity: VisualizationSuggestion(
+                cmin=44.5,
+                cmax=86.5,
+            ),
+            PublicParamsAggBiomet.pet_category: None,
+        }],
     )
 
 
