@@ -12,12 +12,23 @@ from terracotta.drivers import TerracottaDriver
 from app.celery import celery_app
 from app.models import PET_STRESS_CATEGORIES
 from app.models import UTCI_STRESS_CATEGORIES
+from app.routers.v1 import compute_colormap_range
+from app.schemas import PublicParamsBiomet
+from app.schemas import VizParamSettings
 
 FNAME_REGEX = re.compile(
     r'^(?P<city>[A-Za-z]{2}(?=_))?_?(?P<param>[A-Za-z]+(?:\-class)?(?=_))_?(?P<method>[a-z]+(?=_))?_?(?P<resolution>\d+m(?=_))?_?(?P<version_a>v\d+\.\d+\.\d+(?=_))?_?(?P<year>\d{4}(?=_))?_(?P<doy>\d{1,3}(?=_))_?(?P<hour>\d{2})_?(?P<version_b>v\d+\.\d+\.\d+)?(?:_cog)?\.tif$',  # noqa: E501
 )
 
-VALID_PARAMS = {'MRT', 'PET', 'PET_CLASS', 'RH', 'TA', 'UTCI', 'UTCI_CLASS'}
+VIZ_PARAM_MAPPING = {
+    'MRT': PublicParamsBiomet.mrt,
+    'PET': PublicParamsBiomet.pet,
+    'PET_CLASS': PublicParamsBiomet.pet_category,
+    'RH': PublicParamsBiomet.relative_humidity,
+    'TA': PublicParamsBiomet.air_temperature,
+    'UTCI': PublicParamsBiomet.utci,
+    'UTCI_CLASS': PublicParamsBiomet.utci_category,
+}
 
 
 class InvalidRasterError(ValueError):
@@ -76,7 +87,7 @@ class _RasterKeys(NamedTuple):
         if d['param'] == 'UTCI-class':
             d['param'] = 'UTCI_CLASS'
 
-        if d['param'] not in VALID_PARAMS:
+        if d['param'] not in VIZ_PARAM_MAPPING:
             raise ValueError(f"Invalid param value {d['param']}")
 
         is_categorical = False
@@ -183,6 +194,15 @@ def ingest_raster(path: str, override_path: str = '') -> None:
             path=raster_info['path'],
             extra_metadata=raster_info['key_values']._asdict(),
         )
+        # add visualization suggestions to the metadata
+        vmin, vmax = compute_colormap_range(
+            data_min=metadata['range'][0],
+            data_max=metadata['range'][1],
+            param_setting=VizParamSettings.get(
+                VIZ_PARAM_MAPPING[raster_info['key_values'].param],
+            ),
+        )
+        metadata['metadata']['visualization'] = {'cmin': vmin, 'cmax': vmax}
         driver.insert(
             keys=raster_info['key_values'].public_values,
             path=raster_info['path'],
