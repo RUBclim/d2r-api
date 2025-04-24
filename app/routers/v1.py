@@ -729,7 +729,7 @@ def compute_colormap_range(
         data_min: float | Decimal | None,
         data_max: float | Decimal | None,
         param_setting: ParamSettings | None,
-) -> tuple[float | Decimal, float | Decimal] | tuple[None, None]:
+) -> tuple[float, float] | tuple[None, None]:
     """calculate a colormap range based on the data and the expected range of a
     parameter.
 
@@ -742,13 +742,13 @@ def compute_colormap_range(
     if data_min is None or data_max is None:
         return None, None
 
-    # if we have no info on the param, default to min/max scaling
-    if param_setting is None:
-        return data_min, data_max
-
     # in case they are Decimals when returned from the db
     data_min = float(data_min)
     data_max = float(data_max)
+
+    # if we have no info on the param, default to min/max scaling
+    if param_setting is None:
+        return data_min, data_max
 
     data_range = data_max - data_min
     expected_range = param_setting.percentile_95 - param_setting.percentile_5
@@ -906,12 +906,17 @@ async def get_network_snapshot(
             if 'category' in p:
                 visualizations[p] = None
             else:
-                vmin, vmax = compute_colormap_range(
-                    data_min=stat_data[f'{p}_min'],
-                    data_max=stat_data[f'{p}_max'],
+                param_min = stat_data[f'{p}_min']
+                param_max = stat_data[f'{p}_max']
+                cmin, cmax = compute_colormap_range(
+                    data_min=param_min,
+                    data_max=param_max,
                     param_setting=VizParamSettings.get(p),
                 )
-                visualizations[p] = VisualizationSuggestion(cmin=vmin, cmax=vmax)
+                visualizations[p] = VisualizationSuggestion(
+                    cmin=cmin, cmax=cmax,
+                    vmin=param_min, vmax=param_max,
+                )
 
     return VizResponse(data=data, visualization=visualizations)
 

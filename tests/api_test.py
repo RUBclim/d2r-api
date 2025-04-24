@@ -2704,8 +2704,8 @@ async def test_get_network_values_hourly(
     ]
     # check visualization is suggested correctly
     assert json_resp['visualization'] == {
-        'air_temperature': {'cmax': 9.5, 'cmin': 3.5},
-        'wind_speed': {'cmax': 3.85, 'cmin': 2.65},
+        'air_temperature': {'cmax': 9.5, 'cmin': 3.5, 'vmin': 6.5, 'vmax': 6.5},
+        'wind_speed': {'cmax': 3.85, 'cmin': 2.65, 'vmin': 3.25, 'vmax': 3.25},
     }
 
 
@@ -3219,7 +3219,7 @@ async def test_get_network_values_hourly_colormap_custom_handles(
     assert resp.json()['visualization'] == {
         'pet_category': None,
         'utci_category': None,
-        'wind_direction': {'cmax': 360, 'cmin': 0},
+        'wind_direction': {'cmax': 360, 'cmin': 0, 'vmin': 180, 'vmax': 180},
     }
 
 
