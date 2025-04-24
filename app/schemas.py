@@ -1,6 +1,5 @@
 from datetime import datetime
 from datetime import timezone
-from decimal import Decimal
 from enum import StrEnum
 from functools import lru_cache
 from importlib.metadata import version
@@ -441,14 +440,18 @@ class Response(BaseModel, Generic[T]):
 
 
 class VisualizationSuggestion(BaseModel):
-    """Visualization suggestion for a specific parameter i.e. the min and max of a
-    colormap to be created.
-    """
-    cmin: float | Decimal | None = Field(
+    """Visualization suggestion for a specific parameter"""
+    cmin: float | None = Field(
         description='The suggested minimum value for visualization',
     )
-    cmax: float | Decimal | None = Field(
+    cmax: float | None = Field(
         description='The suggested maximum value for visualization',
+    )
+    vmin: float | None = Field(
+        description='the minimum value of the parameter',
+    )
+    vmax: float | None = Field(
+        description='the maximum value of the parameter',
     )
 
 
@@ -463,10 +466,14 @@ class VizResponse(Response[T]):
             PublicParamsAggBiomet.air_temperature: VisualizationSuggestion(
                 cmin=3.5,
                 cmax=14.5,
+                vmin=5,
+                vmax=8,
             ),
             PublicParamsAggBiomet.relative_humidity: VisualizationSuggestion(
                 cmin=44.5,
                 cmax=86.5,
+                vmin=50,
+                vmax=80,
             ),
             PublicParamsAggBiomet.pet_category: None,
         }],
