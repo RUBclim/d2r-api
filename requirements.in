@@ -5,6 +5,8 @@ fastapi
 git+https://github.com/RUBclim/element-api@0.2.1
 git+https://github.com/RUBclim/thermal-comfort@0.3.3
 gunicorn
+# https://github.com/encode/httpcore/issues/1007
+h11<0.15
 psycopg[binary] > 3.2.0
 psycopg2-binary
 pydantic<2.10.0
