@@ -25,7 +25,9 @@ from app.models import TempRHDataHourly
 from app.routers.v1 import compute_colormap_range
 from app.schemas import ParamSettings
 
-VERSION_PATTERN = re.compile(r'^\d+\.\d+(\.\d+)?\.dev\d+\+g[0-9a-f]+(\.d[0-9]{8}?)?$')
+VERSION_PATTERN = re.compile(
+    r'^\d+\.\d+(\.\d+)?(?:\.dev\d+\+g[0-9a-f]+(?:\.d[0-9]{8})?)?$',
+)
 
 
 @pytest.mark.parametrize(
