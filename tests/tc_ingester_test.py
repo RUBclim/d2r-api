@@ -1,26 +1,12 @@
 import functools
-from collections.abc import Generator
 from typing import Any
 
 import pytest
-from sqlalchemy import text
 from terracotta.drivers import TerracottaDriver
 
 from app.tc_ingester import _RasterKeys
-from app.tc_ingester import get_driver
 from app.tc_ingester import ingest_raster
 from app.tc_ingester import InvalidRasterError
-
-
-@pytest.fixture
-def raster_driver() -> Generator[TerracottaDriver]:
-    driver = get_driver()
-    yield driver
-    # reset the database
-    with driver.meta_store.sqla_engine.begin() as con:
-        con.execute(text('DELETE FROM datasets'))
-        con.execute(text('DELETE FROM metadata'))
-    driver.meta_store.sqla_engine.dispose()
 
 
 UTCI_CLASSES = {
