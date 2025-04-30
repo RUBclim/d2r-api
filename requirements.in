@@ -2,11 +2,9 @@ alembic
 asgiref
 celery[redis]
 fastapi
-git+https://github.com/RUBclim/element-api@0.2.1
+git+https://github.com/RUBclim/element-api@1.0.0
 git+https://github.com/RUBclim/thermal-comfort@0.3.3
 gunicorn
-# https://github.com/DHI/terracotta/pull/365 (this needs releasing)
-marshmallow<4.0.0
 psycopg[binary] > 3.2.0
 psycopg2-binary
 pydantic<2.10.0
