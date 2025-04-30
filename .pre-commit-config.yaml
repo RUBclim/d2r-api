@@ -37,7 +37,7 @@ repos:
             -   flake8-timeout==0.3.0
             -   flake8-ban-utcnow==0.2.0
         args: [
-            "--min-python-version=3.12",
+            "--min-python-version=3.13",
             "--max-line-length=88",
             "--per-file-ignores=app/alembic/*/*.py:E501",
         ]
@@ -62,7 +62,7 @@ repos:
     rev: v3.19.1
     hooks:
     -   id: pyupgrade
-        args: [--py312-plus]
+        args: [--py313-plus]
 -   repo: https://github.com/pre-commit/mirrors-prettier
     rev: 'v4.0.0-alpha.8'
     hooks:
