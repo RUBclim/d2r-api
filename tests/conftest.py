@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from collections.abc import Generator
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -10,7 +11,9 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport
 from httpx import AsyncClient
 from sqlalchemy import delete
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from terracotta.drivers import TerracottaDriver
 
 from app.database import sessionmanager
 from app.main import create_app
@@ -29,6 +32,7 @@ from app.models import StationType
 from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
+from app.tc_ingester import get_driver
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -176,3 +180,14 @@ async def biomet_data(
     await BiometDataDaily.refresh()
     await db.commit()
     yield biomet_data_list
+
+
+@pytest.fixture
+def raster_driver() -> Generator[TerracottaDriver]:
+    driver = get_driver()
+    yield driver
+    # reset the database
+    with driver.meta_store.sqla_engine.begin() as con:
+        con.execute(text('DELETE FROM datasets'))
+        con.execute(text('DELETE FROM metadata'))
+    driver.meta_store.sqla_engine.dispose()
