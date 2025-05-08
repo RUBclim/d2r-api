@@ -2,8 +2,8 @@ alembic
 asgiref
 celery[redis]
 fastapi
-git+https://github.com/RUBclim/element-api@1.0.0
-git+https://github.com/RUBclim/thermal-comfort@0.3.3
+element-iot-api
+thermal-comfort
 gunicorn
 psycopg[binary] > 3.2.0
 psycopg2-binary
