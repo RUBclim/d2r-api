@@ -21,7 +21,7 @@ click-repl==0.3.0
 click-spinner==0.1.10
 cligj==0.7.2
 color-operations==0.2.0
-element-api @ git+https://github.com/RUBclim/element-api@1e6af4b10bebee2ba11f4685fed4aa7807b8635f
+element-iot-api==1.0.1
 fastapi==0.115.12
 flask==3.1.0
 flask-cors==5.0.1
@@ -61,7 +61,7 @@ sqlalchemy==2.0.40
 sqlmodel==0.0.24
 starlette==0.46.2
 terracotta==0.9.1
-thermal-comfort @ git+https://github.com/RUBclim/thermal-comfort@f1a69e1914ec773228380b0abad4afbafab6d520
+thermal-comfort==1.1.0
 toml==0.10.2
 tqdm==4.67.1
 typing-extensions==4.13.2
