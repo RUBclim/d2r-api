@@ -271,7 +271,7 @@ _VizParamSettings: dict[
         percentile_95=24,
         valid_min=0,
         valid_max=float('inf'),
-        fraction=0.3,
+        fraction=0.15,
     ),
     PublicParamsTempRH.specific_humidity: ParamSettings(
         percentile_5=2,
@@ -288,7 +288,7 @@ _VizParamSettings: dict[
     PublicParamsTempRH.dew_point: ParamSettings(
         percentile_5=-3,
         percentile_95=17,
-        fraction=0.3,
+        fraction=0.1,
     ),
     PublicParamsTempRH.heat_index: ParamSettings(
         percentile_5=-3,
@@ -305,7 +305,7 @@ _VizParamSettings: dict[
     PublicParamsTempRH.wet_bulb_temperature: ParamSettings(
         percentile_5=-2,
         percentile_95=16,
-        fraction=0.3,
+        fraction=0.25,
     ),
     PublicParamsBiomet.atmospheric_pressure: ParamSettings(
         percentile_5=983,
@@ -350,7 +350,7 @@ _VizParamSettings: dict[
         percentile_95=5,
         valid_min=0,
         valid_max=float('inf'),
-        fraction=0.1,
+        fraction=0.8,
     ),
     PublicParamsBiomet.solar_radiation: ParamSettings(
         percentile_5=0,
@@ -369,7 +369,7 @@ _VizParamSettings: dict[
         percentile_95=16,
         valid_min=0,
         valid_max=float('inf'),
-        fraction=0.3,
+        fraction=0.2,
     ),
     PublicParamsBiomet.wind_direction: ParamSettings(
         percentile_5=0,
