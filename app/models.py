@@ -1331,9 +1331,9 @@ class BiometDataHourly(
         avg(heat_index) AS heat_index,
         min(heat_index) AS heat_index_min,
         max(heat_index) AS heat_index_max,
-        avg(lightning_average_distance) AS lightning_average_distance,
-        min(lightning_average_distance) AS lightning_average_distance_min,
-        max(lightning_average_distance) AS lightning_average_distance_max,
+        avg(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0) AS lightning_average_distance,
+        min(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0) AS lightning_average_distance_min,
+        max(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0) AS lightning_average_distance_max,
         sum(lightning_strike_count) AS lightning_strike_count,
         max(maximum_wind_speed) AS maximum_wind_speed,
         avg(mrt) AS mrt,
@@ -2145,19 +2145,19 @@ class BiometDataDaily(
         CASE
             WHEN (count(*) FILTER (
                     WHERE lightning_average_distance IS NOT NULL) / 288.0
-                ) > 0.7 THEN avg(lightning_average_distance)
+                ) > 0.7 THEN avg(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0)
             ELSE NULL
         END AS lightning_average_distance,
         CASE
             WHEN (count(*) FILTER (
                     WHERE lightning_average_distance IS NOT NULL) / 288.0
-                ) > 0.7 THEN min(lightning_average_distance)
+                ) > 0.7 THEN min(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0)
             ELSE NULL
         END AS lightning_average_distance_min,
         CASE
             WHEN (count(*) FILTER (
                     WHERE lightning_average_distance IS NOT NULL) / 288.0
-                ) > 0.7 THEN max(lightning_average_distance)
+                ) > 0.7 THEN max(lightning_average_distance) FILTER (WHERE lightning_average_distance > 0.0)
             ELSE NULL
         END AS lightning_average_distance_max,
         CASE

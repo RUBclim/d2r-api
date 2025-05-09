@@ -99,11 +99,11 @@ COL_TEMPLATE = '''\
 CASE
     WHEN (count(*) FILTER (
             WHERE {column_name} IS NOT NULL) / {total_vals:.1f}
-        ) > {threshold} THEN {agg_func}
+        ) > {threshold} THEN {agg_func}{filter}
     ELSE NULL
 END AS {column_name}{col_suffix}'''
 
-COL_TEMPLATE_NO_TH = '{agg_func} AS {column_name}{col_suffix}'
+COL_TEMPLATE_NO_TH = '{agg_func}{filter} AS {column_name}{col_suffix}'
 
 # definition of template strings for generating Python code
 ATTR_TEMPLATE = '{attr_name}: Mapped[{attr_type}] = mapped_column({col_args})'
@@ -149,6 +149,7 @@ class Col(NamedTuple):
     def sql_repr(self) -> str:
         """generate a SQL definition for this column"""
         agg_func: Function[Any] | WithinGroup[Any]
+        filter = ''
         if 'max' in self.full_name:
             agg_func = func.max(self.sqlalchemy_col)
         elif '_min' in self.full_name:
@@ -167,6 +168,17 @@ class Col(NamedTuple):
         else:
             template = COL_TEMPLATE_NO_TH
 
+        # we need special handling for distance-based columns since we cannot use
+        # average on 0 values when there were no lightning strikes
+        if 'distance' in self.full_name:
+            filter = (
+                f" FILTER (WHERE {
+                    str(self.sqlalchemy_col).replace(
+                        f'{self.sqlalchemy_col.table.name}.', ''
+                    )
+                } > 0.0)"
+            )
+
         return template.format(
             column_name=self.name,
             total_vals=self.total_vals,
@@ -174,6 +186,7 @@ class Col(NamedTuple):
             # we don't want the fully qualified name (table_name.column_name)
             agg_func=str(agg_func).replace(f'{self.sqlalchemy_col.table.name}.', ''),
             col_suffix=self.suffix,
+            filter=filter,
         )
 
     @property

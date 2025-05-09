@@ -103,6 +103,87 @@ async def test_hourly_view_data_is_right_labelled(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+async def test_hourly_view_data_lightning_distance_only_when_strikes(
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    station, = stations
+    start_date = datetime(2024, 1, 1, 11, 55, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    sensor = Sensor(
+        sensor_id='ABC',
+        device_id=12345,
+        sensor_type=SensorType.atm41,
+    )
+    db.add(sensor)
+
+    await db.commit()
+    for value, strike_dist in zip(range(4), [0, 0, 1, 2]):
+        data = BiometData(
+            measured_at=start_date + (step * value),
+            station_id=station.station_id,
+            lightning_average_distance=strike_dist,
+            sensor_id='ABC',
+        )
+        db.add(data)
+    await db.commit()
+    await BiometDataHourly.refresh()
+
+    query = select(
+        BiometDataHourly.measured_at,
+        BiometDataHourly.lightning_average_distance,
+    ).order_by(BiometDataHourly.measured_at)
+
+    result = (await db.execute(query)).all()
+    assert result == [
+        (datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc), None),
+        (datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc), 1.5),
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_daily_view_data_lightning_distance_only_when_strikes(
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    station, = stations
+    start_date = datetime(2024, 1, 1, 11, 55, tzinfo=timezone.utc)
+    step = timedelta(minutes=5)
+    sensor = Sensor(
+        sensor_id='ABC',
+        device_id=12345,
+        sensor_type=SensorType.atm41,
+    )
+    db.add(sensor)
+
+    strike_distances = [0, 0, 1, 2] * 100
+    await db.commit()
+    for value, strike_dist in enumerate(strike_distances):
+        data = BiometData(
+            measured_at=start_date + (step * value),
+            station_id=station.station_id,
+            lightning_average_distance=strike_dist,
+            sensor_id='ABC',
+        )
+        db.add(data)
+    await db.commit()
+    await BiometDataDaily.refresh()
+
+    query = select(
+        BiometDataDaily.measured_at,
+        BiometDataDaily.lightning_average_distance,
+    ).order_by(BiometDataDaily.measured_at)
+
+    result = (await db.execute(query)).all()
+    assert result == [
+        (date(2024, 1, 1), None),
+        (date(2024, 1, 2), Decimal('1.5')),
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
 @pytest.mark.parametrize(
     ('data_table', 'view', 'sensor_type'),
     (
