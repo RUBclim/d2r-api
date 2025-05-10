@@ -64,7 +64,7 @@ services:
         limits:
           cpus: "2"
           # processing the COGs is memory intensive
-          memory: 1700M
+          memory: 2048M
 
   celery-beat:
     env_file:
