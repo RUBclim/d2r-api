@@ -11,9 +11,11 @@ from urllib.error import HTTPError
 
 import numpy as np
 import pandas as pd
+from celery import Celery
 from celery import chain
 from celery import chord
 from celery import group
+from celery.result import AsyncResult
 from celery.schedules import crontab
 from element import ElementApi
 from numpy.typing import NDArray
@@ -56,28 +58,34 @@ from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
 
 
+# https://github.com/sbdchd/celery-types/issues/80
+AsyncResult.__class_getitem__ = classmethod(  # type: ignore [attr-defined]
+    lambda cls, *args, **kwargs: cls,
+)
+
+
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(
-        sender: Any,
+        sender: Celery,
         **kwargs: dict[str, Any],
 ) -> None:  # pragma: no cover
     sender.add_periodic_task(
         crontab(minute='*/5'),
         _sync_data_wrapper.s(),
         name='download-data-periodic',
-        expires=timedelta(minutes=5),
+        expires=5*60,
     )
     sender.add_periodic_task(
         crontab(minute='2', hour='*/1'),
         check_for_new_sensors.s(),
         name='check-new-sensors-periodic',
-        expires=timedelta(minutes=45),
+        expires=5*60,
     )
     sender.add_periodic_task(
         crontab(minute='2', hour='1'),
         self_test_integrity.s(),
         name='self_test_integrity',
-        expires=timedelta(minutes=45),
+        expires=5*60,
     )
 
 
@@ -206,7 +214,7 @@ async def _refresh_view(view_name: TableNames) -> None:
 
 
 @async_task(app=celery_app, name='refresh-all-views')
-async def refresh_all_views(*args: Any, **kwargs: Any) -> tuple[None, ...]:
+async def refresh_all_views(*args: Any, **kwargs: Any) -> AsyncResult[Any]:
     """Refresh all views in the database. This is a task that is called after
     all data was inserted. We need to accept any arguments, as the chord task
     will pass the results of the individual tasks to this task. We don't care

@@ -74,12 +74,13 @@ repos:
     hooks:
     -   id: mypy
         additional_dependencies: [
-            'celery==5.4.0',
-            'git+https://github.com/RUBclim/element-api@0.1.1',
-            'fastapi==0.115.11',
-            'sqlalchemy[mypy]==2.0.39',
-            'psycopg[binary]==3.2.6',
-            'alembic==1.15.1',
+            'celery==5.5.2',
+            'element-iot-api==1.0.1',
+            'fastapi==0.115.12',
+            'sqlalchemy[mypy]==2.0.41',
+            'psycopg[binary]==3.2.9',
+            'alembic==1.15.2',
             'pandas-stubs==2.2.3.250308',
             'sqlmodel==0.0.24',
+            'celery-types==0.23.0',
         ]
