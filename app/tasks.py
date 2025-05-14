@@ -65,16 +65,19 @@ def setup_periodic_tasks(
         crontab(minute='*/5'),
         _sync_data_wrapper.s(),
         name='download-data-periodic',
+        expires=timedelta(minutes=5),
     )
     sender.add_periodic_task(
         crontab(minute='2', hour='*/1'),
         check_for_new_sensors.s(),
         name='check-new-sensors-periodic',
+        expires=timedelta(minutes=45),
     )
     sender.add_periodic_task(
         crontab(minute='2', hour='1'),
         self_test_integrity.s(),
         name='self_test_integrity',
+        expires=timedelta(minutes=45),
     )
 
 
