@@ -1,6 +1,7 @@
 import os
 from collections.abc import Callable
 from collections.abc import Coroutine
+from datetime import timedelta
 from functools import wraps
 from typing import Any
 from typing import ParamSpec
@@ -16,16 +17,21 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 P = ParamSpec('P')
 R = TypeVar('R')
 
+# https://github.com/sbdchd/celery-types/issues/80
+Task.__class_getitem__ = classmethod(  # type: ignore [attr-defined]
+    lambda cls, *args, **kwargs: cls,
+)
 
-def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task:
+
+def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task[Any, Any]:
     # taken from: https://github.com/celery/celery/issues/6552
-    def _decorator(func: Callable[P, Coroutine[Any, Any, R]]) -> Task:
+    def _decorator(func: Callable[P, Coroutine[Any, Any, R]]) -> Task[Any, Any]:
         # if we are running tests, we don't want this to be converted to a sync
         # function
         if 'PYTEST_VERSION' in os.environ:  # pragma: no branch
             # give the function it's .s attribute for testing
             func.s = func  # type: ignore[attr-defined]
-            return func
+            return func  # type: ignore[return-value]
 
         sync_call = sync.AsyncToSync(func)
 
@@ -35,19 +41,18 @@ def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task:
             return sync_call(*args, **kwargs)
 
         return _decorated
-
-    return _decorator
+    # TODO: remove this once we have the types figured out correctly
+    return _decorator  # type: ignore[return-value]
 
 
 celery_app = Celery(
     'd2r-api',
     broker=os.environ['CELERY_BROKER_URL'],
     backend=os.environ['CELERY_BROKER_URL'],
-    task_soft_time_limit=os.environ['QUEUE_SOFT_TIME_LIMIT'],
-    broker_pool_limit=0,
+    task_soft_time_limit=int(os.environ['QUEUE_SOFT_TIME_LIMIT']),
     broker_connection_retry_on_startup=True,
     include=['app.tasks', 'app.tc_ingester'],
-    result_expires=600,  # expire after 10 minutes
+    result_expires=timedelta(600),  # expire after 10 minutes
 )
 celery_app.conf.timezone = 'UTC'
 celery_app.set_default()
