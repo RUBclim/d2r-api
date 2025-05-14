@@ -4,6 +4,7 @@ and a proxy fix for the nginx reverse proxy. This is the entry point for the app
 import os
 
 import sentry_sdk
+from psycopg2.errors import AdminShutdown
 from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from terracotta import get_settings
@@ -19,6 +20,7 @@ sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN'),
     integrations=[FlaskIntegration(), SqlalchemyIntegration()],
     traces_sample_rate=float(os.environ.get('TC_SENTRY_SAMPLE_RATE', 0.0)),
+    ignore_errors=[AdminShutdown],
 )
 
 settings = get_settings()

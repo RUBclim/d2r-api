@@ -11,6 +11,7 @@ from asgiref import sync
 from celery import Celery
 from celery import signals
 from celery import Task
+from psycopg.errors import AdminShutdown
 from sentry_sdk.integrations.celery import CeleryIntegration
 
 P = ParamSpec('P')
@@ -59,6 +60,7 @@ def init_sentry(**_kwargs: Any) -> None:  # pragma: no cover
         dsn=os.environ.get('MONITOR_SENTRY_DSN'),
         integrations=[CeleryIntegration()],
         traces_sample_rate=float(os.environ.get('SENTRY_SAMPLE_RATE', 0.0)),
+        ignore_errors=[AdminShutdown],
     )
 
 

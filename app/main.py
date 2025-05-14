@@ -7,6 +7,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from psycopg.errors import AdminShutdown
 from psycopg.errors import DuplicateTable
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -32,6 +33,7 @@ sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN'),
     integrations=[StarletteIntegration(), FastApiIntegration()],
     traces_sample_rate=float(os.environ.get('SENTRY_SAMPLE_RATE', 0.0)),
+    ignore_errors=[AdminShutdown],
 )
 
 
