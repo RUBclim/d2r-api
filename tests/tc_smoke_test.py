@@ -6,8 +6,8 @@ from flask import Flask
 from flask.testing import FlaskClient
 from terracotta import update_settings
 from terracotta.drivers import TerracottaDriver
+from terracotta.server import create_app
 
-from app.tc_app import create_app
 from app.tc_ingester import ingest_raster
 
 
@@ -83,6 +83,7 @@ def test_get_keys(client: FlaskClient) -> None:
 def test_get_metadata(client: FlaskClient) -> None:
     response = client.get('/metadata/MRT/2025/113/12')
     assert response.status_code == 200
+    assert response.json is not None
     assert response.json['range'] == [22.004995346069336, 39.25629806518555]
 
 

@@ -1,9 +1,11 @@
 asgi-lifespan
+celery-types
 covdefaults
 coverage
 freezegun
 httpx
 locust
+pandas-stubs
 pytest
 pytest-randomly
 sphinx

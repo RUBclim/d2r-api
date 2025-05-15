@@ -74,13 +74,18 @@ repos:
     hooks:
     -   id: mypy
         additional_dependencies: [
-            'celery==5.5.2',
-            'element-iot-api==1.0.1',
-            'fastapi==0.115.12',
-            'sqlalchemy[mypy]==2.0.41',
-            'psycopg[binary]==3.2.9',
             'alembic==1.15.2',
-            'pandas-stubs==2.2.3.250308',
-            'sqlmodel==0.0.24',
+            'asgi-lifespan==2.1.0',
             'celery-types==0.23.0',
+            'celery==5.5.2',
+            'element-iot-api==1.0.2',
+            'fastapi==0.115.12',
+            'httpx==0.28.1',
+            'pandas-stubs==2.2.3.250308',
+            'psycopg[binary]==3.2.9',
+            'pydantic==2.9.2',
+            'sqlalchemy[mypy]==2.0.41',
+            'sqlmodel==0.0.24',
+            'thermal-comfort==1.1.1',
+            'types-freezegun==1.1.10',
         ]
