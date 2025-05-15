@@ -29,18 +29,31 @@ from app.database import sessionmanager
 
 
 class StationType(StrEnum):
-    temprh = 'temprh'
+    """Enum differentiating between the different types of stations:
+
+    - ``temprh``: station with a SHT35 sensor
+    - ``biomet``: station with an ATM41 and a BLG sensor
+    - ``double``: station with an ATM41, SHT35, and a BLG sensor
+    """
     biomet = 'biomet'
     double = 'double'
+    temprh = 'temprh'
 
 
 class SensorType(StrEnum):
+    """Enum differentiating between the different types of sensors:
+
+    - ``atm41``: ATM41 sensor with many parameters
+    - ``blg``: BLG sensor with black globe temperature
+    - ``sht35``: SHT35 sensor with temperature and relative humidity
+    """
     atm41 = 'atm41'
-    sht35 = 'sht35'
     blg = 'blg'
+    sht35 = 'sht35'
 
 
 class HeatStressCategories(StrEnum):
+    """Enum for the different heat stress categories as defined by PET or UTCI."""
     unknown = 'unknown'
     extreme_cold_stress = 'extreme cold stress'
     very_strong_cold_stress = 'very strong cold stress'
@@ -105,50 +118,121 @@ class Station(Base):
     __tablename__ = 'station'
 
     # IDs
-    station_id: Mapped[str] = mapped_column(Text, primary_key=True, index=True)
-    long_name: Mapped[str] = mapped_column(Text, nullable=False)
-    station_type: Mapped[StationType] = mapped_column(nullable=False)
+    station_id: Mapped[str] = mapped_column(
+        Text,
+        primary_key=True,
+        index=True,
+        doc='id of the station e.g. ``DOBNOM``',
+    )
+    long_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc='long name of the station e.g. ``Nordmarkt``',
+    )
+    station_type: Mapped[StationType] = mapped_column(
+        nullable=False,
+        doc='type of the station e.g. ``temprh``',
+    )
 
     # geographical position
-    latitude: Mapped[float] = mapped_column(nullable=False)
-    longitude: Mapped[float] = mapped_column(nullable=False)
-    altitude: Mapped[float] = mapped_column(nullable=False)
+    latitude: Mapped[float] = mapped_column(
+        nullable=False,
+        doc='latitude of the station in **decimal degrees**',
+    )
+    longitude: Mapped[float] = mapped_column(
+        nullable=False,
+        doc='longitude of the station in **decimal degrees**',
+    )
+    altitude: Mapped[float] = mapped_column(
+        nullable=False,
+        doc='altitude of the station in **m a.s.l.**',
+    )
 
     # address information
-    street: Mapped[str] = mapped_column(Text, nullable=False)
-    number: Mapped[str | None] = mapped_column(Text, nullable=True)
-    plz: Mapped[int] = mapped_column(nullable=False)
-    city: Mapped[str] = mapped_column(Text, nullable=False)
-    country: Mapped[str] = mapped_column(Text, nullable=False)
-    district: Mapped[str] = mapped_column(Text, nullable=False)
+    street: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc='name of the street the station is located at',
+    )
+    number: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc='if possible, the number of the closest building',
+    )
+    plz: Mapped[int] = mapped_column(
+        nullable=False,
+        doc='postal code of the station',
+    )
+    city: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc='name of the city the station is located in',
+    )
+    country: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc='name of the country the station is located in',
+    )
+    district: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc='name of the district the station is located in',
+    )
 
     # siting information
-    lcz: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lcz: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc='local climate zone of the station',
+    )
     dominant_land_use: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment='e.g. residential, commercial, industrial, ...',
+        doc='dominant land use at the station',
     )
-    urban_atlas_class_name: Mapped[str | None] = mapped_column(Text, nullable=True)
-    urban_atlas_class_nr: Mapped[int | None] = mapped_column(nullable=True)
+    urban_atlas_class_name: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc='urban atlas class name of the station',
+    )
+    urban_atlas_class_nr: Mapped[int | None] = mapped_column(
+        nullable=True,
+        doc='urban atlas class number of the station',
+    )
     orographic_setting: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment='e.g. Flat, Hilly',
+        doc='orographic setting of the station e.g. flat, hilly, ...',
     )
-    svf: Mapped[Decimal] = mapped_column(nullable=True)
+    svf: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='sky view factor of the station',
+    )
     artificial_heat_sources: Mapped[str] = mapped_column(
         Text,
         nullable=True,
         comment='e.g. cars, buildings, ...',
+        doc='artificial heat sources at the station',
     )
-    proximity_to_building: Mapped[Decimal | None] = mapped_column(nullable=True)
-    proximity_to_parking: Mapped[Decimal | None] = mapped_column(nullable=True)
-    proximity_to_tree: Mapped[Decimal | None] = mapped_column(nullable=True)
+    proximity_to_building: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        doc='the distance to the closest building in **m**',
+    )
+    proximity_to_parking: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        doc='the distance to the closest parking lot in **m**',
+    )
+    proximity_to_tree: Mapped[Decimal | None] = mapped_column(
+        nullable=True,
+        doc='the distance to the closest tree in **m**',
+    )
     surrounding_land_cover_description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment='a text describing the surrounding land cover',
+        doc='a text describing the surrounding land cover',
     )
 
     # mounting information
@@ -156,8 +240,12 @@ class Station(Base):
         Text,
         nullable=True,
         comment='the structure the sensor is mounted to e.g. black mast, building, ...',
+        doc='the structure the sensor is mounted to e.g. black mast, building, ...',
     )
-    leuchtennummer: Mapped[int] = mapped_column(nullable=False)
+    leuchtennummer: Mapped[int] = mapped_column(
+        nullable=False,
+        doc='the number of the streetlight the sensor is mounted to',
+    )
     mounting_structure_material: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -165,22 +253,32 @@ class Station(Base):
             'The material the structure the sensor is mounted to is made of e.g. '
             'metal, wood, ...'
         ),
+        doc=(
+            'The material the structure the sensor is mounted to is made of e.g. '
+            'metal, wood, ...'
+        ),
     )
     mounting_structure_height_agl: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment='the total height of the mounting structure above ground level',
+        doc='the total height of the mounting structure above ground level',
     )
     mounting_structure_diameter: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment='the diameter of the mounting structure at the mounting height',
+        doc='the diameter of the mounting structure at the mounting height',
     )
     mounting_structure_light_extension_offset: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment='when mounted to a lantern post, the overhang of the lantern',
+        doc='when mounted to a lantern post, the overhang of the lantern',
     )
     sensor_height_agl: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment=(
+            'the mounting height of the main component of the station (ATM41 or SHT35)'
+        ),
+        doc=(
             'the mounting height of the main component of the station (ATM41 or SHT35)'
         ),
     )
@@ -188,6 +286,10 @@ class Station(Base):
         Text,
         nullable=True,
         comment=(
+            'the distance of the main component of the station (ATM41 or SHT35) '
+            'from the mounting structure'
+        ),
+        doc=(
             'the distance of the main component of the station (ATM41 or SHT35) '
             'from the mounting structure'
         ),
@@ -199,17 +301,24 @@ class Station(Base):
             'the orientation (-angle) of the arm of the main component of the station '
             '(ATM41 or SHT35) from the mounting structure'
         ),
+        doc=(
+            'the orientation (-angle) of the arm of the main component of the station '
+            '(ATM41 or SHT35) from the mounting structure'
+        ),
     )
     blg_sensor_height_agl: Mapped[Decimal | None] = mapped_column(
         nullable=True,
-        comment=(
-            'the mounting height of the black globe sensor of the station'
-        ),
+        comment='the mounting height of the black globe sensor of the station',
+        doc='the mounting height of the black globe sensor of the station',
     )
     blg_sensor_distance_from_mounting_structure: Mapped[Decimal | None] = mapped_column(
         Text,
         nullable=True,
         comment=(
+            'the distance of the black globe sensor of the station from the mounting '
+            'structure'
+        ),
+        doc=(
             'the distance of the black globe sensor of the station from the mounting '
             'structure'
         ),
@@ -221,8 +330,16 @@ class Station(Base):
             'the orientation (-angle) of the arm of the black globe sensor of the '
             'station from the mounting structure'
         ),
+        doc=(
+            'the orientation (-angle) of the arm of the black globe sensor of the '
+            'station from the mounting structure'
+        ),
     )
-    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc='a text describing the station',
+    )
 
     # relationships
     awaitable_attrs: ClassVar[_StationAwaitableAttrs]  # type: ignore[assignment]
@@ -239,6 +356,7 @@ class Station(Base):
         viewonly=True,
         lazy=True,
         order_by='SensorDeployment.setup_date',
+        doc='list of sensors that are currently deployed at the station',
     )
     former_sensors: Mapped[list[Sensor]] = relationship(
         'Sensor',
@@ -253,6 +371,7 @@ class Station(Base):
         viewonly=True,
         lazy=True,
         order_by='SensorDeployment.setup_date',
+        doc='list of sensors that were previously deployed at the station',
     )
     active_deployments: Mapped[list[SensorDeployment]] = relationship(
         'SensorDeployment',
@@ -265,6 +384,7 @@ class Station(Base):
         viewonly=True,
         lazy=True,
         order_by='SensorDeployment.setup_date',
+        doc='list of deployments that are currently active at the station',
     )
     former_deployments: Mapped[list[SensorDeployment]] = relationship(
         'SensorDeployment',
@@ -277,15 +397,18 @@ class Station(Base):
         viewonly=True,
         lazy=True,
         order_by='SensorDeployment.setup_date',
+        doc='list of deployments that were previously active at the station',
     )
     deployments: Mapped[list[SensorDeployment]] = relationship(
         back_populates='station',
         lazy=True,
         order_by='SensorDeployment.setup_date, SensorDeployment.deployment_id',
+        doc='list of all deployments at the station',
     )
 
     @property
     def full_address(self) -> str:
+        """Returns the full address of the station as a string."""
         address = [
             self.street,
             f' {self.number}' if self.number else '',
@@ -388,25 +511,45 @@ class Sensor(Base):
     """Pool of sensors that can be installed at a station"""
     __tablename__ = 'sensor'
 
-    sensor_id: Mapped[str] = mapped_column(primary_key=True)
-    device_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    sensor_type: Mapped[SensorType] = mapped_column(nullable=False)
+    sensor_id: Mapped[str] = mapped_column(
+        primary_key=True,
+        doc='id of the sensor e.g. ``DEC1234``',
+    )
+    device_id: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        doc='device id of the sensor e.g. ``1234567890``',
+    )
+    sensor_type: Mapped[SensorType] = mapped_column(
+        nullable=False,
+        doc='type of the sensor e.g. ``biomet``',
+    )
     # calibration information
     temp_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False,
         default=0,
         server_default='0',
+        doc=(
+            'temperature calibration offset in **°C**. This is the offset that '
+            'is applied to the temperature value before it is stored in the database'
+        ),
     )
     relhum_calib_offset: Mapped[Decimal] = mapped_column(
         nullable=False,
         default=0,
         server_default='0',
+        doc=(
+            'relative humidity calibration offset in **%**. This is the offset that '
+            'is applied to the relative humidity value before it is stored in the '
+            'database'
+        ),
     )
 
     # relationships
     deployments: Mapped[list[SensorDeployment]] = relationship(
         back_populates='sensor',
         lazy=True,
+        doc='list of all deployments of the sensor',
     )
     current_station: Mapped[Station | None] = relationship(
         secondary='sensor_deployment',
@@ -419,6 +562,7 @@ class Sensor(Base):
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
         viewonly=True,
         lazy=True,
+        doc='the station the sensor is currently deployed at',
     )
     former_stations: Mapped[list[Station]] = relationship(
         'Station',
@@ -432,6 +576,7 @@ class Sensor(Base):
         secondaryjoin='Station.station_id == SensorDeployment.station_id',
         viewonly=True,
         lazy=True,
+        doc='list of stations the sensor was previously deployed at',
     )
 
     def __repr__(self) -> str:
@@ -457,16 +602,32 @@ class _Data(Base):
         DateTime(timezone=True),
         primary_key=True,
         index=True,
+        doc='The exact time the value was measured in **UTC**',
     )
-    battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    protocol_version: Mapped[int] = mapped_column(nullable=True)
+    battery_voltage: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='The battery voltage of the sensor in **Volts**',
+    )
+    protocol_version: Mapped[int] = mapped_column(
+        nullable=True,
+        doc='The protocol version the data was sent with',
+    )
 
 
 class _SHT35DataRawBase(_Data):
     __abstract__ = True
 
-    air_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    air_temperature: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='air temperature in **°C**',
+    )
+    relative_humidity: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='relative humidity in **%**',
+    )
 
 
 class SHT35DataRaw(_SHT35DataRawBase):
@@ -476,8 +637,12 @@ class SHT35DataRaw(_SHT35DataRawBase):
         ForeignKey('sensor.sensor_id'),
         primary_key=True,
         index=True,
+        doc='id of the sensor e.g. ``DEC1234``',
     )
-    sensor: Mapped[Sensor] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(
+        lazy=True,
+        doc='The sensor the data was measured with',
+    )
     awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
 
     def __repr__(self) -> str:
@@ -496,28 +661,86 @@ class SHT35DataRaw(_SHT35DataRawBase):
 class _ATM41DataRawBase(_Data):
     __abstract__ = True
 
-    air_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    wind_speed: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    wind_direction: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    u_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    v_wind: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    maximum_wind_speed: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    precipitation_sum: Mapped[Decimal] = mapped_column(nullable=True, comment='mm')
-    solar_radiation: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    air_temperature: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='air temperature in **°C**',
+    )
+    relative_humidity: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='relative humidity in **%**',
+    )
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='atmospheric pressure in **kPa**',
+    )
+    vapor_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='vapor pressure in **kPa**',
+    )
+    wind_speed: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='wind speed in **m/s**',
+    )
+    wind_direction: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='wind direction in **°**',
+    )
+    u_wind: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='u wind component in **m/s**',
+    )
+    v_wind: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='v wind component in **m/s**',
+    )
+    maximum_wind_speed: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum wind speed in **m/s** (gusts)',
+    )
+    precipitation_sum: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='mm',
+        doc='precipitation sum in **mm**',
+    )
+    solar_radiation: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='W/m2',
+        doc='solar radiation in **W/m2**',
+    )
     lightning_average_distance: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
+        doc='distance of lightning strikes in **km**',
     )
-    lightning_strike_count: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    lightning_strike_count: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='number of lightning strikes',
+    )
     sensor_temperature_internal: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='internal temperature of the sensor in **°C**',
     )
-    x_orientation_angle: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    y_orientation_angle: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
+    x_orientation_angle: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='x-tilt angle of the sensor in **°**',
+    )
+    y_orientation_angle: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='y-tilt angle of the sensor in **°**',
+    )
 
 
 class ATM41DataRaw(_ATM41DataRawBase):
@@ -527,8 +750,12 @@ class ATM41DataRaw(_ATM41DataRawBase):
         ForeignKey('sensor.sensor_id'),
         primary_key=True,
         index=True,
+        doc='id of the sensor e.g. ``DEC1234``',
     )
-    sensor: Mapped[Sensor] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(
+        lazy=True,
+        doc='The sensor the data was measured with',
+    )
     awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
 
 
@@ -537,12 +764,18 @@ class _BLGDataRawBase(_Data):
     black_globe_temperature: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='black globe temperature in **°C**',
     )
     thermistor_resistance: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
+        doc='thermistor resistance in **Ohms**',
     )
-    voltage_ratio: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    voltage_ratio: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='voltage ratio of the sensor',
+    )
 
 
 class BLGDataRaw(_BLGDataRawBase):
@@ -552,43 +785,148 @@ class BLGDataRaw(_BLGDataRawBase):
         ForeignKey('sensor.sensor_id'),
         primary_key=True,
         index=True,
+        doc='id of the sensor e.g. ``DEC1234``',
     )
     awaitable_attrs: ClassVar[_RawDataAwaitableAttrs]  # type: ignore[assignment]
-    sensor: Mapped[Sensor] = relationship(lazy=True)
+    sensor: Mapped[Sensor] = relationship(
+        lazy=True,
+        doc='The sensor the data was measured with',
+    )
 
 
 class _TempRHDerivatives(Base):
     __abstract__ = True
-    dew_point: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    absolute_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='g/m3')
-    specific_humidity: Mapped[Decimal] = mapped_column(nullable=True, comment='g/kg')
-    heat_index: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    wet_bulb_temperature: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    dew_point: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'dew point temperature in **°C** calculated using '
+            ':func:`thermal_comfort.dew_point`'
+        ),
+    )
+    absolute_humidity: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/m3',
+        doc=(
+            'absolute humidity in **g/m3** calculated using '
+            ':func:`thermal_comfort.absolute_humidity`'
+        ),
+    )
+    specific_humidity: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='g/kg',
+        doc=(
+            'specific humidity in **g/kg** calculated using '
+            ':func:`thermal_comfort.specific_humidity`'
+        ),
+    )
+    heat_index: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'heat index in **°C** calculated using '
+            ':func:`thermal_comfort.heat_index_extended`'
+        ),
+    )
+    wet_bulb_temperature: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'wet bulb temperature in **°C** calculated using '
+            ':func:`thermal_comfort.wet_bulb_temp`'
+        ),
+    )
 
 
 class _BiometDerivatives(Base):
     __abstract__ = True
-    blg_time_offset: Mapped[Decimal] = mapped_column(nullable=True, comment='seconds')
-    mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    blg_time_offset: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='seconds',
+        doc=(
+            'time offset of the Blackglobe sensor to the corresponding ATM41 sensor '
+            'in **seconds**'
+        ),
+    )
+    mrt: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'mean radiant temperature in **°C** calculated using '
+            ':func:`thermal_comfort.mean_radiant_temp`'
+        ),
+    )
+    utci: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'universal thermal climate index in **°C** calculated using '
+            ':func:`thermal_comfort.utci_approx`'
+        ),
+    )
+    utci_category: Mapped[HeatStressCategories] = mapped_column(
+        nullable=True,
+        doc=(
+            'universal thermal climate index category derived from '
+            ':const:`UTCI_STRESS_CATEGORIES` and applied using '
+            ':func:`app.tasks.category_mapping`'
+        ),
+    )
+    pet: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=(
+            'physiological equivalent temperature in **°C** calculated using '
+            ':func:`thermal_comfort.pet_static`'
+        ),
+    )
+    pet_category: Mapped[HeatStressCategories] = mapped_column(
+        nullable=True,
+        doc=(
+            'physiological equivalent temperature category derived from '
+            ':const:`PET_STRESS_CATEGORIES` and applied using '
+            ':func:`app.tasks.category_mapping`'
+        ),
+    )
     # we've converted it to hPa in the meantime
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+        doc='atmospheric pressure in **hPa**',
+    )
     atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc=(
+            'atmospheric pressure reduced to sea level in **hPa** calculated using '
+            ':func:`app.tasks.reduce_pressure`'
+        ),
     )
-    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
+    vapor_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+        doc='vapor pressure in **hPa**',
+    )
     # we need this as an alias in the big biomet table
-    blg_battery_voltage: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+    blg_battery_voltage: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='V',
+        doc='battery voltage of the black globe sensor in **Volts**',
+    )
 
 
 class _CalibrationDerivatives(Base):
     __abstract__ = True
-    air_temperature_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_raw: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    air_temperature_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='raw air temperature in **°C** with no calibration applied',
+    )
+    relative_humidity_raw: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='raw relative humidity in **%** with no calibration applied',
+    )
 
 
 class _BiometDataAwaitableAttrs(Protocol):
@@ -612,11 +950,13 @@ class BiometData(
     station_id: Mapped[str] = mapped_column(
         ForeignKey('station.station_id'),
         primary_key=True,
+        doc='id of the station these measurements were taken at',
     )
     sensor_id: Mapped[str] = mapped_column(
         Text,
         ForeignKey('sensor.sensor_id'),
         index=True,
+        doc='id of the ATM41 sensor these measurements were taken with',
     )
     blg_sensor_id: Mapped[str | None] = mapped_column(
         Text,
@@ -625,20 +965,26 @@ class BiometData(
         # this needs to be nullable, since we may have measurements of the ATM41 sensor
         # that do not have corresponding blackglobe measurements
         nullable=True,
+        doc='id of the BLG sensor these measurements were taken with',
     )
 
     awaitable_attrs: ClassVar[_BiometDataAwaitableAttrs]  # type: ignore[assignment]
-    station: Mapped[Station] = relationship(lazy=True)
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
     sensor: Mapped[Sensor] = relationship(
         # this should only ever be a biomet sensor, but just to make sure!
         primaryjoin='and_(BiometData.sensor_id == Sensor.sensor_id, Sensor.sensor_type == "atm41")',  # noqa: E501
         viewonly=True,
         lazy=True,
+        doc='The sensor the data was measured with',
     )
     blg_sensor: Mapped[Sensor | None] = relationship(
         primaryjoin='and_(BiometData.blg_sensor_id == Sensor.sensor_id, Sensor.sensor_type == "blg")',  # noqa: E501
         viewonly=True,
         lazy=True,
+        doc='The black globe sensor the data was measured with',
     )
 
     deployments: Mapped[list[SensorDeployment]] = relationship(
@@ -654,6 +1000,7 @@ class BiometData(
         order_by=SensorDeployment.deployment_id,
         lazy=True,
         viewonly=True,
+        doc='list of deployments that were involved in the measurement of this data',
     )
 
 
@@ -675,15 +1022,23 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
     station_id: Mapped[str] = mapped_column(
         ForeignKey('station.station_id'),
         primary_key=True,
+        doc='id of the station these measurements were taken at',
     )
     sensor_id: Mapped[str] = mapped_column(
         Text,
         ForeignKey('sensor.sensor_id'),
         index=True,
+        doc='id of the SHT35 sensor these measurements were taken with',
     )
     awaitable_attrs: ClassVar[_TempRHDataAwaitableAttrs]  # type: ignore[assignment]
-    station: Mapped[Station] = relationship(lazy=True)
-    sensor: Mapped[Sensor] = relationship(lazy=True)
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
+    sensor: Mapped[Sensor] = relationship(
+        lazy=True,
+        doc='The sensor the data was measured with',
+    )
 
     deployment: Mapped[SensorDeployment] = relationship(
         SensorDeployment,
@@ -697,6 +1052,7 @@ class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives)
         ),
         lazy=True,
         viewonly=True,
+        doc='the deployment that made the measurement of this data',
     )
 
 
@@ -713,7 +1069,10 @@ class MaterializedView(Base):
     station_id: Mapped[str] = mapped_column(
         ForeignKey(
             'station.station_id',
-        ), primary_key=True, index=True,
+        ),
+        primary_key=True,
+        index=True,
+        doc='id of the station these measurements were taken at',
     )
     awaitable_attrs: ClassVar[_ViewAwaitableAttrs]  # type: ignore[assignment]
 
@@ -782,28 +1141,71 @@ class LatestData(
         nullable=False,
         unique=True,
         index=True,
+        doc=Station.station_id.doc,
     )
-    long_name: Mapped[str] = mapped_column(Text, nullable=False)
-    latitude: Mapped[float] = mapped_column(nullable=False)
-    longitude: Mapped[float] = mapped_column(nullable=False)
-    altitude: Mapped[float] = mapped_column(nullable=False)
-    district: Mapped[str] = mapped_column(Text, nullable=True, index=True)
-    lcz: Mapped[str] = mapped_column(Text, nullable=True)
-    station_type: Mapped[StationType] = mapped_column(nullable=False)
-    mrt: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
-    pet: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_category: Mapped[HeatStressCategories] = mapped_column(nullable=True)
+    long_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc=Station.long_name.doc,
+    )
+    latitude: Mapped[float] = mapped_column(nullable=False, doc=Station.latitude.doc)
+    longitude: Mapped[float] = mapped_column(nullable=False, doc=Station.longitude.doc)
+    altitude: Mapped[float] = mapped_column(nullable=False, doc=Station.altitude.doc)
+    district: Mapped[str] = mapped_column(
+        Text,
+        nullable=True,
+        index=True,
+        doc=Station.district.doc,
+    )
+    lcz: Mapped[str] = mapped_column(Text, nullable=True, doc=Station.lcz.doc)
+    station_type: Mapped[StationType] = mapped_column(
+        nullable=False,
+        doc=Station.station_type.doc,
+    )
+    mrt: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=BiometData.mrt.doc,
+    )
+    utci: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=BiometData.utci.doc,
+    )
+    utci_category: Mapped[HeatStressCategories] = mapped_column(
+        nullable=True,
+        doc=BiometData.utci_category.doc,
+    )
+    pet: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc=BiometData.pet.doc,
+    )
+    pet_category: Mapped[HeatStressCategories] = mapped_column(
+        nullable=True,
+        doc=BiometData.pet_category.doc,
+    )
     # we've converted it to hPa in the meantime
-    atmospheric_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
+    atmospheric_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+        doc=BiometData.atmospheric_pressure.doc,
+    )
     atmospheric_pressure_reduced: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc=BiometData.atmospheric_pressure_reduced.doc,
     )
-    vapor_pressure: Mapped[Decimal] = mapped_column(nullable=True, comment='hPa')
+    vapor_pressure: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='hPa',
+        doc=BiometData.vapor_pressure.doc,
+    )
 
-    station: Mapped[Station] = relationship(lazy=True)
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
 
     # we exclude the temprh part of a double station here and only use the biomet part
     creation_sql = text('''\
@@ -976,118 +1378,277 @@ class BiometDataHourly(
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='minimum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
     absolute_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='maximum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
-    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of air temperature in **°C**',
+    )
+    air_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of air temperature in **°C**',
+    )
     atmospheric_pressure_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='kPa',
+        doc='minimum of atmospheric pressure in **kPa**',
     )
     atmospheric_pressure_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='kPa',
+        doc='maximum of atmospheric pressure in **kPa**',
     )
     atmospheric_pressure_reduced_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc='minimum of atmospheric pressure reduced to sea level in **hPa** calculated using :func:`app.tasks.reduce_pressure`',  # noqa: E501,
     )
     atmospheric_pressure_reduced_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc='maximum of atmospheric pressure reduced to sea level in **hPa** calculated using :func:`app.tasks.reduce_pressure`',  # noqa: E501,
     )
-    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='minimum of The battery voltage of the sensor in **Volts**',
+    )
+    battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='maximum of The battery voltage of the sensor in **Volts**',
+    )
     black_globe_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of black globe temperature in **°C**',
     )
     black_globe_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of black globe temperature in **°C**',
     )
-    blg_battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
-    blg_battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+    blg_battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='V',
+        doc='minimum of battery voltage of the black globe sensor in **Volts**',
+    )
+    blg_battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='V',
+        doc='maximum of battery voltage of the black globe sensor in **Volts**',
+    )
     blg_time_offset_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='seconds',
+        doc='minimum of time offset of the Blackglobe sensor to the corresponding ATM41 sensor in **seconds**',  # noqa: E501,
     )
     blg_time_offset_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='seconds',
+        doc='maximum of time offset of the Blackglobe sensor to the corresponding ATM41 sensor in **seconds**',  # noqa: E501,
     )
-    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    dew_point_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    dew_point_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    heat_index_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    heat_index_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
     lightning_average_distance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
+        doc='minimum of distance of lightning strikes in **km**',
     )
     lightning_average_distance_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
+        doc='maximum of distance of lightning strikes in **km**',
     )
-    mrt_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    mrt_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    mrt_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of mean radiant temperature in **°C** calculated using :func:`thermal_comfort.mean_radiant_temp`',  # noqa: E501,
+    )
+    mrt_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of mean radiant temperature in **°C** calculated using :func:`thermal_comfort.mean_radiant_temp`',  # noqa: E501,
+    )
+    pet_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of physiological equivalent temperature in **°C** calculated using :func:`thermal_comfort.pet_static`',  # noqa: E501,
+    )
+    pet_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of physiological equivalent temperature in **°C** calculated using :func:`thermal_comfort.pet_static`',  # noqa: E501,
+    )
+    relative_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='minimum of relative humidity in **%**',
+    )
+    relative_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='maximum of relative humidity in **%**',
+    )
     sensor_temperature_internal_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of internal temperature of the sensor in **°C**',
     )
     sensor_temperature_internal_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of internal temperature of the sensor in **°C**',
     )
-    solar_radiation_min: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
-    solar_radiation_max: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    solar_radiation_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='W/m2',
+        doc='minimum of solar radiation in **W/m2**',
+    )
+    solar_radiation_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='W/m2',
+        doc='maximum of solar radiation in **W/m2**',
+    )
     specific_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='minimum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     specific_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='maximum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     thermistor_resistance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
+        doc='minimum of thermistor resistance in **Ohms**',
     )
     thermistor_resistance_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
+        doc='maximum of thermistor resistance in **Ohms**',
     )
-    u_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    u_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    utci_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    v_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    v_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    vapor_pressure_min: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    vapor_pressure_max: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    voltage_ratio_min: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
-    voltage_ratio_max: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    u_wind_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of u wind component in **m/s**',
+    )
+    u_wind_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of u wind component in **m/s**',
+    )
+    utci_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of universal thermal climate index in **°C** calculated using :func:`thermal_comfort.utci_approx`',  # noqa: E501,
+    )
+    utci_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of universal thermal climate index in **°C** calculated using :func:`thermal_comfort.utci_approx`',  # noqa: E501,
+    )
+    v_wind_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of v wind component in **m/s**',
+    )
+    v_wind_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of v wind component in **m/s**',
+    )
+    vapor_pressure_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='minimum of vapor pressure in **kPa**',
+    )
+    vapor_pressure_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='maximum of vapor pressure in **kPa**',
+    )
+    voltage_ratio_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='minimum of voltage ratio of the sensor',
+    )
+    voltage_ratio_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='maximum of voltage ratio of the sensor',
+    )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
     wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
-    wind_speed_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    wind_speed_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    x_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    x_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    y_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    station: Mapped[Station] = relationship(lazy=True)
+    wind_speed_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of wind speed in **m/s**',
+    )
+    wind_speed_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of wind speed in **m/s**',
+    )
+    x_orientation_angle_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='minimum of x-tilt angle of the sensor in **°**',
+    )
+    x_orientation_angle_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='maximum of x-tilt angle of the sensor in **°**',
+    )
+    y_orientation_angle_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='minimum of y-tilt angle of the sensor in **°**',
+    )
+    y_orientation_angle_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='maximum of y-tilt angle of the sensor in **°**',
+    )
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
 
     def __repr__(self) -> str:
         return (
@@ -1418,54 +1979,107 @@ class TempRHDataHourly(
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='minimum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
     absolute_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='maximum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
-    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of air temperature in **°C**',
+    )
+    air_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of air temperature in **°C**',
+    )
     air_temperature_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of raw air temperature in **°C** with no calibration applied',
     )
     air_temperature_raw_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of raw air temperature in **°C** with no calibration applied',
     )
-    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='minimum of The battery voltage of the sensor in **Volts**',
+    )
+    battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='maximum of The battery voltage of the sensor in **Volts**',
+    )
+    dew_point_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    dew_point_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    heat_index_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    heat_index_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    relative_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='minimum of relative humidity in **%**',
+    )
+    relative_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='maximum of relative humidity in **%**',
+    )
     relative_humidity_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='%',
+        doc='minimum of raw relative humidity in **%** with no calibration applied',
     )
     relative_humidity_raw_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='%',
+        doc='maximum of raw relative humidity in **%** with no calibration applied',
     )
     specific_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='minimum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     specific_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='maximum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
     wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
-    station: Mapped[Station] = relationship(lazy=True)
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
 
     def __repr__(self) -> str:
         return (
@@ -1637,118 +2251,277 @@ class BiometDataDaily(
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='minimum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
     absolute_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='maximum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
-    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of air temperature in **°C**',
+    )
+    air_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of air temperature in **°C**',
+    )
     atmospheric_pressure_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='kPa',
+        doc='minimum of atmospheric pressure in **kPa**',
     )
     atmospheric_pressure_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='kPa',
+        doc='maximum of atmospheric pressure in **kPa**',
     )
     atmospheric_pressure_reduced_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc='minimum of atmospheric pressure reduced to sea level in **hPa** calculated using :func:`app.tasks.reduce_pressure`',  # noqa: E501,
     )
     atmospheric_pressure_reduced_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='hPa',
+        doc='maximum of atmospheric pressure reduced to sea level in **hPa** calculated using :func:`app.tasks.reduce_pressure`',  # noqa: E501,
     )
-    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
+    battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='minimum of The battery voltage of the sensor in **Volts**',
+    )
+    battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='maximum of The battery voltage of the sensor in **Volts**',
+    )
     black_globe_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of black globe temperature in **°C**',
     )
     black_globe_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of black globe temperature in **°C**',
     )
-    blg_battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
-    blg_battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='V')
+    blg_battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='V',
+        doc='minimum of battery voltage of the black globe sensor in **Volts**',
+    )
+    blg_battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='V',
+        doc='maximum of battery voltage of the black globe sensor in **Volts**',
+    )
     blg_time_offset_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='seconds',
+        doc='minimum of time offset of the Blackglobe sensor to the corresponding ATM41 sensor in **seconds**',  # noqa: E501,
     )
     blg_time_offset_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='seconds',
+        doc='maximum of time offset of the Blackglobe sensor to the corresponding ATM41 sensor in **seconds**',  # noqa: E501,
     )
-    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    dew_point_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    dew_point_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    heat_index_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    heat_index_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
     lightning_average_distance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
+        doc='minimum of distance of lightning strikes in **km**',
     )
     lightning_average_distance_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='km',
+        doc='maximum of distance of lightning strikes in **km**',
     )
-    mrt_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    mrt_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    pet_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    mrt_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of mean radiant temperature in **°C** calculated using :func:`thermal_comfort.mean_radiant_temp`',  # noqa: E501,
+    )
+    mrt_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of mean radiant temperature in **°C** calculated using :func:`thermal_comfort.mean_radiant_temp`',  # noqa: E501,
+    )
+    pet_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of physiological equivalent temperature in **°C** calculated using :func:`thermal_comfort.pet_static`',  # noqa: E501,
+    )
+    pet_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of physiological equivalent temperature in **°C** calculated using :func:`thermal_comfort.pet_static`',  # noqa: E501,
+    )
+    relative_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='minimum of relative humidity in **%**',
+    )
+    relative_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='maximum of relative humidity in **%**',
+    )
     sensor_temperature_internal_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of internal temperature of the sensor in **°C**',
     )
     sensor_temperature_internal_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of internal temperature of the sensor in **°C**',
     )
-    solar_radiation_min: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
-    solar_radiation_max: Mapped[Decimal] = mapped_column(nullable=True, comment='W/m2')
+    solar_radiation_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='W/m2',
+        doc='minimum of solar radiation in **W/m2**',
+    )
+    solar_radiation_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='W/m2',
+        doc='maximum of solar radiation in **W/m2**',
+    )
     specific_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='minimum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     specific_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='maximum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     thermistor_resistance_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
+        doc='minimum of thermistor resistance in **Ohms**',
     )
     thermistor_resistance_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='Ohms',
+        doc='maximum of thermistor resistance in **Ohms**',
     )
-    u_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    u_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    utci_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    utci_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    v_wind_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    v_wind_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    vapor_pressure_min: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    vapor_pressure_max: Mapped[Decimal] = mapped_column(nullable=True, comment='kPa')
-    voltage_ratio_min: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
-    voltage_ratio_max: Mapped[Decimal] = mapped_column(nullable=True, comment='-')
+    u_wind_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of u wind component in **m/s**',
+    )
+    u_wind_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of u wind component in **m/s**',
+    )
+    utci_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of universal thermal climate index in **°C** calculated using :func:`thermal_comfort.utci_approx`',  # noqa: E501,
+    )
+    utci_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of universal thermal climate index in **°C** calculated using :func:`thermal_comfort.utci_approx`',  # noqa: E501,
+    )
+    v_wind_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of v wind component in **m/s**',
+    )
+    v_wind_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of v wind component in **m/s**',
+    )
+    vapor_pressure_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='minimum of vapor pressure in **kPa**',
+    )
+    vapor_pressure_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='kPa',
+        doc='maximum of vapor pressure in **kPa**',
+    )
+    voltage_ratio_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='minimum of voltage ratio of the sensor',
+    )
+    voltage_ratio_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='-',
+        doc='maximum of voltage ratio of the sensor',
+    )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
     wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
-    wind_speed_min: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    wind_speed_max: Mapped[Decimal] = mapped_column(nullable=True, comment='m/s')
-    x_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    x_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    y_orientation_angle_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    y_orientation_angle_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°')
-    station: Mapped[Station] = relationship(lazy=True)
+    wind_speed_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='minimum of wind speed in **m/s**',
+    )
+    wind_speed_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='m/s',
+        doc='maximum of wind speed in **m/s**',
+    )
+    x_orientation_angle_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='minimum of x-tilt angle of the sensor in **°**',
+    )
+    x_orientation_angle_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='maximum of x-tilt angle of the sensor in **°**',
+    )
+    y_orientation_angle_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='minimum of y-tilt angle of the sensor in **°**',
+    )
+    y_orientation_angle_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°',
+        doc='maximum of y-tilt angle of the sensor in **°**',
+    )
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
 
     def __repr__(self) -> str:
         return (
@@ -2519,54 +3292,107 @@ class TempRHDataDaily(
     absolute_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='minimum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
     absolute_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/m3',
+        doc='maximum of absolute humidity in **g/m3** calculated using :func:`thermal_comfort.absolute_humidity`',  # noqa: E501,
     )
-    air_temperature_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    air_temperature_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
+    air_temperature_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of air temperature in **°C**',
+    )
+    air_temperature_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of air temperature in **°C**',
+    )
     air_temperature_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of raw air temperature in **°C** with no calibration applied',
     )
     air_temperature_raw_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of raw air temperature in **°C** with no calibration applied',
     )
-    battery_voltage_min: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    battery_voltage_max: Mapped[Decimal] = mapped_column(nullable=True, comment='Volts')
-    dew_point_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    dew_point_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_min: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    heat_index_max: Mapped[Decimal] = mapped_column(nullable=True, comment='°C')
-    relative_humidity_min: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
-    relative_humidity_max: Mapped[Decimal] = mapped_column(nullable=True, comment='%')
+    battery_voltage_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='minimum of The battery voltage of the sensor in **Volts**',
+    )
+    battery_voltage_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='Volts',
+        doc='maximum of The battery voltage of the sensor in **Volts**',
+    )
+    dew_point_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    dew_point_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of dew point temperature in **°C** calculated using :func:`thermal_comfort.dew_point`',  # noqa: E501,
+    )
+    heat_index_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='minimum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    heat_index_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='°C',
+        doc='maximum of heat index in **°C** calculated using :func:`thermal_comfort.heat_index_extended`',  # noqa: E501,
+    )
+    relative_humidity_min: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='minimum of relative humidity in **%**',
+    )
+    relative_humidity_max: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        comment='%',
+        doc='maximum of relative humidity in **%**',
+    )
     relative_humidity_raw_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='%',
+        doc='minimum of raw relative humidity in **%** with no calibration applied',
     )
     relative_humidity_raw_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='%',
+        doc='maximum of raw relative humidity in **%** with no calibration applied',
     )
     specific_humidity_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='minimum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     specific_humidity_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='g/kg',
+        doc='maximum of specific humidity in **g/kg** calculated using :func:`thermal_comfort.specific_humidity`',  # noqa: E501,
     )
     wet_bulb_temperature_min: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='minimum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
     wet_bulb_temperature_max: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='°C',
+        doc='maximum of wet bulb temperature in **°C** calculated using :func:`thermal_comfort.wet_bulb_temp`',  # noqa: E501,
     )
-    station: Mapped[Station] = relationship(lazy=True)
+    station: Mapped[Station] = relationship(
+        lazy=True,
+        doc='The station the data was measured at',
+    )
 
     def __repr__(self) -> str:
         return (
@@ -2876,6 +3702,12 @@ class TempRHDataDaily(
 @event.listens_for(SHT35DataRaw.__table__, 'after_create')
 @event.listens_for(BLGDataRaw.__table__, 'after_create')
 def create_hypertable(target: Table, connection: Connection, **kwargs: Any) -> None:
+    """Create a timescaledb hypertable for the given table if it doesn't exist.
+
+    :param target: The table to create a hypertable for
+    :param connection: The database connection to use
+    :param kwargs: Additional keyword arguments (which are ignored)
+    """
     connection.execute(
         text(
             '''\
