@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import os
 import sys
 from datetime import date
@@ -20,9 +21,10 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 project = 'd2r-api'
 copyright = f'2024 - {date.today().year}, RUBclim'
+author = 'D2R Team (Jonas Kittner)'
 
-# The full version, including alpha/beta/rc tags
-release = '0.0.0'
+release = importlib.metadata.version(project)
+version = '.'.join(release.split('.')[:2])
 
 
 # -- General configuration ---------------------------------------------------

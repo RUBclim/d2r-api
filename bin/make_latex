@@ -1,0 +1,29 @@
+#! /usr/bin/env python3
+import os
+import subprocess
+
+
+def main() -> int:
+    # build sphinx
+    subprocess.check_call([
+        'sphinx-build', '-b', 'latex',
+        'docs/src', 'docs/_build/latex',
+    ])
+    # build latex
+    user_id = os.getuid()
+    group_id = os.getgid()
+    cwd = os.getcwd()
+    docker = [
+        'docker', 'run', '-u', f'{user_id}:{group_id}', '--rm',
+        '-v', f"{cwd}/docs/_build/latex:/docs",
+        'sphinxdoc/sphinx-latexpdf',
+    ]
+    # start with clean state
+    subprocess.check_call([*docker, 'make', 'clean'])
+    # build the latex files
+    subprocess.check_call([*docker, 'make', 'all-pdf'])
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
