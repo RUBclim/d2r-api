@@ -104,7 +104,10 @@ RENAMER = {
 }
 
 
-def reduce_pressure(p: Union[float, 'pd.Series[float]'], alt: float) -> float:
+def reduce_pressure(
+        p: Union[float, 'pd.Series[float]'],
+        alt: float,
+) -> Union[float, 'pd.Series[float]']:
     """Correct barometric pressure in **hPa** to sea level
     Wallace, J.M. and P.V. Hobbes. 197725 Atmospheric Science:
     An Introductory Survey. Academic Press

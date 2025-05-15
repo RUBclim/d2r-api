@@ -736,8 +736,8 @@ async def test_get_trends_stations_biomet_and_temprh(
         params={
             'spatial_level': 'stations',
             'item_ids': ['DOB1', 'DOB4'],
-            'start_date': datetime(2024, 8, 1, 0, 0),
-            'end_date': datetime(2024, 8, 2, 23, 0),
+            'start_date': datetime(2024, 8, 1, 0, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 23, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -822,8 +822,8 @@ async def test_get_trends_stations_only_biomet(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB1',
-            'start_date': datetime(2024, 8, 1, 0, 0),
-            'end_date': datetime(2024, 8, 2, 23, 0),
+            'start_date': datetime(2024, 8, 1, 0, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 23, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -905,8 +905,8 @@ async def test_get_trends_stations_only_biomet_counts_become_sums(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB1',
-            'start_date': datetime(2024, 8, 1, 0, 0),
-            'end_date': datetime(2024, 8, 2, 23, 0),
+            'start_date': datetime(2024, 8, 1, 0, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 23, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -1005,8 +1005,8 @@ async def test_get_trends_stations_only_temprh(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB4',
-            'start_date': datetime(2024, 8, 1, 0, 0),
-            'end_date': datetime(2024, 8, 2, 23, 0),
+            'start_date': datetime(2024, 8, 1, 0, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 23, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -1080,7 +1080,7 @@ async def test_get_trends_stations_end_not_set(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB1',
-            'start_date': datetime(2024, 8, 1, 10, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -1099,7 +1099,7 @@ async def test_get_trends_stations_no_data_available(app: AsyncClient) -> None:
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB1',
-            'start_date': datetime(2024, 8, 1, 10, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -1160,7 +1160,7 @@ async def test_get_trends_stations_does_not_provide_param(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB4',
-            'start_date': datetime(2024, 8, 1, 10, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
             'hour': 10,
         },
     )
@@ -1246,7 +1246,7 @@ async def test_get_trends_stations_units_correctly_extracted(
         params={
             'spatial_level': 'stations',
             'item_ids': 'DOB1',
-            'start_date': datetime(2024, 8, 1, 8, 0),
+            'start_date': datetime(2024, 8, 1, 8, 0).isoformat(),
             'hour': 9,
         },
     )
@@ -1438,8 +1438,8 @@ async def test_get_trends_districts(
         params={
             'spatial_level': 'districts',
             'item_ids': ['District 2', 'District 1'],
-            'start_date': datetime(2024, 8, 1, 1, 0),
-            'end_date': datetime(2024, 8, 2, 13, 0),
+            'start_date': datetime(2024, 8, 1, 1, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 13, 0).isoformat(),
             'hour': 11,
         },
     )
@@ -1530,8 +1530,8 @@ async def test_get_trends_districts_aggregates_are_correct_no_temp_rh_data(
         params={
             'spatial_level': 'districts',
             'item_ids': ['Innenstadt'],
-            'start_date': datetime(2024, 8, 1, 1, 0),
-            'end_date': datetime(2024, 8, 2, 13, 0),
+            'start_date': datetime(2024, 8, 1, 1, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 13, 0).isoformat(),
             'hour': 11,
         },
     )
@@ -1676,8 +1676,8 @@ async def test_get_trends_districts_aggregates_are_correct_biomet_and_temp_rh(
         params={
             'spatial_level': 'districts',
             'item_ids': ['Innenstadt'],
-            'start_date': datetime(2024, 8, 1, 1, 0),
-            'end_date': datetime(2024, 8, 2, 13, 0),
+            'start_date': datetime(2024, 8, 1, 1, 0).isoformat(),
+            'end_date': datetime(2024, 8, 2, 13, 0).isoformat(),
             'hour': 11,
         },
     )
@@ -1694,8 +1694,8 @@ async def test_get_data_start_greater_end_date(app: AsyncClient) -> None:
     resp = await app.get(
         '/v1/data/DOB1234',
         params={
-            'start_date': datetime(2024, 8, 1, 14, 0),
-            'end_date': datetime(2024, 8, 1, 13, 0),
+            'start_date': datetime(2024, 8, 1, 14, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 13, 0).isoformat(),
             'param': 'air_temperature',
         },
     )
@@ -1721,8 +1721,8 @@ async def test_get_data_period_too_long(
     resp = await app.get(
         '/v1/data/DOB1234',
         params={
-            'start_date': datetime(2024, 8, 1, 14, 0),
-            'end_date': end_date,
+            'start_date': datetime(2024, 8, 1, 14, 0).isoformat(),
+            'end_date': end_date.isoformat(),
             'param': 'air_temperature',
             'scale': scale,
         },
@@ -1736,8 +1736,8 @@ async def test_get_data_station_not_found(app: AsyncClient) -> None:
     resp = await app.get(
         '/v1/data/DOB1234',
         params={
-            'start_date': datetime(2024, 8, 1, 14, 0),
-            'end_date': datetime(2024, 8, 1, 15, 0),
+            'start_date': datetime(2024, 8, 1, 14, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 15, 0).isoformat(),
             'param': 'air_temperature',
         },
     )
@@ -1772,8 +1772,8 @@ async def test_get_biomet_data_multiple_params(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1, 10, 0),
-            'end_date': datetime(2024, 8, 1, 11, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 11, 0).isoformat(),
             'param': ['air_temperature', 'mrt'],
         },
     )
@@ -1848,8 +1848,8 @@ async def test_get_temp_rh_data_multiple_params(
     resp = await app.get(
         '/v1/data/DOT1',
         params={
-            'start_date': datetime(2024, 8, 1, 10, 0),
-            'end_date': datetime(2024, 8, 1, 11, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 11, 0).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
         },
     )
@@ -1939,8 +1939,8 @@ async def test_get_data_from_double_station_multiple_params(
     resp = await app.get(
         '/v1/data/DOD1',
         params={
-            'start_date': datetime(2024, 8, 1, 10, 0),
-            'end_date': datetime(2024, 8, 1, 11, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 11, 0).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
         },
     )
@@ -2005,8 +2005,8 @@ async def test_get_data_biomet_hourly_null_values_are_filled(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1, 8),
-            'end_date': datetime(2024, 8, 1, 14),
+            'start_date': datetime(2024, 8, 1, 8).isoformat(),
+            'end_date': datetime(2024, 8, 1, 14).isoformat(),
             'param': ['maximum_wind_speed', 'relative_humidity'],
             'scale': 'hourly',
         },
@@ -2067,8 +2067,8 @@ async def test_get_data_biomet_hourly_no_gap_filling(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1, 8),
-            'end_date': datetime(2024, 8, 1, 14),
+            'start_date': datetime(2024, 8, 1, 8).isoformat(),
+            'end_date': datetime(2024, 8, 1, 14).isoformat(),
             'param': ['maximum_wind_speed', 'relative_humidity'],
             'scale': 'hourly',
             'fill_gaps': False,
@@ -2143,8 +2143,8 @@ async def test_get_data_temprh_hourly_null_values_are_filled(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1, 8),
-            'end_date': datetime(2024, 8, 1, 14),
+            'start_date': datetime(2024, 8, 1, 8).isoformat(),
+            'end_date': datetime(2024, 8, 1, 14).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
             'scale': 'hourly',
         },
@@ -2213,8 +2213,8 @@ async def test_get_data_biomet_daily_null_values_are_filled(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1),
-            'end_date': datetime(2024, 8, 4),
+            'start_date': datetime(2024, 8, 1).isoformat(),
+            'end_date': datetime(2024, 8, 4).isoformat(),
             'param': ['maximum_wind_speed', 'relative_humidity'],
             'scale': 'daily',
         },
@@ -2300,8 +2300,8 @@ async def test_get_data_temprh_daily_null_values_are_filled(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1),
-            'end_date': datetime(2024, 8, 4),
+            'start_date': datetime(2024, 8, 1).isoformat(),
+            'end_date': datetime(2024, 8, 4).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
             'scale': 'daily',
         },
@@ -2387,8 +2387,8 @@ async def test_get_data_biomet_daily_no_gap_filling(
     resp = await app.get(
         '/v1/data/DOB1',
         params={
-            'start_date': datetime(2024, 8, 1),
-            'end_date': datetime(2024, 8, 4),
+            'start_date': datetime(2024, 8, 1).isoformat(),
+            'end_date': datetime(2024, 8, 4).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
             'scale': 'daily',
             'fill_gaps': False,
@@ -2457,8 +2457,8 @@ async def test_get_temp_rh_data_daily_multiple_params(
     resp = await app.get(
         '/v1/data/DOT1',
         params={
-            'start_date': datetime(2024, 8, 1, 0, 0),
-            'end_date': datetime(2024, 8, 1, 0, 0),
+            'start_date': datetime(2024, 8, 1, 0, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 0, 0).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
             'scale': 'daily',
         },
@@ -2519,8 +2519,8 @@ async def test_get_temp_rh_data_scale_hourly_multiple_params(
     resp = await app.get(
         '/v1/data/DOT1',
         params={
-            'start_date': datetime(2024, 8, 1, 10, 0),
-            'end_date': datetime(2024, 8, 1, 11, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 11, 0).isoformat(),
             'param': ['air_temperature', 'relative_humidity'],
             'scale': 'hourly',
         },
@@ -2561,8 +2561,8 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
     resp = await app.get(
         '/v1/data/DOT1',
         params={
-            'start_date': datetime(2024, 8, 1, 10, 0),
-            'end_date': datetime(2024, 8, 1, 11, 0),
+            'start_date': datetime(2024, 8, 1, 10, 0).isoformat(),
+            'end_date': datetime(2024, 8, 1, 11, 0).isoformat(),
             # this is a valid param, however not available with scale max
             'param': ['air_temperature', 'relative_humidity_max'],
             'scale': 'max',
@@ -2667,7 +2667,7 @@ async def test_get_network_values_hourly(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'hourly',
-            'date': datetime(2024, 1, 1, 13),
+            'date': datetime(2024, 1, 1, 13).isoformat(),
             'suggest_viz': True,
         },
     )
@@ -2775,7 +2775,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'hourly',
-            'date': datetime(2024, 1, 1, 13),
+            'date': datetime(2024, 1, 1, 13).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -2817,7 +2817,7 @@ async def test_get_network_values_hourly_missing_values_are_null(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'hourly',
-            'date': datetime(2024, 1, 1, 14),
+            'date': datetime(2024, 1, 1, 14).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -2916,7 +2916,7 @@ async def test_get_network_values_daily(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'daily',
-            'date': datetime(2024, 1, 2, 0, 0),
+            'date': datetime(2024, 1, 2, 0, 0).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3030,7 +3030,7 @@ async def test_get_network_values_daily_missing_values_are_null(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'daily',
-            'date': datetime(2024, 1, 1, 0, 0),
+            'date': datetime(2024, 1, 1, 0, 0).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3056,7 +3056,7 @@ async def test_get_network_values_daily_missing_values_are_null(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'daily',
-            'date': datetime(2024, 1, 3, 0, 0),
+            'date': datetime(2024, 1, 3, 0, 0).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3082,7 +3082,7 @@ async def test_get_network_values_daily_missing_values_are_null(
         params={
             'param': ['air_temperature', 'wind_speed'],
             'scale': 'daily',
-            'date': datetime(2024, 1, 4, 0, 0),
+            'date': datetime(2024, 1, 4, 0, 0).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3158,7 +3158,7 @@ async def test_get_network_values_daily_temprh_supports_no_param(
         params={
             'param': ['utci', 'wind_speed'],
             'scale': 'daily',
-            'date': datetime(2024, 1, 2, 0, 0),
+            'date': datetime(2024, 1, 2, 0, 0).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3212,7 +3212,7 @@ async def test_get_network_values_hourly_colormap_custom_handles(
         params={
             'param': ['pet_category', 'utci_category', 'wind_direction'],
             'scale': 'hourly',
-            'date': datetime(2024, 1, 1, 13),
+            'date': datetime(2024, 1, 1, 13).isoformat(),
             'suggest_viz': True,
         },
     )
@@ -3290,7 +3290,7 @@ async def test_download_station_no_data_for_station(
         '/v1/download/DOB1',
         params={
             'fill_gaps': True,
-            'start_date': datetime(2024, 8, 3),
+            'start_date': datetime(2024, 8, 3).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3339,7 +3339,7 @@ async def test_download_station_data_only_start_date_set(
         '/v1/download/DOB1',
         params={
             'fill_gaps': True,
-            'start_date': datetime(2024, 8, 1, 0, 30),
+            'start_date': datetime(2024, 8, 1, 0, 30).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3366,7 +3366,7 @@ async def test_download_station_data_only_end_date_set(
         '/v1/download/DOB1',
         params={
             'fill_gaps': True,
-            'end_date': datetime(2024, 8, 1, 0, 30),
+            'end_date': datetime(2024, 8, 1, 0, 30).isoformat(),
         },
     )
     assert resp.status_code == 200
@@ -3393,8 +3393,8 @@ async def test_download_station_data_both_dates_set(
         '/v1/download/DOB1',
         params={
             'fill_gaps': True,
-            'start_date': datetime(2024, 8, 1, 0, 10),
-            'end_date': datetime(2024, 8, 1, 0, 30),
+            'start_date': datetime(2024, 8, 1, 0, 10).isoformat(),
+            'end_date': datetime(2024, 8, 1, 0, 30).isoformat(),
         },
     )
     assert resp.status_code == 200

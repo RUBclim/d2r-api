@@ -10,6 +10,7 @@ from unittest.mock import call
 
 import pandas as pd
 import pytest
+from element import ElementApi
 from pandas.testing import assert_frame_equal
 from sqlalchemy import delete
 from sqlalchemy import select
@@ -38,7 +39,6 @@ from app.tasks import calculate_biomet
 from app.tasks import calculate_temp_rh
 from app.tasks import check_for_new_sensors
 from app.tasks import download_station_data
-from app.tasks import ElementApi
 from app.tasks import refresh_all_views
 from app.tasks import self_test_integrity
 
