@@ -24,6 +24,13 @@ Task.__class_getitem__ = classmethod(  # type: ignore [attr-defined]
 
 
 def async_task(app: Celery, *args: Any, **kwargs: Any) -> Task[Any, Any]:
+    """Decorator to convert an async function into a Celery task.
+
+    :param app: The Celery app instance.
+    :param args: Positional arguments to pass to the Celery task decorator.
+    :param kwargs: Keyword arguments to pass to the Celery task decorator.
+    :return: A Celery task decorator that wraps the async function.
+    """
     # taken from: https://github.com/celery/celery/issues/6552
     def _decorator(func: Callable[P, Coroutine[Any, Any, R]]) -> Task[Any, Any]:
         # if we are running tests, we don't want this to be converted to a sync
@@ -60,6 +67,7 @@ celery_app.set_default()
 
 @signals.celeryd_init.connect
 def init_sentry(**_kwargs: Any) -> None:  # pragma: no cover
+    """Initialize Sentry for Celery tasks."""
     sentry_sdk.init(
         dsn=os.environ.get('MONITOR_SENTRY_DSN'),
         integrations=[CeleryIntegration()],

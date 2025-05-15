@@ -38,6 +38,8 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.viewcode',
     'sphinx_toolbox.decorators',
+    'sphinx_sqlalchemy',
+    'sphinxcontrib.autodoc_pydantic',
 ]
 # autodoc_typehints = 'both'
 typehints_fully_qualified = False
@@ -58,6 +60,11 @@ exclude_patterns: list[str] = []
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'pandas': ('https://pandas.pydata.org/docs', None),
+    'thermal_comfort': ('https://rubclim.github.io/thermal-comfort', None),
+    'sqlalchemy': ('https://docs.sqlalchemy.org/en/20/', None),
+    'flask': ('https://flask.palletsprojects.com/en/3.0.x/', None),
+    'fastapi': ('https://fastapi.tiangolo.com/', None),
+    'celery': ('https://docs.celeryproject.org/en/stable/', None),
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -67,8 +74,8 @@ intersphinx_mapping = {
 #
 html_theme = 'furo'
 
-html_title = 'element-api Documentation'
-html_short_title = f'element-api-{release}'
+html_title = 'd2r-api Documentation'
+html_short_title = f'd2r-api-{release}'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

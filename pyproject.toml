@@ -68,6 +68,12 @@ commands = [
     ["coverage", "report"],
 ]
 
+[tool.tox.env.prime_db]
+allowlist_externals = ["timeout"]
+commands = [
+    ["timeout", "--preserve-status", "--signal=SIGINT", "10s", "uvicorn", "app.main:app"],
+]
+
 [tool.tox.env.pre-commit]
 skip_install = true
 deps = [

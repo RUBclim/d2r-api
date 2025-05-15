@@ -114,7 +114,6 @@ class {view_name}{inherits}:
     __tablename__ = {table_name!r}{table_args}{is_cagg}
 
 {attributes}
-
     def __repr__(self) -> str:
         return (
             f'{{type(self).__name__}}('
@@ -196,11 +195,25 @@ class Col(NamedTuple):
             return ''
         comment = self.sqlalchemy_col.comment
         nullable = self.sqlalchemy_col.nullable
+        doc = self.sqlalchemy_col.doc
+        if not doc:
+            doc = comment
         args = []
         if nullable is not None:
             args.append(f'nullable={nullable!r}')
         if comment is not None:
             args.append(f'comment={comment!r}')
+        if doc is not None:
+            if 'min' in self.suffix:
+                doc = f'minimum of {doc}'
+            elif 'max' in self.suffix:
+                doc = f'maximum of {doc}'
+            # don't go through the trouble of splitting the docstring
+            if len(doc) > 80:
+                doc = f"{doc!r},  # noqa: E501"
+            else:
+                doc = f"{doc!r}"
+            args.append(f'doc={doc}')
 
         row = ATTR_TEMPLATE.format(
             attr_name=self.full_name,
@@ -328,7 +341,14 @@ def generate_sqlalchemy_class(
 
     # we need to add a relationship at the end of each view
     py_cols = [i.py_repr for i in cols if i.py_repr]
-    py_cols.append('station: Mapped[Station] = relationship(lazy=True)')
+    py_cols.append(
+        textwrap.dedent('''\
+        station: Mapped[Station] = relationship(
+            lazy=True,
+            doc='The station the data was measured at',
+        )
+        '''),
+    )
     inherit_str = f"({', '.join(inherits)})" if inherits else ''
     if inherits and len(inherit_str) + len(table.__name__) + 5 > 88:
         inherit_str = f'({textwrap.indent(f"\n{', '.join(inherits)}", ' ' * 4)},\n)'

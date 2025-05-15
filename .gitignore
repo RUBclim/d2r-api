@@ -8,5 +8,6 @@
 .vscode
 __pycache__
 build
+docs/_build*
 htmlcov
 venv
