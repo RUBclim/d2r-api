@@ -1,3 +1,3 @@
-measured_at,device_id,wind_speed,precipitation,vapor_pressure,wind_direction,air_temperature,battery_voltage,compass_heading,east_wind_speed,solar_radiation,north_wind_speed,protocol_version,relative_humidity,maximum_wind_speed,x_orientation_angle,y_orientation_angle,atmospheric_pressure,lightning_strike_count,lightning_average_distance,sensor_temperature_internal
-2025-01-31 00:21:35.359165+00:00,21253,0.08,0.0,1.0,36.5,24.4,2.561,0.0,0.05,0.0,0.06,2,32.6,0.09,90.0,90.0,101.48,0.0,0.0,24.3
-2025-03-20 19:36:54.692829+00:00,21253,0.86,0.0,0.69,161.2,14.6,2.924,0.0,0.28,0.0,-0.81,2,41.8,1.11,-3.1,-3.3,101.12,0.0,0.0,14.3
+measured_at,device_id,wind_speed,precipitation,vapor_pressure,wind_direction,air_temperature,battery_voltage,compass_heading,east_wind_speed,solar_radiation,north_wind_speed,protocol_version,relative_humidity,maximum_wind_speed,x_orientation_angle,y_orientation_angle,atmospheric_pressure,lightning_strike_count,lightning_average_distance,sensor_temperature_internal,station_id
+2025-01-31 00:21:35.359165+00:00,21253,0.08,0.0,1.0,36.5,24.4,2.561,0.0,0.05,0.0,0.06,2,32.6,0.09,90.0,90.0,101.48,0.0,0.0,24.3,DOBHAP
+2025-03-20 19:36:54.692829+00:00,21253,0.86,0.0,0.69,161.2,14.6,2.924,0.0,0.28,0.0,-0.81,2,41.8,1.11,-3.1,-3.3,101.12,0.0,0.0,14.3,DOBHAP

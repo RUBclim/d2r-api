@@ -1,6 +1,7 @@
-*venv
+*.dump
 *.egg-info
 *.tif
+*venv
 .coverage
 .env.prod
 .mypy_cache
