@@ -54,7 +54,12 @@ services:
     command: [
       celery, -A, app.celery, worker,
       --prefetch-multiplier=2,
-      --concurrency=2,
+      # a higher concurrency would prevent potential deadlocks caused by groups of
+      # chains, however, processing the COGs is very memory intensive and we can
+      # limit the memory usage by limiting the concurrency. We try to distribute
+      # the memory usage by rate-limiting the task. This still allows task w/o rate
+      # limiting to be processed in parallel in between.
+      --concurrency=3,
     ]
     depends_on:
       redis:
