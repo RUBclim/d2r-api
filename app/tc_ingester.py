@@ -163,7 +163,7 @@ def get_driver() -> TerracottaDriver:
     return driver
 
 
-@celery_app.task(name='ingest-raster')
+@celery_app.task(name='ingest-raster', rate_limit='5/m')
 def ingest_raster(path: str, override_path: str = '') -> None:
     """Ingest a raster into terracotta.
 

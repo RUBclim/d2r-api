@@ -748,6 +748,10 @@ async def get_latest_data(station: Station, con: AsyncSession) -> datetime | Non
     autoretry_for=(HTTPError, TimeoutError),
     max_retries=3,
     default_retry_delay=20,
+    # the element api has a rate limit of 20 requests per second as indicated by this
+    # header in every response: x-ratelimit-limit 1200/60000 ms
+    # let's be a bit more conservative and set it to 12 requests per second
+    rate_limit='12/s',
 )
 async def download_station_data(station_id: str) -> str | None:
     if station_id:
