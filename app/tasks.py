@@ -837,6 +837,12 @@ async def download_station_data(station_id: str) -> str | None:
             data = data.copy()
             data.loc[:, 'sensor_id'] = deployment.sensor_id
             data = data.rename(columns=RENAMER)
+            # We will soon change how the download works, for now make sure that the
+            # station id we assume matches the one we get from the API
+            assert (data['station_id'] == station_id).all(), (
+                f'API returned {data["station_id"].unique()} expected {station_id} '
+                f'for sensor {sensor.sensor_id}'
+            )
             # sometimes the API returns a very strange different set of columns
             # we can only ignore it...
             try:

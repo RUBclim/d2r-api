@@ -144,6 +144,7 @@ The backup can be restored like this:
       --rm \
       -v "$(pwd)/d2r_db.dump:/backups/d2r_db.dump:ro" \
       --name db \
+      -d \
       db
    ```
 

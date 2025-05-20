@@ -1,5 +1,5 @@
-measured_at,air_temperature,atmospheric_pressure,battery_voltage,compass_heading,device_id,east_wind_speed,lightning_average_distance,lightning_strike_count,maximum_wind_speed,north_wind_speed,precipitation,protocol_version,relative_humidity,sensor_temperature_internal,solar_radiation,vapor_pressure,wind_direction,wind_speed,x_orientation_angle,y_orientation_angle
-2024-09-09 00:38:53.112530+00:00,15.4,99.07,2.868,0,21613,0.31,0,0,0.65,-0.2,0.0,2,79.2,15.3,0,1.38,122.3,0.37,-0.4,-0.3
-2024-09-09 00:43:47.831474+00:00,15.4,99.06,2.868,0,21613,0.26,0,0,0.72,-0.18,0.0,2,78.9,15.2,0,1.37,124.2,0.32,-0.4,-0.4
-2024-09-09 00:48:49.117131+00:00,15.4,99.06,2.868,0,21613,0.02,0,0,0.8,-0.54,0.0,2,78.4,15.2,0,1.37,177.5,0.54,-0.2,-0.3
-2024-09-09 00:53:54.713730+00:00,15.4,99.06,2.868,0,21613,-0.06,0,0,0.84,-0.53,0.0,2,78.5,15.1,0,1.37,186.5,0.54,0.1,-0.5
+measured_at,air_temperature,atmospheric_pressure,battery_voltage,compass_heading,device_id,east_wind_speed,lightning_average_distance,lightning_strike_count,maximum_wind_speed,north_wind_speed,precipitation,protocol_version,relative_humidity,sensor_temperature_internal,solar_radiation,vapor_pressure,wind_direction,wind_speed,x_orientation_angle,y_orientation_angle,station_id
+2024-09-09 00:38:53.112530+00:00,15.4,99.07,2.868,0,21613,0.31,0,0,0.65,-0.2,0.0,2,79.2,15.3,0,1.38,122.3,0.37,-0.4,-0.3,DOBFRP
+2024-09-09 00:43:47.831474+00:00,15.4,99.06,2.868,0,21613,0.26,0,0,0.72,-0.18,0.0,2,78.9,15.2,0,1.37,124.2,0.32,-0.4,-0.4,DOBFRP
+2024-09-09 00:48:49.117131+00:00,15.4,99.06,2.868,0,21613,0.02,0,0,0.8,-0.54,0.0,2,78.4,15.2,0,1.37,177.5,0.54,-0.2,-0.3,DOBFRP
+2024-09-09 00:53:54.713730+00:00,15.4,99.06,2.868,0,21613,-0.06,0,0,0.84,-0.53,0.0,2,78.5,15.1,0,1.37,186.5,0.54,0.1,-0.5,DOBFRP
