@@ -45,7 +45,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 100M
+          memory: 150M
 
   celery:
     restart: always
@@ -120,7 +120,7 @@ services:
       replicas: 2
       resources:
         limits:
-          memory: 300M
+          memory: 400M
 
   nginx:
     restart: always
