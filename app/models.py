@@ -630,6 +630,17 @@ class _SHT35DataRawBase(_Data):
     )
 
 
+class _SHT35DataRawBaseQC(Base):
+    __abstract__ = True
+
+    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+
+
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
     sensor_id: Mapped[str] = mapped_column(
@@ -743,6 +754,55 @@ class _ATM41DataRawBase(_Data):
     )
 
 
+class _ATM41DataRawBaseQC(Base):
+    __abstract__ = True
+
+    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    atmospheric_pressure_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_direction_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_direction_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    maximum_wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    maximum_wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    lightning_average_distance_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    lightning_average_distance_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    lightning_strike_count_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    lightning_strike_count_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    x_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    x_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    y_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    y_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+
+
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
     sensor_id: Mapped[str] = mapped_column(
@@ -775,6 +835,18 @@ class _BLGDataRawBase(_Data):
         nullable=True,
         comment='-',
         doc='voltage ratio of the sensor',
+    )
+
+
+class _BLGDataRawBaseQC(Base):
+    __abstract__ = True
+
+    black_globe_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    black_globe_temperature_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    black_globe_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
     )
 
 
@@ -938,6 +1010,7 @@ class _BiometDataAwaitableAttrs(Protocol):
 
 class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+    _ATM41DataRawBaseQC, _BLGDataRawBaseQC,
 ):
     __tablename__ = 'biomet_data'
     __table_args__ = (
@@ -1010,7 +1083,9 @@ class _TempRHDataAwaitableAttrs(Protocol):
     deployment: Awaitable[SensorDeployment]
 
 
-class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
+class TempRHData(
+    _SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives, _SHT35DataRawBaseQC,
+):
     __tablename__ = 'temp_rh_data'
     __table_args__ = (
         Index(

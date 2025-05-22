@@ -56,6 +56,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
+from app.qc import apply_qc
 
 
 # https://github.com/sbdchd/celery-types/issues/80
@@ -580,7 +581,7 @@ async def calculate_biomet(station_id: str | None) -> None:
         # reset the atmospheric pressure to 0 again
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 0
         df_biomet['station_id'] = station_id
-
+        df_biomet = await apply_qc(data=df_biomet, station_id=station_id)
         con = await sess.connection()
         await con.run_sync(
             lambda con: df_biomet.to_sql(
@@ -696,6 +697,7 @@ async def calculate_temp_rh(station_id: str | None) -> None:
             rh=data['relative_humidity'],
         )
         data['station_id'] = station_id
+        data = await apply_qc(data=data, station_id=station_id)
         con = await sess.connection()
         await con.run_sync(
             lambda con: data.to_sql(

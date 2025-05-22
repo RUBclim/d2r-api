@@ -47,7 +47,7 @@ async def persistence_check(
     """
     # get some additional data from the database so we can perform the check on
     # enough data to cover at least one window
-    min_data_date = s.index.get_level_values('measured_at').min()
+    min_data_date = s.index.min()
     additional_data_start = min_data_date - window
     table = TABLE_MAPPING[station.station_type]['max']['table']
     query = (
@@ -61,7 +61,7 @@ async def persistence_check(
         lambda con: pd.read_sql(
             sql=query,  # type: ignore[call-overload]
             con=con,
-            index_col=['sensor_id', 'measured_at'],
+            index_col=['measured_at'],
         ),
     )
     # now find values that are the same
@@ -95,8 +95,8 @@ async def persistence_check(
 
 def _t_delta(x: 'pd.Series[float]') -> timedelta:
     """Calculate the time difference between the first and last value in a series."""
-    max_date = x.index.get_level_values('measured_at').max()
-    min_date = x.index.get_level_values('measured_at').min()
+    max_date = x.index.max()
+    min_date = x.index.min()
     return max_date - min_date
 
 
@@ -123,14 +123,14 @@ async def spike_dip_check(
     query = (
         select(table).where(
             table.station_id == station.station_id,
-            table.measured_at < s.index.get_level_values('measured_at').min(),
+            table.measured_at < s.index.min(),
         ).order_by(table.measured_at.desc()).limit(1)
     )
     db_data = await con.run_sync(
         lambda con: pd.read_sql(
             sql=query,  # type: ignore[call-overload]
             con=con,
-            index_col=['sensor_id', 'measured_at'],
+            index_col=['measured_at'],
         ),
     )
     # in case this is the very first time the qc runs
@@ -144,7 +144,7 @@ async def spike_dip_check(
     df = all_data.reset_index()
     df['time_diff'] = abs(df['measured_at'] - df['measured_at'].shift())
     df['time_diff'] = df['time_diff'].dt.total_seconds() / 60
-    all_data = df.set_index(['sensor_id', 'measured_at'])
+    all_data = df.set_index('measured_at')
     # normalize the difference by the time that passed between the two values
     all_data['value_diff'] = (
         abs(all_data[s.name] - all_data['shifted']) / all_data['time_diff']
@@ -225,7 +225,7 @@ COLUMNS = {
 }
 
 
-async def apply_qc(data: pd.DataFrame, station_id: str) -> None:
+async def apply_qc(data: pd.DataFrame, station_id: str) -> pd.DataFrame:
     """Apply quality control to the data for a given station and time period.
 
     :param data: The data to apply quality control to.
@@ -249,6 +249,4 @@ async def apply_qc(data: pd.DataFrame, station_id: str) -> None:
                         con=con,
                     )
                     data[f'{column}_qc_{qc_function.func.__name__}'] = res
-            else:
-                print('no qc function for column', column)
-    return data[data.columns.sort_values()]
+    return data
