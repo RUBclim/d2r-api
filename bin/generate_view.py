@@ -294,7 +294,7 @@ def generate_sqlalchemy_class(
         total_vals = 12
 
     for col in table.__table__.columns:
-        if col.key in AVG_EXCLUDES:
+        if col.key in AVG_EXCLUDES or 'qc_' in col.key:
             continue
         # we set the names and determine its agg function via the name
         cols.append(
@@ -307,7 +307,7 @@ def generate_sqlalchemy_class(
             ),
         )
         # we don't want them to get a _min or _max column
-        other_aggs = {'category', 'count', 'sum', 'max', 'direction', 'version'}
+        other_aggs = {'category', 'count', 'sum', 'max', 'direction', 'version', 'qc'}
         if col.key not in AVG_EXCLUDES and not any(i in col.key for i in other_aggs):
             for suffix in ('_min', '_max'):
                 cols.append(
