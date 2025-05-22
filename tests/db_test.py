@@ -732,3 +732,126 @@ async def test_db_reprs() -> None:
         measured_at=date(2024, 1, 1),
     )
     repr(temprh_daily)
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+@pytest.mark.parametrize('table', (BiometData, TempRHData))
+async def test_generated_qc_flag_is_true_when_null(
+        table: type[BiometData | TempRHData],
+        db: AsyncSession,
+) -> None:
+    data = table(
+        measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+        station_id='DOB1',
+        sensor_id='DEC1',
+    )
+    db.add(data)
+    await db.commit()
+    assert data.qc_flagged is True
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_generated_qc_flag_is_false_when_all_passed(db: AsyncSession) -> None:
+    biomet_data = BiometData(
+        measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+        station_id='DOB1',
+        sensor_id='DEC1',
+        air_temperature_qc_range_check=False,
+        air_temperature_qc_persistence_check=False,
+        air_temperature_qc_spike_dip_check=False,
+        relative_humidity_qc_range_check=False,
+        relative_humidity_qc_persistence_check=False,
+        relative_humidity_qc_spike_dip_check=False,
+        atmospheric_pressure_qc_range_check=False,
+        atmospheric_pressure_qc_persistence_check=False,
+        atmospheric_pressure_qc_spike_dip_check=False,
+        wind_speed_qc_range_check=False,
+        wind_speed_qc_persistence_check=False,
+        wind_speed_qc_spike_dip_check=False,
+        wind_direction_qc_range_check=False,
+        wind_direction_qc_persistence_check=False,
+        u_wind_qc_range_check=False,
+        u_wind_qc_persistence_check=False,
+        u_wind_qc_spike_dip_check=False,
+        v_wind_qc_range_check=False,
+        v_wind_qc_persistence_check=False,
+        v_wind_qc_spike_dip_check=False,
+        maximum_wind_speed_qc_range_check=False,
+        maximum_wind_speed_qc_persistence_check=False,
+        precipitation_sum_qc_range_check=False,
+        precipitation_sum_qc_persistence_check=False,
+        precipitation_sum_qc_spike_dip_check=False,
+        solar_radiation_qc_range_check=False,
+        solar_radiation_qc_persistence_check=False,
+        solar_radiation_qc_spike_dip_check=False,
+        lightning_average_distance_qc_range_check=False,
+        lightning_average_distance_qc_persistence_check=False,
+        lightning_strike_count_qc_range_check=False,
+        lightning_strike_count_qc_persistence_check=False,
+        x_orientation_angle_qc_range_check=False,
+        x_orientation_angle_qc_spike_dip_check=False,
+        y_orientation_angle_qc_range_check=False,
+        y_orientation_angle_qc_spike_dip_check=False,
+        black_globe_temperature_qc_range_check=False,
+        black_globe_temperature_qc_persistence_check=False,
+        black_globe_temperature_qc_spike_dip_check=False,
+    )
+    db.add(biomet_data)
+    await db.commit()
+    assert biomet_data.qc_flagged is False
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_generated_qc_flag_is_true_when_single_test_failed(
+        db: AsyncSession,
+) -> None:
+    biomet_data = BiometData(
+        measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+        station_id='DOB1',
+        sensor_id='DEC1',
+        air_temperature_qc_range_check=False,
+        air_temperature_qc_persistence_check=False,
+        air_temperature_qc_spike_dip_check=False,
+        relative_humidity_qc_range_check=False,
+        relative_humidity_qc_persistence_check=False,
+        relative_humidity_qc_spike_dip_check=False,
+        atmospheric_pressure_qc_range_check=False,
+        atmospheric_pressure_qc_persistence_check=False,
+        atmospheric_pressure_qc_spike_dip_check=False,
+        wind_speed_qc_range_check=False,
+        wind_speed_qc_persistence_check=False,
+        wind_speed_qc_spike_dip_check=False,
+        wind_direction_qc_range_check=False,
+        wind_direction_qc_persistence_check=False,
+        u_wind_qc_range_check=False,
+        u_wind_qc_persistence_check=False,
+        u_wind_qc_spike_dip_check=False,
+        v_wind_qc_range_check=False,
+        v_wind_qc_persistence_check=False,
+        v_wind_qc_spike_dip_check=False,
+        maximum_wind_speed_qc_range_check=False,
+        maximum_wind_speed_qc_persistence_check=False,
+        precipitation_sum_qc_range_check=False,
+        precipitation_sum_qc_persistence_check=False,
+        precipitation_sum_qc_spike_dip_check=False,
+        solar_radiation_qc_range_check=False,
+        solar_radiation_qc_persistence_check=False,
+        solar_radiation_qc_spike_dip_check=False,
+        lightning_average_distance_qc_range_check=False,
+        lightning_average_distance_qc_persistence_check=False,
+        lightning_strike_count_qc_range_check=False,
+        lightning_strike_count_qc_persistence_check=False,
+        x_orientation_angle_qc_range_check=False,
+        x_orientation_angle_qc_spike_dip_check=False,
+        y_orientation_angle_qc_range_check=False,
+        y_orientation_angle_qc_spike_dip_check=False,
+        black_globe_temperature_qc_range_check=False,
+        black_globe_temperature_qc_persistence_check=False,
+        black_globe_temperature_qc_spike_dip_check=True,
+    )
+    db.add(biomet_data)
+    await db.commit()
+    assert biomet_data.qc_flagged is True

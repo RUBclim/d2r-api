@@ -10,6 +10,7 @@ from typing import Protocol
 
 from psycopg import sql
 from sqlalchemy import BigInteger
+from sqlalchemy import Computed
 from sqlalchemy import Connection
 from sqlalchemy import DateTime
 from sqlalchemy import desc
@@ -630,6 +631,37 @@ class _SHT35DataRawBase(_Data):
     )
 
 
+class _SHT35DataRawBaseQC(Base):
+    __abstract__ = True
+
+    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    # create a column that unifies all qc checks for restrictive filtering
+    qc_flagged: Mapped[bool] = mapped_column(
+        Computed(
+            '''
+            air_temperature_qc_range_check IS TRUE OR
+            air_temperature_qc_range_check IS NULL OR
+            air_temperature_qc_persistence_check IS TRUE OR
+            air_temperature_qc_persistence_check IS NULL OR
+            air_temperature_qc_spike_dip_check IS TRUE OR
+            air_temperature_qc_spike_dip_check IS NULL OR
+            relative_humidity_qc_range_check IS TRUE OR
+            relative_humidity_qc_range_check IS NULL OR
+            relative_humidity_qc_persistence_check IS TRUE OR
+            relative_humidity_qc_persistence_check IS NULL OR
+            relative_humidity_qc_spike_dip_check IS TRUE OR
+            relative_humidity_qc_spike_dip_check IS NULL
+            ''',
+            persisted=True,
+        ),
+    )
+
+
 class SHT35DataRaw(_SHT35DataRawBase):
     __tablename__ = 'sht35_data_raw'
     sensor_id: Mapped[str] = mapped_column(
@@ -743,6 +775,60 @@ class _ATM41DataRawBase(_Data):
     )
 
 
+class _ATM41DataRawBaseQC(Base):
+    __abstract__ = True
+
+    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    atmospheric_pressure_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_speed_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    # wind direction has no spike/dip check, because it is not a continuous value
+    wind_direction_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_direction_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    u_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    v_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    # maximum wind speed has no spike/dip check, because it is intentionally spiky
+    maximum_wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    maximum_wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    precipitation_sum_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
+    solar_radiation_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    # lightings strikes appear suddenly hence no spike/dip check
+    lightning_average_distance_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    lightning_average_distance_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    lightning_strike_count_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    lightning_strike_count_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    # there is no persistence check for the orientation angles, because they are
+    # not expected to change over time
+    x_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    x_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    y_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    y_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+
+
 class ATM41DataRaw(_ATM41DataRawBase):
     __tablename__ = 'atm41_data_raw'
     sensor_id: Mapped[str] = mapped_column(
@@ -775,6 +861,18 @@ class _BLGDataRawBase(_Data):
         nullable=True,
         comment='-',
         doc='voltage ratio of the sensor',
+    )
+
+
+class _BLGDataRawBaseQC(Base):
+    __abstract__ = True
+
+    black_globe_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    black_globe_temperature_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+    )
+    black_globe_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
     )
 
 
@@ -938,6 +1036,7 @@ class _BiometDataAwaitableAttrs(Protocol):
 
 class BiometData(
     _ATM41DataRawBase, _BLGDataRawBase, _TempRHDerivatives, _BiometDerivatives,
+    _ATM41DataRawBaseQC, _BLGDataRawBaseQC,
 ):
     __tablename__ = 'biomet_data'
     __table_args__ = (
@@ -966,6 +1065,92 @@ class BiometData(
         # that do not have corresponding blackglobe measurements
         nullable=True,
         doc='id of the BLG sensor these measurements were taken with',
+    )
+    # create a column that unifies all qc checks for restrictive filtering
+    qc_flagged: Mapped[bool] = mapped_column(
+        Computed(
+            '''
+            air_temperature_qc_range_check IS TRUE OR
+            air_temperature_qc_range_check IS NULL OR
+            air_temperature_qc_persistence_check IS TRUE OR
+            air_temperature_qc_persistence_check IS NULL OR
+            air_temperature_qc_spike_dip_check IS TRUE OR
+            air_temperature_qc_spike_dip_check IS NULL OR
+            relative_humidity_qc_range_check IS TRUE OR
+            relative_humidity_qc_range_check IS NULL OR
+            relative_humidity_qc_persistence_check IS TRUE OR
+            relative_humidity_qc_persistence_check IS NULL OR
+            relative_humidity_qc_spike_dip_check IS TRUE OR
+            relative_humidity_qc_spike_dip_check IS NULL OR
+            atmospheric_pressure_qc_range_check IS TRUE OR
+            atmospheric_pressure_qc_range_check IS NULL OR
+            atmospheric_pressure_qc_persistence_check IS TRUE OR
+            atmospheric_pressure_qc_persistence_check IS NULL OR
+            atmospheric_pressure_qc_spike_dip_check IS TRUE OR
+            atmospheric_pressure_qc_spike_dip_check IS NULL OR
+            wind_speed_qc_range_check IS TRUE OR
+            wind_speed_qc_range_check IS NULL OR
+            wind_speed_qc_persistence_check IS TRUE OR
+            wind_speed_qc_persistence_check IS NULL OR
+            wind_speed_qc_spike_dip_check IS TRUE OR
+            wind_speed_qc_spike_dip_check IS NULL OR
+            wind_direction_qc_range_check IS TRUE OR
+            wind_direction_qc_range_check IS NULL OR
+            wind_direction_qc_persistence_check IS TRUE OR
+            wind_direction_qc_persistence_check IS NULL OR
+            u_wind_qc_range_check IS TRUE OR
+            u_wind_qc_range_check IS NULL OR
+            u_wind_qc_persistence_check IS TRUE OR
+            u_wind_qc_persistence_check IS NULL OR
+            u_wind_qc_spike_dip_check IS TRUE OR
+            u_wind_qc_spike_dip_check IS NULL OR
+            v_wind_qc_range_check IS TRUE OR
+            v_wind_qc_range_check IS NULL OR
+            v_wind_qc_persistence_check IS TRUE OR
+            v_wind_qc_persistence_check IS NULL OR
+            v_wind_qc_spike_dip_check IS TRUE OR
+            v_wind_qc_spike_dip_check IS NULL OR
+            maximum_wind_speed_qc_range_check IS TRUE OR
+            maximum_wind_speed_qc_range_check IS NULL OR
+            maximum_wind_speed_qc_persistence_check IS TRUE OR
+            maximum_wind_speed_qc_persistence_check IS NULL OR
+            precipitation_sum_qc_range_check IS TRUE OR
+            precipitation_sum_qc_range_check IS NULL OR
+            precipitation_sum_qc_persistence_check IS TRUE OR
+            precipitation_sum_qc_persistence_check IS NULL OR
+            precipitation_sum_qc_spike_dip_check IS TRUE OR
+            precipitation_sum_qc_spike_dip_check IS NULL OR
+            solar_radiation_qc_range_check IS TRUE OR
+            solar_radiation_qc_range_check IS NULL OR
+            solar_radiation_qc_persistence_check IS TRUE OR
+            solar_radiation_qc_persistence_check IS NULL OR
+            solar_radiation_qc_spike_dip_check IS TRUE OR
+            solar_radiation_qc_spike_dip_check IS NULL OR
+            lightning_average_distance_qc_range_check IS TRUE OR
+            lightning_average_distance_qc_range_check IS NULL OR
+            lightning_average_distance_qc_persistence_check IS TRUE OR
+            lightning_average_distance_qc_persistence_check IS NULL OR
+            lightning_strike_count_qc_range_check IS TRUE OR
+            lightning_strike_count_qc_range_check IS NULL OR
+            lightning_strike_count_qc_persistence_check IS TRUE OR
+            lightning_strike_count_qc_persistence_check IS NULL OR
+            x_orientation_angle_qc_range_check IS TRUE OR
+            x_orientation_angle_qc_range_check IS NULL OR
+            x_orientation_angle_qc_spike_dip_check IS TRUE OR
+            x_orientation_angle_qc_spike_dip_check IS NULL OR
+            y_orientation_angle_qc_range_check IS TRUE OR
+            y_orientation_angle_qc_range_check IS NULL OR
+            y_orientation_angle_qc_spike_dip_check IS TRUE OR
+            y_orientation_angle_qc_spike_dip_check IS NULL OR
+            black_globe_temperature_qc_range_check IS TRUE OR
+            black_globe_temperature_qc_range_check IS NULL OR
+            black_globe_temperature_qc_persistence_check IS TRUE OR
+            black_globe_temperature_qc_persistence_check IS NULL OR
+            black_globe_temperature_qc_spike_dip_check IS TRUE OR
+            black_globe_temperature_qc_spike_dip_check IS NULL
+            ''',
+            persisted=True,
+        ),
     )
 
     awaitable_attrs: ClassVar[_BiometDataAwaitableAttrs]  # type: ignore[assignment]
@@ -1010,7 +1195,9 @@ class _TempRHDataAwaitableAttrs(Protocol):
     deployment: Awaitable[SensorDeployment]
 
 
-class TempRHData(_SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives):
+class TempRHData(
+    _SHT35DataRawBase, _TempRHDerivatives, _CalibrationDerivatives, _SHT35DataRawBaseQC,
+):
     __tablename__ = 'temp_rh_data'
     __table_args__ = (
         Index(
