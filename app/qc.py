@@ -192,7 +192,7 @@ COLUMNS = {
         partial(spike_dip_check, delta=20),
     ],
     'maximum_wind_speed': [
-        partial(range_check, lower_bound=-30, upper_bound=30),
+        partial(range_check, lower_bound=0, upper_bound=30),
         partial(persistence_check, window=timedelta(hours=1)),
     ],
     'wind_direction': [
