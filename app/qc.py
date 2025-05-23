@@ -151,6 +151,15 @@ async def spike_dip_check(
     )
     return all_data['value_diff'] > delta
 
+
+# The values are based on the QC-procedure used at RUB which was derived and adapted
+# from the Guide to the Global Observing System by WMO
+# https://library.wmo.int/viewer/35699/download?file=488-2017_en.pdf&type=pdf
+# Plausible Value Range: The measured value has to be in this range
+# Plausible Rate of Change: The measured value must not change more than this
+# per minute.
+# Minimum required Variability: The measured value must change after this time
+# (excluding some values e.g. 0 for precipitation or 0 for solar radiation during night)
 COLUMNS = {
     'air_temperature': [
         partial(range_check, lower_bound=-40, upper_bound=50),
