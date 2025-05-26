@@ -1,14 +1,24 @@
+from collections.abc import Callable
 from collections.abc import Sequence
+from datetime import datetime
 from datetime import timedelta
 from functools import partial
 from typing import Any
+from typing import TypedDict
 
+import numpy as np
+import numpy.typing as npt
 import pandas as pd
+from sqlalchemy import literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from titanlib import buddy_check
+from titanlib import Points
 
 from app.database import sessionmanager
+from app.models import BiometData
 from app.models import Station
+from app.models import TempRHData
 from app.routers.v1 import TABLE_MAPPING
 
 
@@ -150,6 +160,129 @@ async def spike_dip_check(
         abs(all_data[s.name] - all_data['shifted']) / all_data['time_diff']
     )
     return all_data['value_diff'] > delta
+
+
+async def apply_buddy_check(start: datetime, end: datetime) -> pd.DataFrame:
+    """Apply the buddy check to the data for the given time period.
+
+    :param start: The start of the time period to apply the buddy check to.
+    :param end: The end of the time period to apply the buddy check to.
+    :return: A DataFrame with the buddy check results.
+    """
+    query = select(
+        BiometData.measured_at,
+        BiometData.station_id,
+        Station.latitude,
+        Station.longitude,
+        Station.altitude,
+        BiometData.air_temperature,
+        BiometData.relative_humidity,
+        BiometData.atmospheric_pressure,
+        BiometData.precipitation_sum,
+    ).join(Station).where(BiometData.measured_at.between(start, end)).union_all(
+        select(
+            TempRHData.measured_at,
+            TempRHData.station_id,
+            Station.latitude,
+            Station.longitude,
+            Station.altitude,
+            TempRHData.air_temperature,
+            TempRHData.relative_humidity,
+            literal(None).label(BiometData.atmospheric_pressure.name),
+            literal(None).label(BiometData.precipitation_sum.name),
+        ).join(Station).where(TempRHData.measured_at.between(start, end)),
+    )
+    async with sessionmanager.session() as sess:
+        con = await sess.connection()
+        db_data = await con.run_sync(
+            lambda con: pd.read_sql(
+                sql=query,  # type: ignore[call-overload]
+                con=con,
+            ),
+        )
+        # create a new regular index for the data
+        db_data['measured_at_rounded'] = db_data['measured_at'].dt.round('5min')
+        db_data = db_data.set_index(['measured_at_rounded'])
+        # only get the quantiative columns that we want to process
+        columns_to_process = set(
+            db_data.columns,
+        ) - {
+            'station_id', 'measured_at', 'measured_at_rounded',
+            'latitude', 'longitude', 'altitude',
+        }
+        # step through the time steps
+        for d in db_data.index.unique():
+            points = Points(
+                db_data.loc[d, 'longitude'],
+                db_data.loc[d, 'latitude'],
+                db_data.loc[d, 'altitude'],
+            )
+            # step through the parameters
+            for param in sorted(columns_to_process):
+                config = BUDDY_CHECK_COLUMNS.get(param)
+                # we have no buddy check configuration for this parameter
+                if not config:
+                    continue
+                # get the correct parameter configuration
+                flags = buddy_check(
+                    points,
+                    db_data.loc[d, param],
+                    np.full(points.size(), 5000),
+                    np.full(points.size(), config['num_min']),
+                    config['threshold'],
+                    config['max_elev_diff'],
+                    config['elev_gradient'],
+                    config['min_std'],
+                    config['num_iterations'],
+                )
+                db_data.loc[d, f'{param}_qc_buddy_check'] = flags.astype(bool)
+                # TODO: if the value was nan, it is also flagged as True
+        db_data = db_data.reset_index().set_index(['measured_at', 'station_id'])
+        return db_data.filter(like='_qc_buddy_check')
+
+
+class BuddyCheckConfig(TypedDict):
+    callable: Callable[..., npt.NDArray[np.integer]]
+    num_min: int
+    threshold: float
+    max_elev_diff: float
+    elev_gradient: float
+    min_std: float
+    num_iterations: int
+
+
+BUDDY_CHECK_COLUMNS: dict[str, BuddyCheckConfig] = {
+    # TODO: all these values need calibration and adjustment
+    'air_temperature': {
+        'callable': buddy_check,
+        'num_min': 3,
+        'threshold': 0.4,
+        'max_elev_diff': 100,
+        'elev_gradient': -0.0065,
+        'min_std': 0.5,
+        'num_iterations': 5,
+    },
+    'relative_humidity': {
+        'callable': buddy_check,
+        'num_min': 3,
+        'threshold': 5,
+        'max_elev_diff': -1,  # do not check elevation difference
+        'elev_gradient': 0,
+        'min_std': 5,
+        'num_iterations': 5,
+    },
+    'atmospheric_pressure': {
+        'callable': buddy_check,
+        'num_min': 3,
+        'threshold': 0.5,
+        'max_elev_diff': 100,
+        'elev_gradient': 0.125,  # lapse rate at sea level
+        'min_std': 0.5,
+        'num_iterations': 5,
+    },
+    # TODO: at five minutes precipitation will likely give a lot of false positives and
+    # the qc will be useless
+}
 
 
 # The values are based on the QC-procedure used at RUB which was derived and adapted
