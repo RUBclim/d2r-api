@@ -1,5 +1,4 @@
 from typing import Sequence
-from enum import Enum
 import numpy.typing as npt
 from typing import Literal
 from typing import TypeVar
@@ -15,13 +14,15 @@ class Points:
             elevs: npt.NDArray[T],
             lafs: npt.NDArray[T] = np.array([]),
             type: Literal[0, 1] = 0,
+            /,
     ) -> None: ...
 
     def get_nearest_neighbour(
             self,
             lat: float,
             lon: float,
-            include_match: bool = True
+            include_match: bool = True,
+            /,
     ) -> int: ...
 
     def get_neighbours(
@@ -29,7 +30,8 @@ class Points:
             lat: float,
             lon: float,
             radius: float,
-            include_match: bool = True
+            include_match: bool = True,
+            /,
         ) -> npt.NDArray[np.integer]: ...
 
     def get_neighbours_with_distance(
@@ -38,9 +40,17 @@ class Points:
             lon: float,
             radius: float,
             include_match: bool = True,
+            /,
         ) -> npt.NDArray[np.integer]: ...
 
-    def get_num_neighbours(self, lat: float, lon: float, radius: float, include_match: bool = True) -> npt.NDArray[np.integer]: ...
+    def get_num_neighbours(
+            self,
+            lat: float,
+            lon: float,
+            radius: float,
+            include_match: bool = True,
+            /,
+        ) -> npt.NDArray[np.integer]: ...
 
     def get_closest_neighbours(
             self,
@@ -48,6 +58,7 @@ class Points:
             lon: float,
             radius: float,
             include_match: bool = True,
+            /,
     ) -> npt.NDArray[np.integer]: ...
 
     def get_lats(self) -> npt.NDArray[T]: ...
@@ -73,6 +84,7 @@ def buddy_check(
         min_std: float,
         num_iterations: int,
         obs_to_check: Sequence[int] = [],
+        /,
 ) -> npt.NDArray[np.integer]: ...
 
 
@@ -88,4 +100,5 @@ def buddy_event_check(
         min_std: float,
         num_iterations: int,
         obs_to_check: Sequence[int] = [],
+        /,
 ) -> npt.NDArray[np.integer]: ...

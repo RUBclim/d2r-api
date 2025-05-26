@@ -13,3 +13,4 @@ terracotta>=0.8.6
 thermal-comfort
 uvicorn
 uvicorn-worker
+https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
