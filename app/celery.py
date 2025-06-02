@@ -59,7 +59,7 @@ celery_app = Celery(
     task_soft_time_limit=int(os.environ['QUEUE_SOFT_TIME_LIMIT']),
     broker_connection_retry_on_startup=True,
     include=['app.tasks', 'app.tc_ingester'],
-    result_expires=timedelta(600),  # expire after 10 minutes
+    result_expires=timedelta(seconds=600),  # expire after 10 minutes
 )
 celery_app.conf.timezone = 'UTC'
 celery_app.set_default()
