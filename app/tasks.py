@@ -103,6 +103,38 @@ RENAMER = {
     'temperature': 'black_globe_temperature',
 }
 
+# in the original data telegram from the sensor there are no NULL values - instead
+# they are simply represented as 0. All values are transmitted as an uint16. To get the
+# correct values it needs to subtracted by 32768, which is the offset and then scaled by
+# 10 or 100 depending on the value type. hence Null values end up being -3276.8 or
+# -327.68, which is not a valid value.
+# https://cdn.decentlab.com/download/datasheets/Decentlab-DL-ATM41-datasheet.pdf
+# https://cdn.decentlab.com/download/datasheets/Decentlab-DL-SHT35-datasheet.pdf
+NULL_VALUES: dict[str, dict[str, float]] = {
+    'temprh': {
+        'air_temperature': -45,
+        'relative_humidity': 0,
+    },
+    'biomet': {
+        'solar_radiation': -3276.8,
+        'precipitation_sum': -32.768,
+        'lightning_strike_count': -32768,
+        'lightning_average_distance': -32768,
+        'wind_speed': -327.68,
+        'wind_direction': -3276.8,
+        'maximum_wind_speed': -327.68,
+        'air_temperature': -3276.8,
+        'vapor_pressure': -327.68,
+        'atmospheric_pressure': -327.68,
+        'relative_humidity': -3276.8,
+        'sensor_temperature_internal': -3276.8,
+        'x_orientation_angle': -3276.8,
+        'y_orientation_angle': -3276.8,
+        'u_wind': -327.68,
+        'v_wind': -327.68,
+    },
+}
+
 
 def reduce_pressure(
         p: Union[float, 'pd.Series[float]'],
@@ -499,6 +531,10 @@ async def calculate_biomet(station_id: str | None) -> None:
         df_biomet = df_biomet.drop('measured_at_blg', axis=1)
 
         df_biomet = df_biomet.set_index('measured_at')
+        # now set the null values based on the uint16 representation of the values
+        for col, null_value in NULL_VALUES['biomet'].items():
+            if col in df_biomet.columns:
+                df_biomet.loc[df_biomet[col] == null_value, col] = float('nan')
 
         # convert kPa to hPa
         df_biomet['atmospheric_pressure'] = df_biomet['atmospheric_pressure'] * 10
@@ -671,6 +707,10 @@ async def calculate_temp_rh(station_id: str | None) -> None:
         data = pd.concat(df_list)
 
         data = data.set_index('measured_at')
+        for col, null_value in NULL_VALUES['temprh'].items():
+            if col in data.columns:
+                data.loc[data[col] == null_value, col] = float('nan')
+
         # calculate derivates
         data['absolute_humidity'] = absolute_humidity(
             ta=data['air_temperature'],
