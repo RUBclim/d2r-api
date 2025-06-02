@@ -44,8 +44,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 150M
+          cpus: "0.75"
+          memory: 250M
 
   celery:
     restart: always
