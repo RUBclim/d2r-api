@@ -5,6 +5,7 @@ from collections.abc import Coroutine
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from decimal import Decimal
 from unittest import mock
 from unittest.mock import call
 
@@ -1573,3 +1574,90 @@ async def test_check_for_new_sensors(db: AsyncSession) -> None:
         assert new_sensor.sensor_id == 'DEC4'
         assert new_sensor.device_id == 44444
         assert new_sensor.sensor_type == SensorType.blg
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_biomet_station')
+@pytest.mark.anyio
+async def test_calculate_biomet_missing_values_are_detected(db: AsyncSession) -> None:
+    atm_data = ATM41DataRaw(
+        sensor_id='DEC1',
+        measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
+        air_temperature=-3276.8,
+        relative_humidity=-3276.8,
+        atmospheric_pressure=-327.68,
+        vapor_pressure=-327.68,
+        wind_speed=-327.68,
+        wind_direction=-3276.8,
+        u_wind=-327.68,
+        v_wind=-327.68,
+        maximum_wind_speed=-327.68,
+        precipitation_sum=-32.768,
+        solar_radiation=-3276.8,
+        lightning_average_distance=-32768,
+        lightning_strike_count=-32768,
+        sensor_temperature_internal=-3276.8,
+        x_orientation_angle=-3276.8,
+        y_orientation_angle=-3276.8,
+        battery_voltage=3.178,
+    )
+    blg_data = BLGDataRaw(
+        sensor_id='DEC2',
+        measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
+        black_globe_temperature=10,
+    )
+    db.add(atm_data)
+    db.add(blg_data)
+    await db.commit()
+    await calculate_biomet('DOBFRP')
+    biomet_data_in_db = (
+        await db.execute(
+            select(BiometData).order_by(BiometData.measured_at),
+        )
+    ).scalars().one()
+    assert biomet_data_in_db.air_temperature is None
+    assert biomet_data_in_db.relative_humidity is None
+    assert biomet_data_in_db.atmospheric_pressure is None
+    assert biomet_data_in_db.vapor_pressure is None
+    assert biomet_data_in_db.wind_speed is None
+    assert biomet_data_in_db.wind_direction is None
+    assert biomet_data_in_db.u_wind is None
+    assert biomet_data_in_db.v_wind is None
+    assert biomet_data_in_db.maximum_wind_speed is None
+    assert biomet_data_in_db.precipitation_sum is None
+    assert biomet_data_in_db.solar_radiation is None
+    assert biomet_data_in_db.lightning_average_distance is None
+    assert biomet_data_in_db.lightning_strike_count is None
+    assert biomet_data_in_db.sensor_temperature_internal is None
+    assert biomet_data_in_db.x_orientation_angle is None
+    assert biomet_data_in_db.y_orientation_angle is None
+    # make sure the other calculations passed
+    assert biomet_data_in_db.black_globe_temperature == 10
+    assert biomet_data_in_db.battery_voltage == Decimal('3.178')
+    assert biomet_data_in_db.utci_category == HeatStressCategories.unknown
+    assert biomet_data_in_db.utci_category == HeatStressCategories.unknown
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.usefixtures('deployed_temprh_station')
+@pytest.mark.anyio
+async def test_calculate_temprh_missing_values_are_detected(db: AsyncSession) -> None:
+    station_data = SHT35DataRaw(
+        sensor_id='DEC1',
+        measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
+        air_temperature=-45,
+        relative_humidity=0,
+        battery_voltage=3.178,
+    )
+    db.add(station_data)
+
+    await db.commit()
+    await calculate_temp_rh('DOTWFH')
+    temprh_data_in_db = (
+        await db.execute(
+            select(TempRHData).order_by(TempRHData.measured_at),
+        )
+    ).scalars().one()
+    assert temprh_data_in_db.air_temperature is None
+    assert temprh_data_in_db.relative_humidity is None
+    assert temprh_data_in_db.battery_voltage == Decimal('3.178')
