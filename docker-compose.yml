@@ -105,7 +105,7 @@ services:
       - terracotta-db
 
   dashboard:
-    image: ghcr.io/rubclim/data-2-resilience:0.0.0dev496-511d9c1
+    image: ghcr.io/rubclim/data-2-resilience:latest
     user: nobody
     healthcheck:
       test: ["CMD-SHELL", "wget --spider http://localhost:3000/de || exit 1"]
