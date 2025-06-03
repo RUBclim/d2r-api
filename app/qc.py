@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.database import sessionmanager
 from app.models import Station
@@ -35,7 +35,7 @@ async def persistence_check(
         window: timedelta,
         excludes: Sequence[float] = [],
         station: Station,
-        con: AsyncSession,
+        con: AsyncConnection,
         **kwargs: dict[str, Any],
 ) -> 'pd.Series[bool]':
     """Check if the values in the series are persistent. For this we need to get
@@ -105,7 +105,7 @@ async def spike_dip_check(
         *,
         delta: float,
         station: Station,
-        con: AsyncSession,
+        con: AsyncConnection,
         **kwargs: dict[str, Any],
 ) -> 'pd.Series[bool]':
     """check if there are spikes or dips in the data.
@@ -142,6 +142,10 @@ async def spike_dip_check(
     #  now find the value difference between the current and the previous value
     all_data['shifted'] = all_data.shift()
     df = all_data.reset_index()
+    # there are jumps (a value suddenly jumps but remains at the level) and spikes
+    # (a single values jumps for a single time step). for jumps only the first values
+    # of the jumps is marked and for spikes the first spiked values and the flowed value
+    # is marked since it's a dip after a spike.
     df['time_diff'] = abs(df['measured_at'] - df['measured_at'].shift())
     df['time_diff'] = df['time_diff'].dt.total_seconds() / 60
     all_data = df.set_index('measured_at')
@@ -149,7 +153,8 @@ async def spike_dip_check(
     all_data['value_diff'] = (
         abs(all_data[s.name] - all_data['shifted']) / all_data['time_diff']
     )
-    return all_data['value_diff'] > delta
+    all_data['flags'] = all_data['value_diff'] > delta
+    return all_data['flags'].loc[s.index]
 
 
 # The values are based on the QC-procedure used at RUB which was derived and adapted
@@ -252,10 +257,6 @@ async def apply_qc(data: pd.DataFrame, station_id: str) -> pd.DataFrame:
             qc_functions = COLUMNS.get(column)
             if qc_functions:
                 for qc_function in qc_functions:
-                    res = await qc_function(
-                        s=data[column],
-                        station=station,
-                        con=con,
-                    )
+                    res = await qc_function(s=data[column], station=station, con=con)
                     data[f'{column}_qc_{qc_function.func.__name__}'] = res
     return data
