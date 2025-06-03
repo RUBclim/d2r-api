@@ -1419,7 +1419,7 @@ async def test_refresh_all_views(db: AsyncSession) -> None:
     for sensor in sensors:
         db.add(sensor)
 
-    start = datetime(2025, 1, 1, 0, 5)
+    start = datetime(2025, 1, 1, 0, 5, tzinfo=timezone.utc)
     for i in range(287):
         db.add(
             BiometData(
