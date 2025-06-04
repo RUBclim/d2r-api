@@ -21,6 +21,7 @@ from element import ElementApi
 from numpy.typing import NDArray
 from sqlalchemy import and_
 from sqlalchemy import func
+from sqlalchemy import literal
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +43,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import BuddyCheckQc
 from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import MaterializedView
@@ -56,6 +58,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
+from app.qc import apply_buddy_check
 from app.qc import apply_qc
 
 
@@ -987,4 +990,94 @@ async def self_test_integrity() -> None:
                 f'Found duplicate sensor deployments affecting theses sensor(s): '
                 f'{", ".join(duplicates)}',
             )
-        # TODO: check that contigous deployments of the same sensor type do not overlap
+        # TODO: check that contiguous deployments of the same sensor type do not overlap
+
+
+@async_task(app=celery_app, name='buddy-checks')
+async def perform_spatial_buddy_checks() -> None:
+    # 1. check when the last buddy check was performed per station
+    # now only select data that is newer than the last buddy check, make that
+    # individually per station
+    # check if the data is empty?
+    # pass the data to the buddy check function
+    # insert the result of the buddy check into the database
+    async with sessionmanager.session() as sess:
+        query = (
+            select(
+                BuddyCheckQc.station_id,
+                func.max(BuddyCheckQc.measured_at).label('last_check'),
+            )
+            .group_by(BuddyCheckQc.station_id)
+        )
+        last_checks = (await sess.execute(query)).scalars().all()
+        if not last_checks:
+            # this is the first time we ever run the buddy checks so select a
+            # date before the network started
+            start = datetime(2025, 5, 1, tzinfo=timezone.utc)
+            # give a bit of overlap to ensure we don't miss any data
+            end = datetime.now(tz=timezone.utc) - timedelta(minutes=8)
+        else:
+            # TODO:
+            start = ...
+            end = ...
+
+        data_query = select(
+            BiometData.measured_at,
+            BiometData.station_id,
+            Station.latitude,
+            Station.longitude,
+            Station.altitude,
+            BiometData.air_temperature,
+            BiometData.relative_humidity,
+            BiometData.atmospheric_pressure,
+            BiometData.precipitation_sum,
+        ).join(Station).where(BiometData.measured_at.between(start, end)).union_all(
+            select(
+                TempRHData.measured_at,
+                TempRHData.station_id,
+                Station.latitude,
+                Station.longitude,
+                Station.altitude,
+                TempRHData.air_temperature,
+                TempRHData.relative_humidity,
+                literal(None).label(BiometData.atmospheric_pressure.name),
+                literal(None).label(BiometData.precipitation_sum.name),
+            ).join(Station).where(
+                TempRHData.measured_at.between(start, end),
+                Station.station_type != StationType.double,
+            ),
+        )
+        async with sessionmanager.session() as sess:
+            con = await sess.connection()
+            db_data = await con.run_sync(
+                lambda con: pd.read_sql(
+                    sql=data_query,  # type: ignore[call-overload]
+                    con=con,
+                ),
+            )
+            # no data, no qc
+            if db_data.empty:
+                return None
+
+            qc_flags = await apply_buddy_check(db_data)
+            await con.run_sync(
+                lambda con: qc_flags.to_sql(
+                    name=BuddyCheckQc.__tablename__,
+                    con=con,
+                    method='multi',
+                    if_exists='append',
+                    chunksize=65535 // (
+                        len(qc_flags.columns) + len(qc_flags.index.names)
+                    ),
+                ),
+            )
+
+if __name__ == '__main__':
+    import asyncio
+
+    asyncio.run(perform_spatial_buddy_checks())
+
+# TODOs
+# why is the insert not happening?
+# implement when there is data
+# schedule task every n -minutes off cyclic?

@@ -102,3 +102,12 @@ def buddy_event_check(
         obs_to_check: Sequence[int] = [],
         /,
 ) -> npt.NDArray[np.integer]: ...
+
+
+def isolation_check(
+        points: Points,
+        num_min: npt.NDArray[np.integer] | int,
+        radius: npt.NDArray[T] | float,
+        vertical_radius: npt.NDArray[T] | float = float('nan'),
+        /,
+) -> npt.NDArray[np.integer]: ...
