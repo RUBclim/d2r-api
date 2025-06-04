@@ -43,6 +43,7 @@ omit = ["app/alembic"]
 max_line_length = 88
 
 [tool.mypy]
+mypy_path = "stubs"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
