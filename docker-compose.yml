@@ -51,6 +51,9 @@ services:
     # TODO: maybe build a separate image
     image: d2r-api
     user: nobody
+    # we don't want any parallelism in parallel celery workers (prevent fork bomb)
+    environment:
+      OMP_NUM_THREADS: 1
     # we need access to the host directory for the rasters
     volumes:
       - ${DATA_DIRECTORY}:/usr/src/app/rasters:ro

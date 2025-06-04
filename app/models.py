@@ -1243,6 +1243,55 @@ class TempRHData(
     )
 
 
+class BuddyCheckQc(Base):
+    """The quality control flags returned by the buddy check for a station."""
+    __tablename__ = 'buddy_check_qc'
+    __table_args__ = (
+        Index(
+            'ix_buddy_check_qc_station_id_measured_at',
+            'station_id',
+            'measured_at',
+            unique=True,
+        ),
+    )
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        primary_key=True,
+        index=True,
+        doc='The exact time the value was measured in **UTC**',
+    )
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+        index=True,
+        doc='id of the station these measurements were taken at',
+    )
+    air_temperature_qc_isolated_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the air temperature using an isolation check',
+    )
+    air_temperature_qc_buddy_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the air temperature using a buddy check',
+    )
+    relative_humidity_qc_isolated_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the relative humidity using an isolation check',
+    )
+    relative_humidity_qc_buddy_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the relative humidity using a buddy check',
+    )
+    atmospheric_pressure_qc_isolated_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the atmospheric pressure using an isolation check',
+    )
+    atmospheric_pressure_qc_buddy_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='quality control for the atmospheric pressure using a buddy check',
+    )
+
+
 class _ViewAwaitableAttrs(Protocol):
     station: Awaitable[Station]
 
@@ -3888,6 +3937,7 @@ class TempRHDataDaily(
 @event.listens_for(ATM41DataRaw.__table__, 'after_create')
 @event.listens_for(SHT35DataRaw.__table__, 'after_create')
 @event.listens_for(BLGDataRaw.__table__, 'after_create')
+@event.listens_for(BuddyCheckQc.__table__, 'after_create')
 def create_hypertable(target: Table, connection: Connection, **kwargs: Any) -> None:
     """Create a timescaledb hypertable for the given table if it doesn't exist.
 

@@ -20,9 +20,12 @@ from celery.schedules import crontab
 from element import ElementApi
 from numpy.typing import NDArray
 from sqlalchemy import and_
+from sqlalchemy import Boolean
 from sqlalchemy import func
+from sqlalchemy import literal
 from sqlalchemy import or_
 from sqlalchemy import select
+from sqlalchemy import union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from thermal_comfort import absolute_humidity
 from thermal_comfort import dew_point
@@ -42,6 +45,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import BuddyCheckQc
 from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import MaterializedView
@@ -56,7 +60,9 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
+from app.qc import apply_buddy_check
 from app.qc import apply_qc
+from app.qc import BUDDY_CHECK_COLUMNS
 
 
 # https://github.com/sbdchd/celery-types/issues/80
@@ -87,6 +93,12 @@ def setup_periodic_tasks(
         self_test_integrity.s(),
         name='self_test_integrity',
         expires=5*60,
+    )
+    sender.add_periodic_task(
+        crontab(minute='2,22,42'),
+        perform_spatial_buddy_check.s(),
+        name='spatial-buddy-check-periodic',
+        expires=10*60,
     )
 
 
@@ -989,4 +1001,111 @@ async def self_test_integrity() -> None:
                 f'Found duplicate sensor deployments affecting theses sensor(s): '
                 f'{", ".join(duplicates)}',
             )
-        # TODO: check that contigous deployments of the same sensor type do not overlap
+        # TODO: check that contiguous deployments of the same sensor type do not overlap
+
+
+@async_task(app=celery_app, name='buddy-checks', soft_time_limit=15 * 60)
+async def perform_spatial_buddy_check() -> None:
+    # 1. check when the last buddy check was performed per station
+    # now only select data that is newer than the last buddy check, make that
+    # individually per station
+    # check if the data is empty?
+    # pass the data to the buddy check function
+    # insert the result of the buddy check into the database
+    async with sessionmanager.session() as sess:
+        latest_buddy_checks = (
+            select(
+                BuddyCheckQc.station_id,
+                func.max(BuddyCheckQc.measured_at).label('last_check'),
+            )
+            .group_by(BuddyCheckQc.station_id)
+            .cte('last_buddy_checks')
+        )
+        biomet_query = (
+            select(
+                BiometData.measured_at,
+                BiometData.station_id,
+                Station.latitude,
+                Station.longitude,
+                Station.altitude,
+                BiometData.air_temperature,
+                BiometData.relative_humidity,
+                BiometData.atmospheric_pressure,
+            ).join(Station).join(latest_buddy_checks, isouter=True).where(
+                (BiometData.measured_at > latest_buddy_checks.c.last_check) |
+                (latest_buddy_checks.c.last_check.is_(None)),
+            )
+        ).cte('biomet_data_to_qc')
+        temp_rh_query = (
+            select(
+                TempRHData.measured_at,
+                TempRHData.station_id,
+                Station.latitude,
+                Station.longitude,
+                Station.altitude,
+                TempRHData.air_temperature,
+                TempRHData.relative_humidity,
+            ).join(Station).join(latest_buddy_checks, isouter=True).where(
+                Station.station_type != StationType.temprh,
+                (
+                    (TempRHData.measured_at > latest_buddy_checks.c.last_check) |
+                    (latest_buddy_checks.c.last_check.is_(None))
+                ),
+            )
+        ).cte('temp_rh_data_to_qc')
+        data_query = union_all(
+            select(
+                biomet_query.c.measured_at,
+                biomet_query.c.station_id,
+                biomet_query.c.latitude,
+                biomet_query.c.longitude,
+                biomet_query.c.altitude,
+                biomet_query.c.air_temperature,
+                biomet_query.c.relative_humidity,
+                biomet_query.c.atmospheric_pressure,
+            ),
+            select(
+                temp_rh_query.c.measured_at,
+                temp_rh_query.c.station_id,
+                temp_rh_query.c.latitude,
+                temp_rh_query.c.longitude,
+                temp_rh_query.c.altitude,
+                temp_rh_query.c.air_temperature,
+                temp_rh_query.c.relative_humidity,
+                literal(None).label(BiometData.atmospheric_pressure.name),
+            ),
+        )
+        async with sessionmanager.session() as sess:
+            con = await sess.connection()
+            db_data = await con.run_sync(
+                lambda con: pd.read_sql(
+                    sql=data_query,  # type: ignore[call-overload]
+                    con=con,
+                ),
+            )
+            # no data, no qc
+            if db_data.empty:
+                return None
+
+            qc_flags = await apply_buddy_check(db_data, config=BUDDY_CHECK_COLUMNS)
+
+            await con.run_sync(
+                lambda con: qc_flags.to_sql(
+                    name=BuddyCheckQc.__tablename__,
+                    con=con,
+                    method='multi',
+                    if_exists='append',
+                    chunksize=65535 // (
+                        len(qc_flags.columns) + len(qc_flags.index.names)
+                    ),
+                    dtype={
+                        'air_temperature_qc_isolated_check': Boolean,
+                        'air_temperature_qc_buddy_check': Boolean,
+                        'relative_humidity_qc_isolated_check': Boolean,
+                        'relative_humidity_qc_buddy_check': Boolean,
+                        'atmospheric_pressure_qc_isolated_check': Boolean,
+                        'atmospheric_pressure_qc_buddy_check': Boolean,
+                    },
+                ),
+            )
+            await sess.commit()
