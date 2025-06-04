@@ -107,6 +107,14 @@ class PublicParamsTempRH(StrEnum):
     heat_index = 'heat_index'
     relative_humidity = 'relative_humidity'
     wet_bulb_temperature = 'wet_bulb_temperature'
+    # corresponding qc flags
+    air_temperature_qc_range_check = 'air_temperature_qc_range_check'
+    air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
+    air_temperature_qc_spike_dip_check = 'air_temperature_qc_spike_dip_check'
+    relative_humidity_qc_range_check = 'relative_humidity_qc_range_check'
+    relative_humidity_qc_persistence_check = 'relative_humidity_qc_persistence_check'
+    relative_humidity_qc_spike_dip_check = 'relative_humidity_qc_spike_dip_check'
+    qc_flagged = 'qc_flagged'
 
 
 class PublicParamsBiomet(StrEnum):
@@ -137,6 +145,34 @@ class PublicParamsBiomet(StrEnum):
     wind_direction = 'wind_direction'
     wind_speed = 'wind_speed'
     maximum_wind_speed = 'maximum_wind_speed'
+    # corresponding qc flags
+    air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
+    air_temperature_qc_range_check = 'air_temperature_qc_range_check'
+    air_temperature_qc_spike_dip_check = 'air_temperature_qc_spike_dip_check'
+    atmospheric_pressure_qc_persistence_check = 'atmospheric_pressure_qc_persistence_check'  # noqa: E501
+    atmospheric_pressure_qc_range_check = 'atmospheric_pressure_qc_range_check'
+    atmospheric_pressure_qc_spike_dip_check = 'atmospheric_pressure_qc_spike_dip_check'
+    lightning_average_distance_qc_persistence_check = 'lightning_average_distance_qc_persistence_check'  # noqa: E501
+    lightning_average_distance_qc_range_check = 'lightning_average_distance_qc_range_check'  # noqa: E501
+    lightning_strike_count_qc_persistence_check = 'lightning_strike_count_qc_persistence_check'  # noqa: E501
+    lightning_strike_count_qc_range_check = 'lightning_strike_count_qc_range_check'
+    maximum_wind_speed_qc_persistence_check = 'maximum_wind_speed_qc_persistence_check'
+    maximum_wind_speed_qc_range_check = 'maximum_wind_speed_qc_range_check'
+    precipitation_sum_qc_persistence_check = 'precipitation_sum_qc_persistence_check'
+    precipitation_sum_qc_range_check = 'precipitation_sum_qc_range_check'
+    precipitation_sum_qc_spike_dip_check = 'precipitation_sum_qc_spike_dip_check'
+    relative_humidity_qc_persistence_check = 'relative_humidity_qc_persistence_check'
+    relative_humidity_qc_range_check = 'relative_humidity_qc_range_check'
+    relative_humidity_qc_spike_dip_check = 'relative_humidity_qc_spike_dip_check'
+    solar_radiation_qc_persistence_check = 'solar_radiation_qc_persistence_check'
+    solar_radiation_qc_range_check = 'solar_radiation_qc_range_check'
+    solar_radiation_qc_spike_dip_check = 'solar_radiation_qc_spike_dip_check'
+    wind_direction_qc_persistence_check = 'wind_direction_qc_persistence_check'
+    wind_direction_qc_range_check = 'wind_direction_qc_range_check'
+    wind_speed_qc_persistence_check = 'wind_speed_qc_persistence_check'
+    wind_speed_qc_range_check = 'wind_speed_qc_range_check'
+    wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
+    qc_flagged = 'qc_flagged'
 
 
 class PublicParamsAggTempRH(StrEnum):
@@ -245,6 +281,96 @@ class PublicParamsAggBiomet(StrEnum):
     wind_speed_max = 'wind_speed_max'
     wind_speed_min = 'wind_speed_min'
     maximum_wind_speed = 'maximum_wind_speed'
+
+
+class PublicParams(StrEnum):
+    """This is a union of ``PublicParamsTempRH``, ``PublicParamsBiomet``,
+    ``PublicParamsAggTempRH``, and ``PublicParamsAggBiomet``. Since Pydantic does not
+    support unions of enums, we have to define this manually.
+    """
+    absolute_humidity = 'absolute_humidity'
+    absolute_humidity_max = 'absolute_humidity_max'
+    absolute_humidity_min = 'absolute_humidity_min'
+    specific_humidity = 'specific_humidity'
+    specific_humidity_max = 'specific_humidity_max'
+    specific_humidity_min = 'specific_humidity_min'
+    atmospheric_pressure = 'atmospheric_pressure'
+    atmospheric_pressure_max = 'atmospheric_pressure_max'
+    atmospheric_pressure_min = 'atmospheric_pressure_min'
+    atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
+    atmospheric_pressure_reduced_max = 'atmospheric_pressure_reduced_max'
+    atmospheric_pressure_reduced_min = 'atmospheric_pressure_reduced_min'
+    air_temperature = 'air_temperature'
+    air_temperature_max = 'air_temperature_max'
+    air_temperature_min = 'air_temperature_min'
+    dew_point = 'dew_point'
+    dew_point_max = 'dew_point_max'
+    dew_point_min = 'dew_point_min'
+    heat_index = 'heat_index'
+    heat_index_max = 'heat_index_max'
+    heat_index_min = 'heat_index_min'
+    lightning_average_distance = 'lightning_average_distance'
+    lightning_average_distance_max = 'lightning_average_distance_max'
+    lightning_average_distance_min = 'lightning_average_distance_min'
+    lightning_strike_count = 'lightning_strike_count'
+    mrt = 'mrt'
+    mrt_max = 'mrt_max'
+    mrt_min = 'mrt_min'
+    pet = 'pet'
+    pet_max = 'pet_max'
+    pet_min = 'pet_min'
+    pet_category = 'pet_category'
+    precipitation_sum = 'precipitation_sum'
+    relative_humidity = 'relative_humidity'
+    relative_humidity_max = 'relative_humidity_max'
+    relative_humidity_min = 'relative_humidity_min'
+    solar_radiation = 'solar_radiation'
+    solar_radiation_max = 'solar_radiation_max'
+    solar_radiation_min = 'solar_radiation_min'
+    utci = 'utci'
+    utci_max = 'utci_max'
+    utci_min = 'utci_min'
+    utci_category = 'utci_category'
+    vapor_pressure = 'vapor_pressure'
+    vapor_pressure_max = 'vapor_pressure_max'
+    vapor_pressure_min = 'vapor_pressure_min'
+    wet_bulb_temperature = 'wet_bulb_temperature'
+    wet_bulb_temperature_max = 'wet_bulb_temperature_max'
+    wet_bulb_temperature_min = 'wet_bulb_temperature_min'
+    wind_direction = 'wind_direction'
+    wind_speed = 'wind_speed'
+    wind_speed_max = 'wind_speed_max'
+    wind_speed_min = 'wind_speed_min'
+    maximum_wind_speed = 'maximum_wind_speed'
+    # qc flags
+    air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
+    air_temperature_qc_range_check = 'air_temperature_qc_range_check'
+    air_temperature_qc_spike_dip_check = 'air_temperature_qc_spike_dip_check'
+    atmospheric_pressure_qc_persistence_check = 'atmospheric_pressure_qc_persistence_check'  # noqa: E501
+    atmospheric_pressure_qc_range_check = 'atmospheric_pressure_qc_range_check'
+    atmospheric_pressure_qc_spike_dip_check = 'atmospheric_pressure_qc_spike_dip_check'
+    lightning_average_distance_qc_persistence_check = 'lightning_average_distance_qc_persistence_check'  # noqa: E501
+    lightning_average_distance_qc_range_check = 'lightning_average_distance_qc_range_check'  # noqa: E501
+    lightning_strike_count_qc_persistence_check = 'lightning_strike_count_qc_persistence_check'  # noqa: E501
+    lightning_strike_count_qc_range_check = 'lightning_strike_count_qc_range_check'
+    maximum_wind_speed_qc_persistence_check = 'maximum_wind_speed_qc_persistence_check'
+    maximum_wind_speed_qc_range_check = 'maximum_wind_speed_qc_range_check'
+    precipitation_sum_qc_persistence_check = 'precipitation_sum_qc_persistence_check'
+    precipitation_sum_qc_range_check = 'precipitation_sum_qc_range_check'
+    precipitation_sum_qc_spike_dip_check = 'precipitation_sum_qc_spike_dip_check'
+    relative_humidity_qc_persistence_check = 'relative_humidity_qc_persistence_check'
+    relative_humidity_qc_range_check = 'relative_humidity_qc_range_check'
+    relative_humidity_qc_spike_dip_check = 'relative_humidity_qc_spike_dip_check'
+    solar_radiation_qc_persistence_check = 'solar_radiation_qc_persistence_check'
+    solar_radiation_qc_range_check = 'solar_radiation_qc_range_check'
+    solar_radiation_qc_spike_dip_check = 'solar_radiation_qc_spike_dip_check'
+    wind_direction_qc_persistence_check = 'wind_direction_qc_persistence_check'
+    wind_direction_qc_range_check = 'wind_direction_qc_range_check'
+    wind_speed_qc_persistence_check = 'wind_speed_qc_persistence_check'
+    wind_speed_qc_range_check = 'wind_speed_qc_range_check'
+    wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
+    # qc flag considering all
+    qc_flagged = 'qc_flagged'
 
 
 class ParamSettings(NamedTuple):
@@ -743,6 +869,210 @@ class Parameters(BaseModel):
         description='The v-component of the wind vector in **m/s**',
     )
 
+
+class QCFlags(BaseModel):
+    """Quality control flags for the measured parameters"""
+    air_temperature_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the air temperature failed the persistence check'
+        ),
+    )
+    air_temperature_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the air temperature failed the range check'
+        ),
+    )
+    air_temperature_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the air temperature failed the spike/dip check'
+        ),
+    )
+    atmospheric_pressure_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the atmospheric pressure failed the '
+            'persistence check'
+        ),
+    )
+    atmospheric_pressure_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the atmospheric pressure failed the range check'
+        ),
+    )
+    atmospheric_pressure_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the atmospheric pressure failed the spike/dip '
+            'check'
+        ),
+    )
+    lightning_average_distance_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the average distance of lightning strikes '
+            'failed the persistence check'
+        ),
+    )
+    lightning_average_distance_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the average distance of lightning strikes'
+            'failed the range check'
+        ),
+    )
+    lightning_strike_count_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the lightning strike count failed the '
+            'persistence check'
+        ),
+    )
+    lightning_strike_count_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the lightning strike count failed the '
+            'range check'
+        ),
+    )
+    maximum_wind_speed_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the maximum wind speed failed the persistence '
+            'check'
+        ),
+    )
+    maximum_wind_speed_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the maximum wind speed failed the range check'
+        ),
+    )
+    precipitation_sum_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the precipitation sum failed the persistence '
+            'check'
+        ),
+    )
+    precipitation_sum_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the precipitation sum failed the range check'
+        ),
+    )
+    precipitation_sum_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the precipitation sum failed the spike/dip check'
+        ),
+    )
+    relative_humidity_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the relative humidity failed the persistence '
+            'check'
+        ),
+    )
+    relative_humidity_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the relative humidity failed the range check'
+        ),
+    )
+    relative_humidity_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the relative humidity failed the spike/dip check'
+        ),
+    )
+    solar_radiation_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the solar radiation failed the persistence check'
+        ),
+    )
+    solar_radiation_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the solar radiation failed the range check'
+        ),
+    )
+    solar_radiation_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the solar radiation failed the spike/dip check'
+        ),
+    )
+    wind_direction_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the wind direction failed the persistence check'
+        ),
+    )
+    wind_direction_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the wind direction failed the range check'
+        ),
+    )
+    wind_speed_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the wind speed failed the persistence check'
+        ),
+    )
+    wind_speed_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the wind speed failed the range check'
+        ),
+    )
+    wind_speed_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the wind speed failed the spike/dip check'
+        ),
+    )
+    # qc flag considering all
+    qc_flagged: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether any of the QC checks failed for this parameter'
+        ),
+    )
+
+
 # TODO: we may also generate these at some point from either the enums or the basic
 # schema without extreme values
 
@@ -941,7 +1271,7 @@ class DistrictParams(Parameters):
     )
 
 
-class StationData(Parameters):
+class StationData(Parameters, QCFlags):
     """Data from a single station"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],

@@ -46,6 +46,7 @@ from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.schemas import NetworkValue
 from app.schemas import ParamSettings
+from app.schemas import PublicParams
 from app.schemas import PublicParamsAggBiomet
 from app.schemas import PublicParamsAggTempRH
 from app.schemas import PublicParamsBiomet
@@ -580,7 +581,7 @@ async def get_data(
             '[ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) '
             'standard.',
         ),
-        param: list[PublicParamsAggBiomet] | list[PublicParamsAggTempRH] = Query(
+        param: list[PublicParams] = Query(
             description=(
                 'The parameter(-s) to get data for. Multiple parameters can be '
                 'specified. `_min` and `_max` parameters are only available for '
@@ -1009,6 +1010,14 @@ async def download_station_data(
         getattr(table, i.value)
         for i in TABLE_MAPPING[station.station_type][scale]['allowed_params']
     ]
+    # sort the columns by name for a nicer output and the qc columns next to the param
+    columns = sorted(columns, key=lambda c: c.name)
+    if hasattr(table, 'qc_flagged'):
+        # we want the qc_flagged column next to the parameter columns, so we move it
+        # to the end of the list
+        columns.remove(table.qc_flagged)
+        columns.append(table.qc_flagged)
+
     stm = select(
         table.station_id,
         table.measured_at,
