@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <style>
+      .slider-container {
+        padding-top: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        align-items: center;
+      }
+
+      input[type="range"] {
+        width: 700px;
+      }
+
+      label {
+        margin-left: 10px;
+      }
+      .tooltip {
+        background-color: transparent;
+        border: transparent;
+        box-shadow: none;
+      }
+      .stroke {
+        color: black;
+        font-weight: bold;
+        text-shadow: -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff,
+          1.5px 1.5px 0 #fff;
+      }
+    </style>
+    <title id="title"></title>
+  </head>
+  <body>
+    <h2 id="header" class="text-center"></h2>
+    <div class="row">
+      <div class="col-10">
+        <div id="map" style="height: 90vh"></div>
+        <div class="slider-container">
+          <label id="start">{{ start }}</label>
+          <button id="decreaseButton" class="btn btn-primary">-1 hour</button>
+          <input
+            type="range"
+            class="form-range"
+            id="timeSlider"
+            min="0"
+            max="{{ steps }}"
+            value="0"
+            step="5"
+          />
+          <button id="increaseButton" class="btn btn-primary">+5 minutes</button>
+          <label id="end">{{ end }}</label>
+          <label id="sliderLabel"></label>
+        </div>
+      </div>
+      <div class="col my-4 px-1 w-25">
+        <label for="paramSeelct" class="form-label mt-2">Parameter</label>
+        <select
+          class="form-select"
+          aria-label="Default select example"
+          id="paramSelect"
+        >
+          <option selected value="air_temperature">air_temperature</option>
+          <option value="relative_humidity">relative_humidity</option>
+          <option value="atmospheric_pressure">atmospheric_pressure</option>
+        </select>
+        <h5 class="mt-4">Titanlib Settings</h5>
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="radius"
+            max="10000"
+            min="1"
+            name="radius"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['radius'] }}"
+            step="100"
+          />
+          <label class="form-label" for="radius">radius (m)</label>
+        </div>
+
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="num_min"
+            min="1"
+            name="num_min"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['num_min'] }}"
+            step="1"
+          />
+          <label class="form-label" for="num_min">num_min (-)</label>
+        </div>
+
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="threshold"
+            min="1"
+            name="threshold"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['threshold'] }}"
+            step="1"
+          />
+          <label class="form-label" for="threshold">threshold (-)</label>
+        </div>
+
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="max_elev_diff"
+            min="-1"
+            name="max_elev_diff"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['max_elev_diff'] }}"
+            step="1"
+          />
+          <label class="form-label" for="max_elev_diff">max_elev_diff (m)</label>
+        </div>
+
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="elev_gradient"
+            name="elev_gradient"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['elev_gradient'] }}"
+          />
+          <label class="form-label" for="elev_gradient">elev_gradient (-)</label>
+        </div>
+
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="min_std"
+            name="min_std"
+            required=""
+            type="number"
+            step="0.25"
+            value="{{ buddy_check_columns['min_std'] }}"
+          />
+          <label class="form-label" for="min_std">min_std (-)</label>
+        </div>
+        <div class="form-outline my-4">
+          <input
+            class="form-control"
+            id="num_iterations"
+            name="num_iterations"
+            min="1"
+            required=""
+            type="number"
+            value="{{ buddy_check_columns['num_iterations'] }}"
+          />
+          <label class="form-label" for="num_iterations">num_iterations (-)</label>
+        </div>
+        <hr />
+        <!-- Legend -->
+        <div class="my-2">
+          <div
+            style="
+              display: inline-flex;
+              height: 25px;
+              width: 25px;
+              background-color: #aaaaaa;
+              border-color: blue;
+              border-radius: 50%;
+              border-width: 3px;
+              border-style: solid;
+            "
+          ></div>
+          <span>No buddies</span>
+        </div>
+        <div class="my-2">
+          <div
+            style="
+              display: inline-flex;
+              height: 25px;
+              width: 25px;
+              background-color: #cf2b39;
+              border-color: black;
+              border-radius: 50%;
+              border-width: 1.5px;
+              border-style: solid;
+            "
+          ></div>
+          <span>Failed</span>
+        </div>
+        <div class="my-2">
+          <div
+            style="
+              display: inline-flex;
+              height: 25px;
+              width: 25px;
+              background-color: #31c653;
+              border-color: black;
+              border-radius: 50%;
+              border-width: 1.5px;
+              border-style: solid;
+            "
+          ></div>
+          <span>Passed</span>
+        </div>
+        <div class="my-2">
+          <div
+            style="
+              display: inline-flex;
+              height: 15px;
+              width: 15px;
+              background-color: #aaaaaa;
+              border-color: black;
+              border-radius: 50%;
+              border-width: 1.5px;
+              border-style: solid;
+            "
+          ></div>
+          <span>No Data</span>
+        </div>
+      </div>
+    </div>
+    <script>
+      const hillshadeURL =
+        "http://services.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}";
+      const omsURL = "https://{s}.tile.osm.org/{z}/{x}/{y}.png";
+      var osm = L.tileLayer(omsURL, {
+        attribution:
+          '&copy; <a target="_blank" href="https://osm.org/copyright">OpenStreetMap</a> contributors',
+        opacity: 0.65,
+        transparent: true,
+      });
+      var hillshade = L.tileLayer(hillshadeURL, {
+        attribution:
+          '&copy; <a target="_blank" href="https://osm.org/copyright">OpenStreetMap</a> contributors',
+        //opacity: 0.5,
+        //transparent: true,
+      });
+      // Initialize the map
+      let map = L.map("map", { layers: [hillshade, osm] }).setView(
+        [51.51012916692645, 7.466140456813933],
+        12
+      );
+      // Temporal controls
+      let timeSlider = document.getElementById("timeSlider");
+      timeSlider.addEventListener("input", function () {
+        let new_date = new Date(
+          new Date(document.getElementById("start").textContent).getTime() +
+            parseInt(timeSlider.value, 10) * 60000
+        ).toLocaleString();
+        sliderLabel.textContent = new_date;
+        updateLayer();
+      });
+      let sliderLabel = document.getElementById("sliderLabel");
+      let decreaseButton = document.getElementById("decreaseButton");
+      let increaseButton = document.getElementById("increaseButton");
+      sliderLabel.textContent = new Date(
+        new Date(document.getElementById("start").textContent).getTime() +
+          parseInt(timeSlider.value, 10) * 60000
+      ).toLocaleString();
+
+      // Parameter selection
+      let param = document.getElementById("paramSelect");
+      param.addEventListener("change", function () {
+        title.textContent = `TITAN Tuner - ${param.value}`;
+        header.textContent = `TITAN Tuner - ${param.value}`;
+        /* load the default parameter set */
+        updateLayer(true);
+      });
+
+      // Name and header
+      let title = document.getElementById("title");
+      let header = document.getElementById("header");
+      title.textContent = `TITAN Tuner - ${param.value}`;
+      header.textContent = `TITAN Tuner - ${param.value}`;
+
+      let radius = document.getElementById("radius");
+      radius.addEventListener("change", updateLayer);
+
+      let num_min = document.getElementById("num_min");
+      num_min.addEventListener("change", updateLayer);
+
+      let threshold = document.getElementById("threshold");
+      threshold.addEventListener("change", updateLayer);
+
+      let max_elev_diff = document.getElementById("max_elev_diff");
+      max_elev_diff.addEventListener("change", updateLayer);
+
+      let elev_gradient = document.getElementById("elev_gradient");
+      elev_gradient.addEventListener("change", updateLayer);
+
+      let min_std = document.getElementById("min_std");
+      min_std.addEventListener("change", updateLayer);
+
+      let num_iterations = document.getElementById("num_iterations");
+      num_iterations.addEventListener("change", updateLayer);
+
+      increaseButton.addEventListener("click", function () {
+        let currentValue = parseInt(timeSlider.value);
+        if (currentValue < timeSlider.max) {
+          timeSlider.value = currentValue + 5;
+          let new_date = new Date(
+            new Date(document.getElementById("start").textContent).getTime() +
+              parseInt(timeSlider.value, 10) * 60000
+          ).toLocaleString();
+          sliderLabel.textContent = new_date;
+          updateLayer();
+        }
+      });
+
+      decreaseButton.addEventListener("click", function () {
+        let currentValue = parseInt(timeSlider.value);
+        if (currentValue > timeSlider.min) {
+          timeSlider.value = currentValue - 5;
+          let new_date = new Date(
+            new Date(document.getElementById("start").textContent).getTime() +
+              parseInt(timeSlider.value, 10) * 60000
+          ).toLocaleString();
+          sliderLabel.textContent = new_date;
+          updateLayer();
+        }
+      });
+      let layer = L.geoJson(null, {
+        pointToLayer: function (feature, latlng) {
+          let color = "#aaaaaa";
+          let weight = 1;
+          let outline_color = "#000000";
+          if (feature.properties.buddy_qc === true) {
+            color = "#cf2b39";
+          } else if (feature.properties.buddy_qc === false) {
+            color = "#31c653";
+          }
+          if (feature.properties.isolated_qc === true) {
+            outline_color = "blue";
+            weight = 3;
+          } else if (feature.properties.value > 0) {
+            outline_color = "#000000";
+          }
+          return L.circleMarker(latlng, {
+            radius: 12,
+            fillColor: color,
+            color: outline_color,
+            weight: weight,
+            opacity: 1,
+            fillOpacity: 0.8,
+          });
+        },
+        onEachFeature: function (feature, layer) {
+          if (feature.properties.value === null) {
+            layer.setStyle({ fillColor: "#aaaaaa", fillOpacity: 0.5, radius: 7 });
+          }
+          layer
+            .bindTooltip(
+              feature.properties.value != null
+                ? `<span class="stroke">${feature.properties.value.toFixed(1)}</span>`
+                : 0,
+              {
+                permanent: true,
+                direction: "center",
+                className: "tooltip",
+              }
+            )
+            .openTooltip();
+          layer.bindPopup(`
+          <strong>${feature.properties.station_id}</strong>
+          `);
+        },
+      }).addTo(map);
+      updateLayer();
+
+      async function get_param_default(parameter) {
+        let url = `http://127.0.0.1:5000/get-default-config/${parameter}`;
+        const response = await fetch(url);
+        const obj = await response.json();
+        return obj;
+      }
+
+      async function updateLayer(load_default = false) {
+        if (load_default === true) {
+          defaults = await get_param_default(
+            document.getElementById("paramSelect").value
+          );
+          radius.value = defaults.radius;
+          num_min.value = defaults.num_min;
+          threshold.value = defaults.threshold;
+          max_elev_diff.value = defaults.max_elev_diff;
+          elev_gradient.value = defaults.elev_gradient;
+          min_std.value = defaults.min_std;
+          num_iterations.value = defaults.num_iterations;
+        }
+        let param = document.getElementById("paramSelect").value;
+        let step = timeSlider.value;
+        let json = await fetch_geojson(param, step);
+        layer.clearLayers();
+        layer.addData(json);
+      }
+
+      async function fetch_geojson(param, step) {
+        let url = `http://127.0.0.1:5000/get-data?param=${param}&step=${step}`;
+        radius ? (url += `&radius=${radius.value}`) : null;
+        num_min ? (url += `&num_min=${num_min.value}`) : null;
+        threshold ? (url += `&threshold=${threshold.value}`) : null;
+        max_elev_diff ? (url += `&max_elev_diff=${max_elev_diff.value}`) : null;
+        elev_gradient ? (url += `&elev_gradient=${elev_gradient.value}`) : null;
+        min_std ? (url += `&min_std=${min_std.value}`) : null;
+        num_iterations ? (url += `&num_iterations=${num_iterations.value}`) : null;
+        const response = await fetch(url);
+        const geojson = await response.json();
+        return geojson;
+      }
+    </script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>
