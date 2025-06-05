@@ -164,7 +164,21 @@ async def spike_dip_check(
     return all_data['flags'].loc[s.index]
 
 
-async def apply_buddy_check(data: pd.DataFrame) -> pd.DataFrame:
+class BuddyCheckConfig(TypedDict):
+    callable: Callable[..., npt.NDArray[np.integer]]
+    radius: float
+    num_min: int
+    threshold: float
+    max_elev_diff: float
+    elev_gradient: float
+    min_std: float
+    num_iterations: int
+
+
+async def apply_buddy_check(
+        data: pd.DataFrame,
+        config: dict[str, BuddyCheckConfig],
+) -> pd.DataFrame:
     """Apply the buddy check to the data for the given time period.
 
     :param data: The data to apply the buddy check to. It must have a
@@ -188,13 +202,13 @@ async def apply_buddy_check(data: pd.DataFrame) -> pd.DataFrame:
         altitude = df_current['altitude'].to_numpy()
         points = Points(longitude, latitude, altitude)
         # step through the parameters we have a config for
-        for param in BUDDY_CHECK_COLUMNS:
-            config = BUDDY_CHECK_COLUMNS[param]
+        for param in config:
+            param_config = config[param]
             # detect isolated stations
             isolation_flags = isolation_check(
                 points,
-                config['num_min'],
-                config['radius'],
+                param_config['num_min'],
+                param_config['radius'],
             )
             isolated_col = f'{param}_qc_isolated_check'
             df_current.loc[:, isolated_col] = isolation_flags.astype(bool)
@@ -216,13 +230,13 @@ async def apply_buddy_check(data: pd.DataFrame) -> pd.DataFrame:
             flags = buddy_check(
                 points_non_isolated,
                 db_data_non_isolated.to_numpy(),
-                np.full(size, config['radius']),
-                np.full(size, config['num_min']),
-                config['threshold'],
-                config['max_elev_diff'],
-                config['elev_gradient'],
-                config['min_std'],
-                config['num_iterations'],
+                np.full(size, param_config['radius']),
+                np.full(size, param_config['num_min']),
+                param_config['threshold'],
+                param_config['max_elev_diff'],
+                param_config['elev_gradient'],
+                param_config['min_std'],
+                param_config['num_iterations'],
             )
             # store the flags in the DataFrame
             df_current.loc[
@@ -234,17 +248,6 @@ async def apply_buddy_check(data: pd.DataFrame) -> pd.DataFrame:
     data = pd.concat(dfs)
     data = data.reset_index().set_index(['measured_at', 'station_id'])
     return data.filter(like='_check')
-
-
-class BuddyCheckConfig(TypedDict):
-    callable: Callable[..., npt.NDArray[np.integer]]
-    radius: float
-    num_min: int
-    threshold: float
-    max_elev_diff: float
-    elev_gradient: float
-    min_std: float
-    num_iterations: int
 
 
 BUDDY_CHECK_COLUMNS: dict[str, BuddyCheckConfig] = {
