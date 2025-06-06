@@ -56,6 +56,7 @@ from app.models import TempRHData
 from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
+from app.qc import apply_qc
 
 
 # https://github.com/sbdchd/celery-types/issues/80
@@ -616,14 +617,19 @@ async def calculate_biomet(station_id: str | None) -> None:
         # reset the atmospheric pressure to 0 again
         df_biomet.loc[atmospheric_pressure_mask, 'atmospheric_pressure'] = 0
         df_biomet['station_id'] = station_id
-
+        df_biomet = await apply_qc(data=df_biomet, station_id=station_id)
         con = await sess.connection()
+        # the maximum number of parameters we can insert at once is 65535 so we need to
+        # limit the chunksize accordingly
         await con.run_sync(
             lambda con: df_biomet.to_sql(
                 name=BiometData.__tablename__,
                 con=con,
                 if_exists='append',
-                chunksize=1024,
+                chunksize=65535 // (
+                    len(df_biomet.columns) +
+                    len(df_biomet.index.names)
+                ),
                 method='multi',
                 dtype={
                     'utci_category': _HeatStressCategories,  # type: ignore[dict-item]
@@ -736,13 +742,14 @@ async def calculate_temp_rh(station_id: str | None) -> None:
             rh=data['relative_humidity'],
         )
         data['station_id'] = station_id
+        data = await apply_qc(data=data, station_id=station_id)
         con = await sess.connection()
         await con.run_sync(
             lambda con: data.to_sql(
                 name=TempRHData.__tablename__,
                 con=con,
                 if_exists='append',
-                chunksize=1024,
+                chunksize=65535 // (len(data.columns) + len(data.index.names)),
                 method='multi',
             ),
         )
@@ -902,7 +909,7 @@ async def download_station_data(station_id: str) -> str | None:
                     name=target_table.__tablename__,
                     con=con,
                     if_exists='append',
-                    chunksize=1024,
+                    chunksize=65535 // (len(data.columns) + len(data.index.names)),
                     method='multi',
                     index=False,
                 ),

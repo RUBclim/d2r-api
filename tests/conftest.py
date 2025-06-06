@@ -140,6 +140,7 @@ async def stations(
         biomet_sensors: None,
         clean_db: None,
 ) -> AsyncGenerator[list[Station]]:
+    """creates n biomet stations named DOBn"""
     n = request.param if hasattr(request, 'param') else 1
     stations = _create_biomet_stations(n)
     for station in stations:
