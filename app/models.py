@@ -3932,6 +3932,7 @@ class TempRHDataDaily(
 @event.listens_for(ATM41DataRaw.__table__, 'after_create')
 @event.listens_for(SHT35DataRaw.__table__, 'after_create')
 @event.listens_for(BLGDataRaw.__table__, 'after_create')
+@event.listens_for(BuddyCheckQc.__table__, 'after_create')
 def create_hypertable(target: Table, connection: Connection, **kwargs: Any) -> None:
     """Create a timescaledb hypertable for the given table if it doesn't exist.
 

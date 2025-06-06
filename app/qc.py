@@ -243,6 +243,10 @@ async def apply_buddy_check(
                 db_data_non_isolated.index,
                 f'{param}_qc_buddy_check',
             ] = flags.astype(bool)
+            # we need to replace the NaN values with None for the database
+            df_current[f'{param}_qc_buddy_check'] = df_current[
+                f'{param}_qc_buddy_check'
+            ].replace({np.nan: None})
             # TODO: if the value was nan, it is also flagged as True
         dfs.append(df_current)
     data = pd.concat(dfs)
@@ -254,32 +258,32 @@ BUDDY_CHECK_COLUMNS: dict[str, BuddyCheckConfig] = {
     # TODO: all these values need calibration and adjustment
     'air_temperature': {
         'callable': buddy_check,
-        'radius': 5000,
+        'radius': 5500,
         'num_min': 3,
-        'threshold': 0.4,
+        'threshold': 2.7,
         'max_elev_diff': 100,
         'elev_gradient': -0.0065,
-        'min_std': 0.5,
+        'min_std': 2,
         'num_iterations': 5,
     },
     'relative_humidity': {
         'callable': buddy_check,
-        'radius': 5000,
+        'radius': 6000,
         'num_min': 3,
-        'threshold': 5,
+        'threshold': 7,
         'max_elev_diff': -1,  # do not check elevation difference
         'elev_gradient': 0,
-        'min_std': 5,
+        'min_std': 3,
         'num_iterations': 5,
     },
     'atmospheric_pressure': {
         'callable': buddy_check,
-        'radius': 5000,
+        'radius': 10000,
         'num_min': 3,
-        'threshold': 0.5,
+        'threshold': 3,
         'max_elev_diff': 100,
         'elev_gradient': 0.125,  # lapse rate at sea level
-        'min_std': 0.5,
+        'min_std': 1.5,
         'num_iterations': 5,
     },
     # TODO: at five minutes precipitation will likely give a lot of false positives and

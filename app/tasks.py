@@ -20,10 +20,12 @@ from celery.schedules import crontab
 from element import ElementApi
 from numpy.typing import NDArray
 from sqlalchemy import and_
+from sqlalchemy import Boolean
 from sqlalchemy import func
 from sqlalchemy import literal
 from sqlalchemy import or_
 from sqlalchemy import select
+from sqlalchemy import union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from thermal_comfort import absolute_humidity
 from thermal_comfort import dew_point
@@ -60,6 +62,7 @@ from app.models import TempRHDataHourly
 from app.models import UTCI_STRESS_CATEGORIES
 from app.qc import apply_buddy_check
 from app.qc import apply_qc
+from app.qc import BUDDY_CHECK_COLUMNS
 
 
 # https://github.com/sbdchd/celery-types/issues/80
@@ -90,6 +93,12 @@ def setup_periodic_tasks(
         self_test_integrity.s(),
         name='self_test_integrity',
         expires=5*60,
+    )
+    sender.add_periodic_task(
+        crontab(minute='2,22,42'),
+        perform_spatial_buddy_check.s(),
+        name='spatial-buddy-check-periodic',
+        expires=10*60,
     )
 
 
@@ -993,8 +1002,8 @@ async def self_test_integrity() -> None:
         # TODO: check that contiguous deployments of the same sensor type do not overlap
 
 
-@async_task(app=celery_app, name='buddy-checks')
-async def perform_spatial_buddy_checks() -> None:
+@async_task(app=celery_app, name='buddy-checks', soft_time_limit=15 * 60)
+async def perform_spatial_buddy_check() -> None:
     # 1. check when the last buddy check was performed per station
     # now only select data that is newer than the last buddy check, make that
     # individually per station
@@ -1002,36 +1011,30 @@ async def perform_spatial_buddy_checks() -> None:
     # pass the data to the buddy check function
     # insert the result of the buddy check into the database
     async with sessionmanager.session() as sess:
-        query = (
+        latest_buddy_checks = (
             select(
                 BuddyCheckQc.station_id,
                 func.max(BuddyCheckQc.measured_at).label('last_check'),
             )
             .group_by(BuddyCheckQc.station_id)
+            .cte('last_buddy_checks')
         )
-        last_checks = (await sess.execute(query)).scalars().all()
-        if not last_checks:
-            # this is the first time we ever run the buddy checks so select a
-            # date before the network started
-            start = datetime(2025, 5, 1, tzinfo=timezone.utc)
-            # give a bit of overlap to ensure we don't miss any data
-            end = datetime.now(tz=timezone.utc) - timedelta(minutes=8)
-        else:
-            # TODO:
-            start = ...
-            end = ...
-
-        data_query = select(
-            BiometData.measured_at,
-            BiometData.station_id,
-            Station.latitude,
-            Station.longitude,
-            Station.altitude,
-            BiometData.air_temperature,
-            BiometData.relative_humidity,
-            BiometData.atmospheric_pressure,
-            BiometData.precipitation_sum,
-        ).join(Station).where(BiometData.measured_at.between(start, end)).union_all(
+        biomet_query = (
+            select(
+                BiometData.measured_at,
+                BiometData.station_id,
+                Station.latitude,
+                Station.longitude,
+                Station.altitude,
+                BiometData.air_temperature,
+                BiometData.relative_humidity,
+                BiometData.atmospheric_pressure,
+            ).join(Station).join(latest_buddy_checks, isouter=True).where(
+                (BiometData.measured_at > latest_buddy_checks.c.last_check) |
+                (latest_buddy_checks.c.last_check.is_(None)),
+            )
+        ).cte('biomet_data_to_qc')
+        temp_rh_query = (
             select(
                 TempRHData.measured_at,
                 TempRHData.station_id,
@@ -1040,11 +1043,34 @@ async def perform_spatial_buddy_checks() -> None:
                 Station.altitude,
                 TempRHData.air_temperature,
                 TempRHData.relative_humidity,
+            ).join(Station).join(latest_buddy_checks, isouter=True).where(
+                Station.station_type != StationType.temprh,
+                (
+                    (TempRHData.measured_at > latest_buddy_checks.c.last_check) |
+                    (latest_buddy_checks.c.last_check.is_(None))
+                ),
+            )
+        ).cte('temp_rh_data_to_qc')
+        data_query = union_all(
+            select(
+                biomet_query.c.measured_at,
+                biomet_query.c.station_id,
+                biomet_query.c.latitude,
+                biomet_query.c.longitude,
+                biomet_query.c.altitude,
+                biomet_query.c.air_temperature,
+                biomet_query.c.relative_humidity,
+                biomet_query.c.atmospheric_pressure,
+            ),
+            select(
+                temp_rh_query.c.measured_at,
+                temp_rh_query.c.station_id,
+                temp_rh_query.c.latitude,
+                temp_rh_query.c.longitude,
+                temp_rh_query.c.altitude,
+                temp_rh_query.c.air_temperature,
+                temp_rh_query.c.relative_humidity,
                 literal(None).label(BiometData.atmospheric_pressure.name),
-                literal(None).label(BiometData.precipitation_sum.name),
-            ).join(Station).where(
-                TempRHData.measured_at.between(start, end),
-                Station.station_type != StationType.double,
             ),
         )
         async with sessionmanager.session() as sess:
@@ -1059,7 +1085,8 @@ async def perform_spatial_buddy_checks() -> None:
             if db_data.empty:
                 return None
 
-            qc_flags = await apply_buddy_check(db_data)
+            qc_flags = await apply_buddy_check(db_data, config=BUDDY_CHECK_COLUMNS)
+
             await con.run_sync(
                 lambda con: qc_flags.to_sql(
                     name=BuddyCheckQc.__tablename__,
@@ -1069,15 +1096,14 @@ async def perform_spatial_buddy_checks() -> None:
                     chunksize=65535 // (
                         len(qc_flags.columns) + len(qc_flags.index.names)
                     ),
+                    dtype={
+                        'air_temperature_qc_isolated_check': Boolean,
+                        'air_temperature_qc_buddy_check': Boolean,
+                        'relative_humidity_qc_isolated_check': Boolean,
+                        'relative_humidity_qc_buddy_check': Boolean,
+                        'atmospheric_pressure_qc_isolated_check': Boolean,
+                        'atmospheric_pressure_qc_buddy_check': Boolean,
+                    },
                 ),
             )
-
-if __name__ == '__main__':
-    import asyncio
-
-    asyncio.run(perform_spatial_buddy_checks())
-
-# TODOs
-# why is the insert not happening?
-# implement when there is data
-# schedule task every n -minutes off cyclic?
+            await sess.commit()
