@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import ALLOW_ORIGIN_REGEX
 from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
@@ -3631,3 +3632,36 @@ def test_compute_cmap(
         param_setting=param_setting,
     )
     assert restult == expected
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'url',
+    (
+        'https://localhost:5000',
+        'http://localhost:80',
+        'http://localhost:443',
+        'http://localhost',
+        'https://dashboard.data2resilience.de',
+        'https://dashboard-foo.data2resilience.de',
+        'https://dashboard_foo-bar-123.data2resilience.de',
+        'https://dashboard.data2resilience.app',
+        'https://dashboard.data2resilience.app:8080',
+        'https://data-2-resilience-fooo-vogelinos-projects.vercel.app',
+        'https://data-2-resilience-fooo-vogelinos-projects.vercel.app',
+        'https://data-2-resilience.vercel.app',
+        'https://dashboard.data2resilience.de',
+        'https://d2r.geographie.ruhr-uni-bochum.de',
+        'https://dash.geographie.ruhr-uni-bochum.de',
+        'https://board.data2resilience.de',
+        'https://dash.geographie.rub.de',
+        'https://dash.data2resilience.de',
+        'https://board.geographie.ruhr-uni-bochum.de',
+        'https://dashboard.geographie.rub.de',
+        'https://d2r.geographie.rub.de',
+        'https://dashboard.geographie.ruhr-uni-bochum.de',
+    ),
+)
+def test_cors_regex(url: str) -> None:
+    pattern = re.compile(ALLOW_ORIGIN_REGEX)
+    assert pattern.fullmatch(url) is not None
