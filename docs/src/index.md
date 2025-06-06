@@ -10,6 +10,7 @@ api/models.md
 api/routers.md
 api/schemas.md
 api/tasks.md
+api/qc.md
 ```
 
 ```{include} ../../README.md
