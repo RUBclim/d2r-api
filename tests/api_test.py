@@ -2076,6 +2076,73 @@ async def test_get_data_biomet_hourly_no_gap_filling(
 
 @pytest.mark.anyio
 @pytest.mark.usefixtures('clean_db')
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_data_biomet_max_qc_flag(
+        app: AsyncClient,
+        db: AsyncSession,
+        stations: list[Station],
+) -> None:
+    # create data for two stations
+    data = [
+        BiometData(
+            station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
+            measured_at=datetime(2024, 8, 1, 10, 10, tzinfo=timezone.utc),
+            maximum_wind_speed=12.0,
+            relative_humidity=50.5,
+        ),
+        BiometData(
+            station_id=stations[0].station_id,
+            sensor_id='DEC1',
+            blg_sensor_id='DEC2',
+            measured_at=datetime(2024, 8, 1, 12, 10, tzinfo=timezone.utc),
+            maximum_wind_speed=6.0,
+            relative_humidity=60.5,
+        ),
+    ]
+    db.add_all(data)
+
+    await db.commit()
+
+    resp = await app.get(
+        '/v1/data/DOB1',
+        params={
+            'start_date': datetime(2024, 8, 1, 8).isoformat(),
+            'end_date': datetime(2024, 8, 1, 14).isoformat(),
+            'param': [
+                'maximum_wind_speed',
+                'maximum_wind_speed_qc_range_check',
+                'relative_humidity',
+                'relative_humidity_qc_range_check',
+                'qc_flagged',
+            ],
+            'scale': 'max',
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'measured_at': '2024-08-01T10:10:00Z',
+            'maximum_wind_speed': 12,
+            'relative_humidity': 50.5,
+            'qc_flagged': True,
+            'relative_humidity_qc_range_check': None,
+            'maximum_wind_speed_qc_range_check': None,
+        },
+        {
+            'measured_at': '2024-08-01T12:10:00Z',
+            'maximum_wind_speed': 6,
+            'relative_humidity': 60.5,
+            'qc_flagged': True,
+            'relative_humidity_qc_range_check': None,
+            'maximum_wind_speed_qc_range_check': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
 async def test_get_data_temprh_hourly_null_values_are_filled(
         app: AsyncClient,
         db: AsyncSession,
@@ -2553,16 +2620,30 @@ async def test_get_temp_rh_data_scale_max_param_not_found(
             {
                 'ctx': {
                     'expected': (
-                        'absolute_humidity, air_temperature, dew_point, heat_index, '
-                        'relative_humidity, specific_humidity, wet_bulb_temperature'
+                        'absolute_humidity, air_temperature, '
+                        'air_temperature_qc_persistence_check, '
+                        'air_temperature_qc_range_check, '
+                        'air_temperature_qc_spike_dip_check, dew_point, heat_index, '
+                        'qc_flagged, relative_humidity, '
+                        'relative_humidity_qc_persistence_check, '
+                        'relative_humidity_qc_range_check, '
+                        'relative_humidity_qc_spike_dip_check, specific_humidity, '
+                        'wet_bulb_temperature'
                     ),
                 },
                 'input': 'relative_humidity_max',
                 'loc': ['query', 'param', 1],
                 'msg': (
                     'This station is of type "temprh", hence the input should be: '
-                    'absolute_humidity, air_temperature, dew_point, heat_index, '
-                    'relative_humidity, specific_humidity, wet_bulb_temperature'
+                    'absolute_humidity, air_temperature, '
+                    'air_temperature_qc_persistence_check, '
+                    'air_temperature_qc_range_check, '
+                    'air_temperature_qc_spike_dip_check, dew_point, heat_index, '
+                    'qc_flagged, relative_humidity, '
+                    'relative_humidity_qc_persistence_check, '
+                    'relative_humidity_qc_range_check, '
+                    'relative_humidity_qc_spike_dip_check, specific_humidity, '
+                    'wet_bulb_temperature'
                 ),
                 'type': 'enum',
             },
@@ -3278,7 +3359,7 @@ async def test_download_station_no_data_for_station(
 
     assert len(csv_file) == 1
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,specific_humidity,atmospheric_pressure,atmospheric_pressure_reduced,air_temperature,dew_point,heat_index,lightning_average_distance,lightning_strike_count,mrt,pet,pet_category,precipitation_sum,relative_humidity,solar_radiation,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_speed,maximum_wind_speed'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,relative_humidity,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,qc_flagged'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3299,9 +3380,9 @@ async def test_download_station_data_no_dates_set(
     # 11 data points + 1 header
     assert len(csv_file) == 12
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,specific_humidity,atmospheric_pressure,atmospheric_pressure_reduced,air_temperature,dew_point,heat_index,lightning_average_distance,lightning_strike_count,mrt,pet,pet_category,precipitation_sum,relative_humidity,solar_radiation,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_speed,maximum_wind_speed'  # noqa: E501
-    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,relative_humidity,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,qc_flagged'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3327,8 +3408,8 @@ async def test_download_station_data_only_start_date_set(
 
     # 11 data points + 1 header
     assert len(csv_file) == 6
-    assert csv_file[1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3352,10 +3433,10 @@ async def test_download_station_data_only_end_date_set(
     async for line in resp.aiter_lines():
         csv_file.append(line.strip())
 
-    # 11 data points + 1 header
+    # 11 data points + 1 header, a bunch of qc flags, and the final qc flag
     assert len(csv_file) == 8
-    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3382,8 +3463,8 @@ async def test_download_station_data_both_dates_set(
 
     # 11 data points + 1 header
     assert len(csv_file) == 6
-    assert csv_file[1] == 'DOB1,2024-08-01 00:10:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,35.5,,,,,,'
+    assert csv_file[1] == 'DOB1,2024-08-01 00:10:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3404,9 +3485,9 @@ async def test_download_station_data_hourly(
     # 1 data point + 1 header
     assert len(csv_file) == 3
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
-    assert csv_file[1] == 'DOB1,2024-08-01 01:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
-    assert csv_file[-1] == 'DOB1,2024-08-01 02:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,air_temperature,air_temperature_max,air_temperature_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,maximum_wind_speed,mrt,mrt_max,mrt_min,pet,pet_category,pet_max,pet_min,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,specific_humidity,specific_humidity_max,specific_humidity_min,utci,utci_category,utci_max,utci_min,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 01:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,,35.5,35.5,,,,,,,,,,'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 02:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,,35.5,35.5,,,,,,,,,,'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3427,8 +3508,8 @@ async def test_download_station_data_daily(
     # 1 data point + 1 header
     assert len(csv_file) == 2
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
-    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,air_temperature,air_temperature_max,air_temperature_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,maximum_wind_speed,mrt,mrt_max,mrt_min,pet,pet_category,pet_max,pet_min,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,specific_humidity,specific_humidity_max,specific_humidity_min,utci,utci_category,utci_max,utci_min,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,,35.5,35.5,,,,,,,,,,'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3463,10 +3544,10 @@ async def test_download_station_data_hourly_gaps_filled(
 
     assert len(csv_file) == 4
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,specific_humidity,specific_humidity_max,specific_humidity_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,air_temperature,air_temperature_max,air_temperature_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,mrt,mrt_max,mrt_min,pet,pet_max,pet_min,pet_category,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,utci,utci_max,utci_min,utci_category,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min,maximum_wind_speed'  # noqa: E501
-    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,absolute_humidity_max,absolute_humidity_min,air_temperature,air_temperature_max,air_temperature_min,atmospheric_pressure,atmospheric_pressure_max,atmospheric_pressure_min,atmospheric_pressure_reduced,atmospheric_pressure_reduced_max,atmospheric_pressure_reduced_min,dew_point,dew_point_max,dew_point_min,heat_index,heat_index_max,heat_index_min,lightning_average_distance,lightning_average_distance_max,lightning_average_distance_min,lightning_strike_count,maximum_wind_speed,mrt,mrt_max,mrt_min,pet,pet_category,pet_max,pet_min,precipitation_sum,relative_humidity,relative_humidity_max,relative_humidity_min,solar_radiation,solar_radiation_max,solar_radiation_min,specific_humidity,specific_humidity_max,specific_humidity_min,utci,utci_category,utci_max,utci_min,vapor_pressure,vapor_pressure_max,vapor_pressure_min,wet_bulb_temperature,wet_bulb_temperature_max,wet_bulb_temperature_min,wind_direction,wind_speed,wind_speed_max,wind_speed_min'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,,35.5,35.5,,,,,,,,,,'  # noqa: E501
     assert csv_file[2] == 'DOB1,2024-08-02,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'  # noqa: E501
-    assert csv_file[3] == 'DOB1,2024-08-03,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,35.5,35.5,,,,,,,,,,,,'  # noqa: E501
+    assert csv_file[3] == 'DOB1,2024-08-03,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5000000000000000,,35.5,35.5,,,,,,,,,,'  # noqa: E501
 
 
 @pytest.mark.parametrize(
