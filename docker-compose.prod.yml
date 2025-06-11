@@ -120,7 +120,7 @@ services:
       replicas: 2
       resources:
         limits:
-          memory: 400M
+          memory: 500M
 
   nginx:
     restart: always
