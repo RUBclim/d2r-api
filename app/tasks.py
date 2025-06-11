@@ -1046,13 +1046,17 @@ async def perform_spatial_buddy_check() -> None:
                 TempRHData.air_temperature,
                 TempRHData.relative_humidity,
             ).join(Station).join(latest_buddy_checks, isouter=True).where(
-                Station.station_type != StationType.temprh,
+                Station.station_type == StationType.temprh,
                 (
                     (TempRHData.measured_at > latest_buddy_checks.c.last_check) |
                     (latest_buddy_checks.c.last_check.is_(None))
                 ),
             )
         ).cte('temp_rh_data_to_qc')
+        cut_off_date = pd.Timestamp(
+            # this improves the availability of buddies since new data may still come in
+            (datetime.now(timezone.utc) - timedelta(minutes=8)),
+        ).floor('5min')
         data_query = union_all(
             select(
                 biomet_query.c.measured_at,
@@ -1063,7 +1067,7 @@ async def perform_spatial_buddy_check() -> None:
                 biomet_query.c.air_temperature,
                 biomet_query.c.relative_humidity,
                 biomet_query.c.atmospheric_pressure,
-            ),
+            ).where(biomet_query.c.measured_at <= cut_off_date),
             select(
                 temp_rh_query.c.measured_at,
                 temp_rh_query.c.station_id,
@@ -1073,7 +1077,7 @@ async def perform_spatial_buddy_check() -> None:
                 temp_rh_query.c.air_temperature,
                 temp_rh_query.c.relative_humidity,
                 literal(None).label(BiometData.atmospheric_pressure.name),
-            ),
+            ).where(temp_rh_query.c.measured_at <= cut_off_date),
         )
         async with sessionmanager.session() as sess:
             con = await sess.connection()

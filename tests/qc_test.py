@@ -4,12 +4,15 @@ from datetime import timezone
 
 import pandas as pd
 import pytest
+from pandas.testing import assert_frame_equal
 from pandas.testing import assert_series_equal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import BiometData
 from app.models import Station
+from app.qc import apply_buddy_check
 from app.qc import apply_qc
+from app.qc import BUDDY_CHECK_COLUMNS
 from app.qc import persistence_check
 from app.qc import range_check
 from app.qc import spike_dip_check
@@ -256,3 +259,23 @@ async def test_apply_qc_range_check_air_temperature_fails(
         'relative_humidity_qc_spike_dip_check',
         # no qc columns for the column with no qc!
     }
+
+
+@pytest.mark.anyio
+async def test_apply_buddy_check() -> None:
+    data = pd.read_csv('testing/qc/data.csv', parse_dates=['measured_at'])
+    buddy_check_result = await apply_buddy_check(
+        data=data,
+        config=BUDDY_CHECK_COLUMNS,
+    )
+    expected_result = pd.read_csv(
+        'testing/qc/buddy_check_result.csv',
+        parse_dates=['measured_at'],
+        index_col=['measured_at', 'station_id'],
+    ).sort_index()
+    expected_result.replace(float('nan'), None, inplace=True)
+    assert_frame_equal(
+        buddy_check_result.sort_index(),
+        expected_result,
+        check_dtype=False,
+    )

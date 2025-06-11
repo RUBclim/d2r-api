@@ -22,6 +22,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import BuddyCheckQc
 from app.models import LatestData
 from app.models import Sensor
 from app.models import SensorDeployment
@@ -57,6 +58,7 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.execute(delete(SHT35DataRaw))
     await db.execute(delete(ATM41DataRaw))
     await db.execute(delete(BLGDataRaw))
+    await db.execute(delete(BuddyCheckQc))
     await db.execute(delete(SensorDeployment))
     await db.execute(delete(Sensor))
     await db.execute(delete(Station))

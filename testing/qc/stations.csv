@@ -1,0 +1,78 @@
+station_id,long_name,station_type,latitude,longitude,altitude,street,number,plz,city,country,district,leuchtennummer
+DOTSRW,Brechten,temprh,51.57243700409978,7.462527758539661,89.68,Schimmelreiterweg,4,44339,Dortmund,Germany,Brechten,13
+DOTABA,Westerfilde,temprh,51.54188270598132,7.372144315516688,75.94,Am Brauckacker,13,44357,Dortmund,Germany,Westerfilde,13
+DOTAMW,Polizeipräsidium,temprh,51.50175339515813,7.461792881387834,113.28,Alter Mühlenweg,71,44139,Dortmund,Germany,Mitte,13
+DOTTPS,Marten,temprh,51.50027321804469,7.403260314545578,108.55,Trippestraße,24,44149,Dortmund,Germany,Dorstfeld,13
+DOTBHS,Kirchlinde,temprh,51.525242001573126,7.36534834117933,88.93,Blotenhofstraße,2a,44379,Dortmund,Germany,Kirchlinde,13
+DOTBOS,Jungferntal,temprh,51.5266274231511,7.387150918832245,87.51,Boschstraße,113,44369,Dortmund,Germany,Rahm,13
+DOTLTS,Huckarde/Mailoh,temprh,51.537640452430054,7.409605329533713,66.78,Lilienthalstraße,32,44369,Dortmund,Germany,Huckarde,13
+DOTSTB,Wellinghofen,temprh,51.469805610349184,7.488533912687009,138.39,Steinbreite,1,44265,Dortmund,Germany,Wellinghofen,13
+DOTSTS,Aplerbecker Mark,temprh,51.48269756506075,7.5611123910141265,128.59,Schwerter Straße,281,44287,Dortmund,Germany,Aplerbeck,13
+DOTABS,Barop,temprh,51.48437438233436,7.437836812811846,100.85,Am Beilstück,24,44225,Dortmund,Germany,Barop,13
+DOTAMS,Mengede,temprh,51.56440252678285,7.383329955248427,66.56,Ammerstraße,47,44359,Dortmund,Germany,Nette,13
+DOTWBS,Lindenhorst,temprh,51.55134571662711,7.450929588111232,82.6,Wartenburgstraße,23,44339,Dortmund,Germany,Lindenhorst,13
+DOTFHS,Kurl,temprh,51.54954636131496,7.587508775016545,66.78,Felheuerstraße,11,44319,Dortmund,Germany,Kurl,13
+DOTOHS,Borsigplatz,temprh,51.52294010987616,7.481432952147905,76.38,Borsigplatz,1,44145,Dortmund,Germany,Mitte,13
+DOTFBP,"Fredenbaum, Spielplatz",temprh,51.53727281091892,7.436979666484552,74.4,Tankweg,27,44147,Dortmund,Germany,Mitte,13
+DODFRP,Friedensplatz,double,51.51116182985488,7.4660923175757805,93.46,Friedensplatz,1,44135,Dortmund,Germany,Mitte,13
+DODGWS,Scharnhorst,double,51.55209606114049,7.544526418090456,69.75,Gleiwitzstraße,277,44328,Dortmund,Germany,Scharnhorst,13
+DOBWEP,Westpark,biomet,51.51006203835586,7.448222519671431,95.15,Rittershausstraße,32,44137,Dortmund,Germany,Mitte,13
+DOTAWS,NSG Buschei,temprh,51.548458,7.562195400000001,66.24,Am Wirksfeld,164,44328,Dortmund,Germany,Scharnhorst,13
+DOBHBF,Hauptbahnhof,biomet,51.51688798808444,7.459457921431765,79.33,Königswall,15,44137,Dortmund,Germany,Mitte,13
+DODPHX,Phoenix See,double,51.49117708045033,7.505005134269929,94.67,Hörder Burgstraße,17,44263,Dortmund,Germany,Hörde,13
+DOTSWS,Alt-Scharnhorst,temprh,51.54664703448356,7.531506467892271,71.74,Schönwaldstraße,6,44328,Dortmund,Germany,Scharnhorst,13
+DOBMSP,TU Dortmund,biomet,51.49250694572305,7.41434580993212,114.04,Vogelpothsweg,87,44227,Dortmund,Germany,Eichlinghofen,13
+DOBSBA,Stadion,biomet,51.493860088255545,7.45076591289252,102.65,Strobelallee,54,44139,Dortmund,Germany,Mitte,13
+DOTADS,Innenstadt-West,temprh,51.51186268802897,7.443288103247959,90.47,Adlerstraße,50,44137,Dortmund,Germany,Mitte,13
+DOTSFH,Holthausen,temprh,51.57588351667401,7.438928381012576,74.72,Schiffhorst,42,44339,Dortmund,Germany,Holthausen,13
+DOTKPS,Hafen,temprh,51.52983764917526,7.432498743440704,71.68,Kipperstraße,19,44147,Dortmund,Germany,Mitte,13
+DOTWFP,"Westfalenhalle, Parkplatz",temprh,51.49720563043962,7.454536789752833,115.6,Rheinlanddamm,201,44139,Dortmund,Germany,Mitte,13
+DOTWBB,Westfalenhütte Logistik,temprh,51.5326028965108,7.506398772028867,77,Warmbreitbandstraße,4,44145,Dortmund,Germany,Mitte,13
+DOTSBS,Eving,temprh,51.552290935803015,7.481820474707577,81.3,Siebenbürgenstraße,15,44339,Dortmund,Germany,Eving,13
+DOTBES,Gewerbe Berliner Straße,temprh,51.52177690348028,7.500446750312135,77.12,Berliner Straße,66,44143,Dortmund,Germany,Körne,13
+DOTBGS,Derne,temprh,51.571025968634984,7.522565174085923,73.89,Bogenstraße,71,44329,Dortmund,Germany,Derne,13
+DOTPZW,Indupark,temprh,51.49493380071788,7.37899287029535,102.73,Pruzzenweg,4a,44149,Dortmund,Germany,Oespel,13
+DOTKNS,Wambel,temprh,51.508684852874985,7.529214679219016,125.61,Küßnachtstraße,27,44143,Dortmund,Germany,Wambel,13
+DOTHGW,Wickede,temprh,51.53650157215587,7.62850923110462,75.11,Hildegundweg,7,44319,Dortmund,Germany,Wickede,13
+DOTIRS,Sölderholz,temprh,51.48496973347517,7.587411917255644,159.59,Irisstraße,9,44289,Dortmund,Germany,Sölderholz,13
+DOTBSW,Berghofen,temprh,51.47023356584448,7.525807389502412,141.74,Bernsteinweg,7a,44267,Dortmund,Germany,Berghofen,13
+DOTAWG,Wichlinghofen,temprh,51.453934184053544,7.4904902854422515,199.37,Am Wildgatter,4,44265,Dortmund,Germany,Wichlinghofen,13
+DOTHSB,Hohensyburg,temprh,51.42312537801598,7.471249642951667,230.95,Hohensyburgstraße,63,44265,Dortmund,Germany,Syburg,13
+DOTPKW,Kirchhörde,temprh,51.454659589713295,7.4611284322081834,161.79,Patroklusweg,27,44229,Dortmund,Germany,Kirchhörde,13
+DOTZHE,Persebeck,temprh,51.464643067647195,7.402986472725558,104.11,Zur Hockeneicke,130,44227,Dortmund,Germany,Persebeck,13
+DOBHAN,Hannibal,biomet,51.521738379725925,7.47152786564685,75.31,Kleine Kielstraße,20,44145,Dortmund,Germany,Mitte,13
+DOBNOM,Nordmarkt,biomet,51.52604218084345,7.4652950900659985,72.37,Nordmarkt,22,44145,Dortmund,Germany,Mitte,13
+DOBDKP,Keuninghaus,biomet,51.522767518580984,7.459375740252043,74.49,Uhlandstraße,19,44147,Dortmund,Germany,Mitte,13
+DOBSPS,Stadthafen,biomet,51.52485888788244,7.4433945101060885,71.64,Speicherstraße,8,44147,Dortmund,Germany,Mitte,13
+DOTFBK,"Fredenbaum, Klinik",temprh,51.536216123376576,7.449821831648654,69.59,Schützenstraße,242,44147,Dortmund,Germany,Mitte,13
+DOTKOH,Groppenbruch,temprh,51.59265498911782,7.41636527180905,75.88,Königsheide,278,44359,Dortmund,Germany,Groppenbruch,13
+DOBPSW,Scharnhorst-Ost,biomet,51.55511215732446,7.544960649406331,71.39,Peschweg,21,44328,Dortmund,Germany,Scharnhorst,13
+DOTLST,Lanstrop,temprh,51.57780099899456,7.58004470210885,72.22,Lanstroper Straße,199,44329,Dortmund,Germany,Lanstrop,13
+DOTSWH,Rahmer Wald,temprh,51.54425225983547,7.3893649479148245,66.26,Schloß-Westhusener-Straße,69,44357,Dortmund,Germany,Westerfilde,13
+DOTADK,Lütgendortmund,temprh,51.51565505712224,7.3161508734339415,120.83,Vahrenort,71,44388,Dortmund,Germany,Bövinghausen,13
+DOTGRW,Grunewald,temprh,51.545373939000555,7.5233532141509,69.39,Grunewald,33,44328,Dortmund,Germany,Scharnhorst,13
+DOTEPM,Emscherpromenade,temprh,51.491272215094064,7.495048296794267,92.04,Auf der Kluse,25a,44263,Dortmund,Germany,Hörde,13
+DOTPHX,Phoenix See Segelanleger,temprh,51.48883266314462,7.5130966595929545,94.24,Phoenixseestraße,20,44263,Dortmund,Germany,Hörde,13
+DOBDHS,Gartenstadt,biomet,51.502916782022524,7.510771789181638,120.66,Droste-Hülshoff-Straße,3,44141,Dortmund,Germany,Mitte,13
+DOBBRS,Brückstraße,biomet,51.51587765691269,7.46638098958019,82.68,Brückstraße,19,44135,Dortmund,Germany,Mitte,13
+DOBHAP,Hansaplatz,biomet,51.5131622588889,7.464264400429746,87.38,Hansaplatz,1,44137,Dortmund,Germany,Mitte,13
+DOBDOU,Dortmunder U,biomet,51.51526151228951,7.453514848629367,90.7,Leonie-Reygers-Terrasse,4,44137,Dortmund,Germany,Mitte,13
+DOTAKU,Hombruch,temprh,51.4738974099944,7.443977767434396,111.93,Am Kohlufer,1,44225,Dortmund,Germany,Hombruch,13
+DOTEMA,Kokerei Hansa,temprh,51.542303080429456,7.40809432515713,63.56,Emscherallee,56,44369,Dortmund,Germany,Huckarde,13
+DOTFLU,Westholz,temprh,51.5426802029877,7.537381457430198,65.92,Flughafenstraße,355,44328,Dortmund,Germany,Scharnhorst,13
+DOTOFH,Ostfriedhof,temprh,51.51003563637478,7.492507261207979,95.13,Am Ostpark,3,44143,Dortmund,Germany,Mitte,13
+DOTADR,Brackeler Hellweg,temprh,51.52491983138161,7.553677793103252,79.65,Auf dem Kranz,9,44309,Dortmund,Germany,Brackel,13
+DOTWLW,Wischlingen,temprh,51.5178449177732,7.397681953953454,67.2,Wischlinger Weg,60,44369,Dortmund,Germany,Wischlingen,13
+DOBBHS,Städtische Kliniken,biomet,51.509059580231025,7.45632941622336,100.97,Beurhausstraße,45,44137,Dortmund,Germany,Mitte,13
+DOBWFH,"Westfalenhalle, Halle 1",biomet,51.49623322768962,7.458202355422371,117.06,Rheinlanddamm,200,44139,Dortmund,Germany,Mitte,13
+DOBKPW,"Westerfilde, Vonovia",biomet,51.5444199971391,7.376512532977394,76.62,Kiepeweg,20,44357,Dortmund,Germany,Westerfilde,13
+DOBHKS,Harkortstraße,biomet,51.47574160172526,7.4328629243698305,101.84,Luisenglück,47,44225,Dortmund,Germany,Hombruch,13
+DOBOHS,Westfalenhütte U,biomet,51.52821150047501,7.483333979450825,76.97,Oesterholzstraße,122,44145,Dortmund,Germany,Mitte,13
+DOBWFP,Westfalenpark,biomet,51.4946874066608,7.481138808250402,95.67,Oberschlesierstraße,34a,44141,Dortmund,Germany,Mitte,13
+DOBCLA,Clarenberg,biomet,51.48451944420876,7.502685074771626,109.13,Wilhelm-Schmidt-Straße,1,44263,Dortmund,Germany,Hörde,13
+DOBGAS,Schweizer Alle,biomet,51.49138036840013,7.563407507387619,109.75,Schweizer Allee,18,44287,Dortmund,Germany,Aplerbeck,13
+DOTKLS,Kleppingstraße Erlebnisroute,temprh,51.51159102163125,7.468180525520713,92.39,Kleppingstraße,26,44135,Dortmund,Germany,Mitte,13
+DOTAMB,Emscherradweg,temprh,51.50805892949551,7.425425537467017,74.39,Am Mühlenberg,32,44149,Dortmund,Germany,Dorstfeld,13
+DOTSCS,Emscher/Schnettkerbrücke,temprh,51.49686621284518,7.435368449216884,77.56,Am Talenberg,55,44227,Dortmund,Germany,Schönau,13
+DODBOL,Bolmke,double,51.48935269560936,7.447141863226619,81.32,Bolmker Weg,77,44139,Dortmund,Germany,Mitte,13
+DOTVGS,KH LüDo,temprh,51.50230448941191,7.329521068639839,116.64,Volksgartenstraße,40,44388,Dortmund,Germany,Lütgendortmund,13

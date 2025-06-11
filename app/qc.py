@@ -184,6 +184,7 @@ async def apply_buddy_check(
     :param data: The data to apply the buddy check to. It must have a
     :return: A DataFrame with the buddy check results.
     """
+    data = data.sort_values('measured_at')
     # create a new regular 5-minute index for the data
     data['measured_at_rounded'] = data['measured_at'].dt.round('5min')
     # sometimes the above creates duplicates when we have measurements that are
@@ -191,7 +192,7 @@ async def apply_buddy_check(
     data = data.drop_duplicates(
         subset=['measured_at_rounded', 'station_id'],
         keep='last',
-    ).set_index(['measured_at_rounded', 'station_id']).sort_index()
+    ).set_index(['measured_at_rounded', 'station_id'])
     dfs: list[pd.DataFrame] = []
     # step through the time steps
     for d in data.index.get_level_values(0).unique():
