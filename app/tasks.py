@@ -1006,6 +1006,11 @@ async def self_test_integrity() -> None:
 
 @async_task(app=celery_app, name='buddy-checks', soft_time_limit=15 * 60)
 async def perform_spatial_buddy_check() -> None:
+    """Perform a spatial buddy check on the biomet and temp-rh data.
+
+    We check the data with an offset of 8 minutes, so we can still catch data that
+    is being uploaded right now.
+    """
     # 1. check when the last buddy check was performed per station
     # now only select data that is newer than the last buddy check, make that
     # individually per station

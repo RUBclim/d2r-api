@@ -28,7 +28,7 @@ async def range_check(
 ) -> 'pd.Series[bool]':
     """Check if the values in the series are within the specified range.
 
-    :param s: The pandas Series to check.
+    :param s: The pandas Series to check, which must have a :class:`pd.DateTimeIndex`.
     :param lower_bound: The lower bound of the range.
     :param upper_bound: The upper bound of the range.
     :return: A boolean Series indicating whether each value is within the range.
@@ -45,11 +45,12 @@ async def persistence_check(
         con: AsyncConnection,
         **kwargs: dict[str, Any],
 ) -> 'pd.Series[bool]':
-    """Check if the values in the series are persistent. For this we need to get
-    more data from the database so that we can check if the values are the same for
-    n minutes.
+    """Check if the values in the series are persistent.
 
-    :param s: The pandas Series to check.
+    For this we need to get more data from the database so that we can check if the
+    values are the same for ``window`` minutes.
+
+    :param s: The pandas Series to check, which must have a :class:`pd.DateTimeIndex`.
     :return: A boolean Series indicating whether each value is persistent.
     """
     # get some additional data from the database so we can perform the check on
@@ -117,7 +118,10 @@ async def spike_dip_check(
 ) -> 'pd.Series[bool]':
     """check if there are spikes or dips in the data.
 
-    :param s: The pandas Series to check.
+    For this we need to get more data from the database so that we can check if the
+    values spike more than ``delta``.
+
+    :param s: The pandas Series to check, which must have a :class:`pd.DateTimeIndex`.
     :param delta: The threshold for the spike/dip check per minute.
     :param station: The station to check.
     :param con: The database connection to use.
@@ -165,6 +169,9 @@ async def spike_dip_check(
 
 
 class BuddyCheckConfig(TypedDict):
+    """Configuration for the buddy check and isolation check implemented via
+    :func:`titanlib.buddy_check` and :func:`titanlib.isolation_check`.
+    """
     callable: Callable[..., npt.NDArray[np.integer]]
     radius: float
     num_min: int
@@ -182,7 +189,7 @@ async def apply_buddy_check(
     """Apply the buddy check to the data for the given time period.
 
     :param data: The data to apply the buddy check to. It must have a
-    :return: A DataFrame with the buddy check results.
+    :return: A DataFrame with the buddy check results as flags.
     """
     data = data.sort_values('measured_at')
     # create a new regular 5-minute index for the data
@@ -375,12 +382,15 @@ COLUMNS = {
 
 
 async def apply_qc(data: pd.DataFrame, station_id: str) -> pd.DataFrame:
-    """Apply quality control to the data for a given station and time period.
+    """Apply the quality control to the data for a given station and time period.
+
+    This function applies various quality control checks to the data, such as
+    :func:`range_check`, :func:`persistence_check`, and :func:`spike_dip_check`.
 
     :param data: The data to apply quality control to.
     :param station: The station to apply quality control for.
 
-    :return: The data with quality control applied.
+    :return: The data with the quality control applied as flags.
     """
     data = data.sort_index()
     async with sessionmanager.session() as sess:
