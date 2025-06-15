@@ -115,6 +115,10 @@ class PublicParamsTempRH(StrEnum):
     relative_humidity_qc_persistence_check = 'relative_humidity_qc_persistence_check'
     relative_humidity_qc_spike_dip_check = 'relative_humidity_qc_spike_dip_check'
     qc_flagged = 'qc_flagged'
+    air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
+    air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
+    relative_humidity_qc_isolated_check = 'relative_humidity_qc_isolated_check'
+    relative_humidity_qc_buddy_check = 'relative_humidity_qc_buddy_check'
 
 
 class PublicParamsBiomet(StrEnum):
@@ -173,6 +177,12 @@ class PublicParamsBiomet(StrEnum):
     wind_speed_qc_range_check = 'wind_speed_qc_range_check'
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
     qc_flagged = 'qc_flagged'
+    air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
+    air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
+    relative_humidity_qc_isolated_check = 'relative_humidity_qc_isolated_check'
+    relative_humidity_qc_buddy_check = 'relative_humidity_qc_buddy_check'
+    atmospheric_pressure_qc_isolated_check = 'atmospheric_pressure_qc_isolated_check'
+    atmospheric_pressure_qc_buddy_check = 'atmospheric_pressure_qc_buddy_check'
 
 
 class PublicParamsAggTempRH(StrEnum):
@@ -371,6 +381,13 @@ class PublicParams(StrEnum):
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
     # qc flag considering all
     qc_flagged = 'qc_flagged'
+    # buddy check qc flags
+    air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
+    air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
+    relative_humidity_qc_isolated_check = 'relative_humidity_qc_isolated_check'
+    relative_humidity_qc_buddy_check = 'relative_humidity_qc_buddy_check'
+    atmospheric_pressure_qc_isolated_check = 'atmospheric_pressure_qc_isolated_check'
+    atmospheric_pressure_qc_buddy_check = 'atmospheric_pressure_qc_buddy_check'
 
 
 class ParamSettings(NamedTuple):
@@ -1073,6 +1090,42 @@ class QCFlags(BaseModel):
     )
 
 
+class BuddyCheckQCFlags(BaseModel):
+    air_temperature_qc_isolated_check: bool | None = Field(
+        None,
+        examples=[True],
+        description='quality control for the air temperature using an isolation check',
+    )
+    air_temperature_qc_buddy_check: bool | None = Field(
+        None,
+        examples=[True],
+        description='quality control for the air temperature using a buddy check',
+    )
+    relative_humidity_qc_isolated_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'quality control for the relative humidity using an isolation check'
+        ),
+    )
+    relative_humidity_qc_buddy_check: bool | None = Field(
+        None,
+        examples=[True],
+        description='quality control for the relative humidity using a buddy check',
+    )
+    atmospheric_pressure_qc_isolated_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'quality control for the atmospheric pressure using an isolation check'
+        ),
+    )
+    atmospheric_pressure_qc_buddy_check: bool | None = Field(
+        None,
+        examples=[True],
+        description='quality control for the atmospheric pressure using a buddy check',
+    )
+
 # TODO: we may also generate these at some point from either the enums or the basic
 # schema without extreme values
 
@@ -1271,7 +1324,7 @@ class DistrictParams(Parameters):
     )
 
 
-class StationData(Parameters, QCFlags):
+class StationData(Parameters, QCFlags, BuddyCheckQCFlags):
     """Data from a single station"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
