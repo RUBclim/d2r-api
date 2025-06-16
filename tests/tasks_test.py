@@ -11,6 +11,8 @@ from unittest.mock import call
 
 import pandas as pd
 import pytest
+from element import decode_ATM41
+from element import decode_STH35
 from element import ElementApi
 from pandas.testing import assert_frame_equal
 from sqlalchemy import delete
@@ -1578,28 +1580,84 @@ async def test_check_for_new_sensors(db: AsyncSession) -> None:
 
 @pytest.mark.usefixtures('clean_db')
 @pytest.mark.usefixtures('deployed_biomet_station')
+@pytest.mark.parametrize(
+    'msg',
+    (
+        (
+            b'02'  # version
+            b'5304'  # device id
+            b'0003'  # 0003 flags
+            b'FFFF'  # 8000 solar radiation
+            b'FFFF'  # FFFF precipitation sum
+            b'FFFF'  # 8000 lightning strike count
+            b'FFFF'  # 8000 ligthning average distance
+            b'FFFF'  # 8029 wind speed
+            b'FFFF'  # 89E8 wind direction
+            b'FFFF'  # 8060 maximum wind speed
+            b'FFFF'  # 8002 air temperature
+            b'FFFF'  # 8030 vapor pressure
+            b'FFFF'  # A858 barometric pressure
+            b'FFFF'  # 8309 relative humidity
+            b'FFFF'  # 7FF9 internal sensor temperature
+            b'FFFF'  # 7FE0 tilt angle, x orientation
+            b'FFFF'  # 8008 tilt angle, y orientation
+            b'FFFF'  # 8000 compass heading
+            b'FFFF'  # 7FF4 north wind speed
+            b'FFFF'  # 7FD9 east wind speed
+            b'09A1'  # 09A1 battery voltage
+        ),
+        (
+            b'02'  # version
+            b'5304'  # device id
+            b'0003'  # 0003 flags
+            b'0000'  # 8000 solar radiation
+            b'0000'  # FFFF precipitation sum
+            b'0000'  # 8000 lightning strike count
+            b'0000'  # 8000 ligthning average distance
+            b'0000'  # 8029 wind speed
+            b'0000'  # 89E8 wind direction
+            b'0000'  # 8060 maximum wind speed
+            b'0000'  # 8002 air temperature
+            b'0000'  # 8030 vapor pressure
+            b'0000'  # A858 barometric pressure
+            b'0000'  # 8309 relative humidity
+            b'0000'  # 7FF9 internal sensor temperature
+            b'0000'  # 7FE0 tilt angle, x orientation
+            b'0000'  # 8008 tilt angle, y orientation
+            b'0000'  # 8000 compass heading
+            b'0000'  # 7FF4 north wind speed
+            b'0000'  # 7FD9 east wind speed
+            b'09A1'  # 09A1 battery voltage
+        ),
+    ),
+)
 @pytest.mark.anyio
-async def test_calculate_biomet_missing_values_are_detected(db: AsyncSession) -> None:
+async def test_calculate_biomet_missing_values_are_detected(
+        msg: bytes,
+        db: AsyncSession,
+) -> None:
+    # make sure that parsing a telegram with missing values returns the correct values
+    data = decode_ATM41(msg=msg, hex=True)
     atm_data = ATM41DataRaw(
         sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
-        air_temperature=-3276.8,
-        relative_humidity=-3276.8,
-        atmospheric_pressure=-327.68,
-        vapor_pressure=-327.68,
-        wind_speed=-327.68,
-        wind_direction=-3276.8,
-        u_wind=-327.68,
-        v_wind=-327.68,
-        maximum_wind_speed=-327.68,
-        precipitation_sum=-32.768,
-        solar_radiation=-3276.8,
-        lightning_average_distance=-32768,
-        lightning_strike_count=-32768,
-        sensor_temperature_internal=-3276.8,
-        x_orientation_angle=-3276.8,
-        y_orientation_angle=-3276.8,
-        battery_voltage=3.178,
+        air_temperature=data['Air temperature']['value'],
+        relative_humidity=data['Relative humidity']['value'],
+        atmospheric_pressure=data['Atmospheric pressure']['value'],
+        vapor_pressure=data['Vapor pressure']['value'],
+        wind_speed=data['Wind speed']['value'],
+        wind_direction=data['Wind direction']['value'],
+        u_wind=data['North wind speed']['value'],
+        v_wind=data['East wind speed']['value'],
+        maximum_wind_speed=data['Maximum wind speed']['value'],
+        precipitation_sum=data['Precipitation']['value'],
+        solar_radiation=data['Solar radiation']['value'],
+        lightning_average_distance=data['Lightning average distance']['value'],
+        lightning_strike_count=data['Lightning strike count']['value'],
+        sensor_temperature_internal=data['Sensor temperature (internal)']['value'],
+        x_orientation_angle=data['X orientation angle']['value'],
+        y_orientation_angle=data['Y orientation angle']['value'],
+        battery_voltage=data['Battery voltage']['value'],
     )
     blg_data = BLGDataRaw(
         sensor_id='DEC2',
@@ -1633,7 +1691,7 @@ async def test_calculate_biomet_missing_values_are_detected(db: AsyncSession) ->
     assert biomet_data_in_db.y_orientation_angle is None
     # make sure the other calculations passed
     assert biomet_data_in_db.black_globe_temperature == 10
-    assert biomet_data_in_db.battery_voltage == Decimal('3.178')
+    assert biomet_data_in_db.battery_voltage == Decimal('2.465')
     assert biomet_data_in_db.utci_category == HeatStressCategories.unknown
     assert biomet_data_in_db.utci_category == HeatStressCategories.unknown
 
@@ -1641,13 +1699,38 @@ async def test_calculate_biomet_missing_values_are_detected(db: AsyncSession) ->
 @pytest.mark.usefixtures('clean_db')
 @pytest.mark.usefixtures('deployed_temprh_station')
 @pytest.mark.anyio
-async def test_calculate_temprh_missing_values_are_detected(db: AsyncSession) -> None:
+@pytest.mark.parametrize(
+    'msg',
+    (
+        (
+            b'02'  # version
+            b'030e'  # device id
+            b'0003'  # flags
+            b'FFFF'  # temperature
+            b'0000'  # relative humidity
+            b'0c60'  # battery voltage
+        ),
+        (
+            b'02'  # version
+            b'030e'  # device id
+            b'0003'  # flags
+            b'0000'  # temperature
+            b'0000'  # relative humidity (FFFF would be 100, which is valid)
+            b'0c60'  # battery voltage
+        ),
+    ),
+)
+async def test_calculate_temprh_missing_values_are_detected(
+        msg: bytes,
+        db: AsyncSession,
+) -> None:
+    data = decode_STH35(msg, hex=True)
     station_data = SHT35DataRaw(
         sensor_id='DEC1',
         measured_at=datetime(2024, 9, 9, 0, 30, tzinfo=timezone.utc),
-        air_temperature=-45,
-        relative_humidity=0,
-        battery_voltage=3.178,
+        air_temperature=data['Air temperature']['value'],
+        relative_humidity=data['Air humidity']['value'],
+        battery_voltage=data['Battery voltage']['value'],
     )
     db.add(station_data)
 
@@ -1660,4 +1743,4 @@ async def test_calculate_temprh_missing_values_are_detected(db: AsyncSession) ->
     ).scalars().one()
     assert temprh_data_in_db.air_temperature is None
     assert temprh_data_in_db.relative_humidity is None
-    assert temprh_data_in_db.battery_voltage == Decimal('3.178')
+    assert temprh_data_in_db.battery_voltage == Decimal('3.168')
