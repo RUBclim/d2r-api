@@ -111,28 +111,30 @@ RENAMER = {
 # -327.68, which is not a valid value.
 # https://cdn.decentlab.com/download/datasheets/Decentlab-DL-ATM41-datasheet.pdf
 # https://cdn.decentlab.com/download/datasheets/Decentlab-DL-SHT35-datasheet.pdf
-NULL_VALUES: dict[str, dict[str, float]] = {
+NULL_VALUES: dict[str, dict[str, tuple[float, float]]] = {
     'temprh': {
-        'air_temperature': -45,
-        'relative_humidity': 0,
+        'air_temperature': (-45, 130),
+        'relative_humidity': (0, float('nan')),
     },
     'biomet': {
-        'solar_radiation': -3276.8,
-        'precipitation_sum': -32.768,
-        'lightning_strike_count': -32768,
-        'lightning_average_distance': -32768,
-        'wind_speed': -327.68,
-        'wind_direction': -3276.8,
-        'maximum_wind_speed': -327.68,
-        'air_temperature': -3276.8,
-        'vapor_pressure': -327.68,
-        'atmospheric_pressure': -327.68,
-        'relative_humidity': -3276.8,
-        'sensor_temperature_internal': -3276.8,
-        'x_orientation_angle': -3276.8,
-        'y_orientation_angle': -3276.8,
-        'u_wind': -327.68,
-        'v_wind': -327.68,
+        'solar_radiation': (-32768, 32767),
+        'precipitation_sum': (-32.768, 32.767),
+        'lightning_strike_count': (-32768, 32767),
+        'lightning_average_distance': (-32768, 32767),
+        'wind_speed': (-327.68, 327.67),
+        'wind_direction': (-3276.8, 3276.7),
+        'maximum_wind_speed': (-327.68, 327.67),
+        'air_temperature': (-3276.8, 3276.7),
+        'vapor_pressure': (-327.68, 327.67),
+        'atmospheric_pressure': (-327.68, 327.67),
+        # TODO: we had -3276.7 in the past?
+        'relative_humidity': (-3276.8, 3276.7),
+        'sensor_temperature_internal': (-3276.8, 3276.7),
+        'x_orientation_angle': (-3276.8, 3276.7),
+        'y_orientation_angle': (-3276.8, 3276.7),
+        'u_wind': (-327.68, 327.67),
+        'v_wind': (-327.68, 327.67),
+        'battery_voltage': (-327.68, 327.67),
     },
 }
 
@@ -535,7 +537,7 @@ async def calculate_biomet(station_id: str | None) -> None:
         # now set the null values based on the uint16 representation of the values
         for col, null_value in NULL_VALUES['biomet'].items():
             if col in df_biomet.columns:
-                df_biomet.loc[df_biomet[col] == null_value, col] = float('nan')
+                df_biomet.loc[df_biomet[col].isin(null_value), col] = float('nan')
 
         # convert kPa to hPa
         df_biomet['atmospheric_pressure'] = df_biomet['atmospheric_pressure'] * 10
@@ -715,7 +717,7 @@ async def calculate_temp_rh(station_id: str | None) -> None:
         data = data.set_index('measured_at')
         for col, null_value in NULL_VALUES['temprh'].items():
             if col in data.columns:
-                data.loc[data[col] == null_value, col] = float('nan')
+                data.loc[data[col].isin(null_value), col] = float('nan')
 
         # calculate derivates
         data['absolute_humidity'] = absolute_humidity(
