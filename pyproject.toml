@@ -26,7 +26,7 @@ dependencies = { file = ["requirements.txt"] }
 optional-dependencies = { dev = { file = ["requirements-dev.txt"] } }
 
 [tool.coverage.report]
-fail_under = 50
+fail_under = 98
 exclude_also = [
     # needed because of: https://github.com/nedbat/coveragepy/issues/1563
     "raise NotImplementedError",
@@ -43,12 +43,15 @@ omit = ["app/alembic"]
 max_line_length = 88
 
 [tool.mypy]
+mypy_path = "stubs"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 no_implicit_optional = true
 show_error_codes = true
+warn_redundant_casts = true
+warn_unused_ignores = true
 plugins = "numpy.typing.mypy_plugin"
 
 [tool.tox]

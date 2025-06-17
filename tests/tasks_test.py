@@ -25,6 +25,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import BuddyCheckQc
 from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import Sensor
@@ -42,6 +43,7 @@ from app.tasks import calculate_biomet
 from app.tasks import calculate_temp_rh
 from app.tasks import check_for_new_sensors
 from app.tasks import download_station_data
+from app.tasks import perform_spatial_buddy_check
 from app.tasks import refresh_all_views
 from app.tasks import self_test_integrity
 
@@ -1744,3 +1746,97 @@ async def test_calculate_temprh_missing_values_are_detected(
     assert temprh_data_in_db.air_temperature is None
     assert temprh_data_in_db.relative_humidity is None
     assert temprh_data_in_db.battery_voltage == Decimal('3.168')
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_apply_buddy_check(db: AsyncSession) -> None:
+    station = pd.read_csv('testing/qc/stations.csv')
+    for _, s in station.iterrows():
+        db.add(Station(**s.to_dict()))
+    db.add(Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35))
+    await db.commit()
+    # add data
+    data = pd.read_csv(
+        'testing/qc/data.csv',
+        parse_dates=['measured_at'],
+        index_col='station_id',
+    )
+    data['sensor_id'] = 'DEC1'
+
+    temp_rh_data = data[
+        data.index.str.startswith('DOT')
+    ][['measured_at', 'sensor_id', 'air_temperature', 'relative_humidity']]
+
+    biomet_data = data[(
+        data.index.str.startswith('DOB') |
+        data.index.str.startswith('DOD')
+    )][[
+        'measured_at', 'sensor_id', 'air_temperature',
+        'relative_humidity', 'atmospheric_pressure',
+    ]]
+
+    con = await db.connection()
+    await con.run_sync(
+        lambda con: temp_rh_data.to_sql(
+            name=TempRHData.__tablename__,
+            con=con,
+            if_exists='append',
+        ),
+    )
+    await con.run_sync(
+        lambda con: biomet_data.to_sql(
+            name=BiometData.__tablename__,
+            con=con,
+            if_exists='append',
+        ),
+    )
+    await db.commit()
+    await perform_spatial_buddy_check()
+    # check that the data was inserted
+    con = await db.connection()
+    buddy_check_result = await con.run_sync(
+        lambda con: pd.read_sql(
+            sql=select(BuddyCheckQc).order_by(BuddyCheckQc.measured_at),
+            con=con,
+            index_col=['measured_at'],
+        ),
+    )
+    expected_result = pd.read_csv(
+        'testing/qc/buddy_check_result.csv',
+        parse_dates=['measured_at'],
+        index_col=['measured_at'],
+    ).sort_index()
+    expected_result.replace(float('nan'), None, inplace=True)
+    assert_frame_equal(buddy_check_result, expected_result)
+    # rerun the buddy check, it should succeed but not insert any new data
+    await perform_spatial_buddy_check()
+    buddy_check_result_2nd = await con.run_sync(
+        lambda con: pd.read_sql(
+            sql=select(BuddyCheckQc).order_by(BuddyCheckQc.measured_at),
+            con=con,
+            index_col=['measured_at'],
+        ),
+    )
+    assert_frame_equal(buddy_check_result_2nd.sort_index(), expected_result)
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_apply_buddy_check_no_data_in_db(db: AsyncSession) -> None:
+    station = pd.read_csv('testing/qc/stations.csv')
+    for _, s in station.iterrows():
+        db.add(Station(**s.to_dict()))
+    db.add(Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35))
+    await db.commit()
+    await perform_spatial_buddy_check()
+    # check that no data was inserted
+    con = await db.connection()
+    buddy_check_result = await con.run_sync(
+        lambda con: pd.read_sql(
+            sql=select(BuddyCheckQc).order_by(BuddyCheckQc.measured_at),
+            con=con,
+            index_col=['measured_at'],
+        ),
+    )
+    assert buddy_check_result.empty
