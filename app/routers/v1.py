@@ -37,6 +37,7 @@ from app.database import sessionmanager
 from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
+from app.models import BuddyCheckQc
 from app.models import LatestData
 from app.models import SensorDeployment
 from app.models import Station
@@ -679,15 +680,24 @@ async def get_data(
         table_info = TABLE_MAPPING[station.station_type][scale]
         table = table_info['table']
         allowed_params = table_info['allowed_params']
-
+        has_buddy_check_cols = False
         for idx, p in enumerate(param):
-            if p not in allowed_params or not hasattr(table, p):
+            if p not in allowed_params or (
+                not hasattr(table, p) and not hasattr(BuddyCheckQc, p)
+            ):
                 # try to mimic the usual validation error response
-                allowed_vals = sorted(
-                    {e.name for e in allowed_params} & {
-                        i.key for i in table.__table__.columns
-                    },
-                )
+                allowed_vals = {e.name for e in allowed_params} & {
+                    i.key for i in table.__table__.columns
+                }
+                # check that we have a table that has qc columns
+                if 'air_temperature_qc_range_check' in allowed_vals:
+                    # if we have qc columns, we need to add them to the allowed values
+                    # since they are valid for BuddyCheckQc
+                    allowed_buddy_check_vals = {
+                        i.key for i in BuddyCheckQc.__table__.columns
+                        if any(j for j in allowed_vals if j in i.key)
+                    }
+                    allowed_vals = allowed_vals | allowed_buddy_check_vals
                 raise HTTPException(
                     status_code=422,
                     detail=[{
@@ -695,16 +705,20 @@ async def get_data(
                         'loc': ['query', 'param', idx],
                         'msg': (
                             f'This station is of type "{station.station_type}", hence '
-                            f"the input should be: {', '.join(list(allowed_vals))}"
+                            f"the input should be: {', '.join(sorted(allowed_vals))}"
                         ),
                         'input': p,
                         'ctx': {
-                            'expected': f"{', '.join(list(allowed_vals))}",
+                            'expected': f"{', '.join(sorted(allowed_vals))}",
                         },
                     }],
                 )
+            has_buddy_check_cols |= hasattr(BuddyCheckQc, p)
 
-        columns: list[InstrumentedAttribute[Any]] = [getattr(table, i) for i in param]
+        columns: list[InstrumentedAttribute[Any]] = [
+            getattr(table, i) if hasattr(table, i) else getattr(BuddyCheckQc, i)
+            for i in param
+        ]
         # we need to cast to TIMESTAMPTZ here, since the view is in UTC but timescale
         # cannot keep it timezone aware AND make it right-labelled +1 hour
         query = select(
@@ -719,6 +733,15 @@ async def get_data(
             null_condition = [c.is_(None) for c in columns]
             # a filled gap is defined by NULL values in all columns
             query = query.where(not_(and_(*null_condition)))
+        if has_buddy_check_cols is True:
+            query = query.join(
+                BuddyCheckQc,
+                and_(
+                    BuddyCheckQc.station_id == table.station_id,
+                    BuddyCheckQc.measured_at == table.measured_at,
+                ),
+                isouter=True,
+            )
         data = (await db.execute(query))
         return Response(data=data.mappings().all())
     else:
@@ -1008,6 +1031,7 @@ async def download_station_data(
     table = TABLE_MAPPING[station.station_type][scale]['table']
     columns = [
         getattr(table, i.value)
+        if hasattr(table, i.value) else getattr(BuddyCheckQc, i.value)
         for i in TABLE_MAPPING[station.station_type][scale]['allowed_params']
     ]
     # sort the columns by name for a nicer output and the qc columns next to the param
@@ -1022,6 +1046,13 @@ async def download_station_data(
         table.station_id,
         table.measured_at,
         *columns,
+    ).join(
+        BuddyCheckQc,
+        and_(
+            BuddyCheckQc.station_id == table.station_id,
+            BuddyCheckQc.measured_at == table.measured_at,
+        ),
+        isouter=True,
     ).where(table.station_id == station_id).order_by(table.measured_at)
     if fill_gaps is False:
         null_condition = [c.is_(None) for c in table.__table__.columns]
