@@ -1058,10 +1058,25 @@ async def perform_spatial_buddy_check() -> None:
                 ),
             )
         ).cte('temp_rh_data_to_qc')
-        cut_off_date = pd.Timestamp(
-            # this improves the availability of buddies since new data may still come in
-            (datetime.now(timezone.utc) - timedelta(minutes=8)),
-        ).floor('5min')
+        cut_off_date = (
+            await sess.execute(
+                select(
+                    func.least(
+                        select(func.max(BiometData.measured_at)).scalar_subquery(),
+                        select(func.max(TempRHData.measured_at)).scalar_subquery(),
+                    ),
+                ),
+            )
+        ).scalar_one_or_none()
+        if cut_off_date is None:
+            # no data available, hence we can skip the entire buddy check
+            return
+
+        # we exclude the latest buddy check interval of 5 minutes. This improves the
+        # availability of buddies since new data may still come in
+        cut_off_date = pd.Timestamp(cut_off_date).floor(
+            '5min',
+        ) - timedelta(seconds=(2*60) + 30)
         data_query = union_all(
             select(
                 biomet_query.c.measured_at,
@@ -1084,37 +1099,31 @@ async def perform_spatial_buddy_check() -> None:
                 literal(None).label(BiometData.atmospheric_pressure.name),
             ).where(temp_rh_query.c.measured_at <= cut_off_date),
         )
-        async with sessionmanager.session() as sess:
-            con = await sess.connection()
-            db_data = await con.run_sync(
-                lambda con: pd.read_sql(
-                    sql=data_query,  # type: ignore[call-overload]
-                    con=con,
-                ),
-            )
-            # no data, no qc
-            if db_data.empty:
-                return None
+        con = await sess.connection()
+        db_data = await con.run_sync(
+            lambda con: pd.read_sql(sql=data_query, con=con),
+        )
+        # no data, no qc
+        if db_data.empty:
+            return None
 
-            qc_flags = await apply_buddy_check(db_data, config=BUDDY_CHECK_COLUMNS)
+        qc_flags = await apply_buddy_check(db_data, config=BUDDY_CHECK_COLUMNS)
 
-            await con.run_sync(
-                lambda con: qc_flags.to_sql(
-                    name=BuddyCheckQc.__tablename__,
-                    con=con,
-                    method='multi',
-                    if_exists='append',
-                    chunksize=65535 // (
-                        len(qc_flags.columns) + len(qc_flags.index.names)
-                    ),
-                    dtype={
-                        'air_temperature_qc_isolated_check': Boolean,
-                        'air_temperature_qc_buddy_check': Boolean,
-                        'relative_humidity_qc_isolated_check': Boolean,
-                        'relative_humidity_qc_buddy_check': Boolean,
-                        'atmospheric_pressure_qc_isolated_check': Boolean,
-                        'atmospheric_pressure_qc_buddy_check': Boolean,
-                    },
-                ),
-            )
-            await sess.commit()
+        await con.run_sync(
+            lambda con: qc_flags.to_sql(
+                name=BuddyCheckQc.__tablename__,
+                con=con,
+                method='multi',
+                if_exists='append',
+                chunksize=65535 // (len(qc_flags.columns) + len(qc_flags.index.names)),
+                dtype={
+                    'air_temperature_qc_isolated_check': Boolean,
+                    'air_temperature_qc_buddy_check': Boolean,
+                    'relative_humidity_qc_isolated_check': Boolean,
+                    'relative_humidity_qc_buddy_check': Boolean,
+                    'atmospheric_pressure_qc_isolated_check': Boolean,
+                    'atmospheric_pressure_qc_buddy_check': Boolean,
+                },
+            ),
+        )
+        await sess.commit()

@@ -66,11 +66,7 @@ async def persistence_check(
         )
     )
     db_data = await con.run_sync(
-        lambda con: pd.read_sql(
-            sql=query,  # type: ignore[call-overload]
-            con=con,
-            index_col=['measured_at'],
-        ),
+        lambda con: pd.read_sql(sql=query, con=con, index_col=['measured_at']),
     )
     # now find values that are the same
     if not db_data.empty:
@@ -138,11 +134,7 @@ async def spike_dip_check(
         ).order_by(table.measured_at.desc()).limit(1)
     )
     db_data = await con.run_sync(
-        lambda con: pd.read_sql(
-            sql=query,  # type: ignore[call-overload]
-            con=con,
-            index_col=['measured_at'],
-        ),
+        lambda con: pd.read_sql(sql=query, con=con, index_col=['measured_at']),
     )
     # in case this is the very first time the qc runs
     if not db_data.empty:

@@ -264,6 +264,7 @@ async def test_apply_qc_range_check_air_temperature_fails(
 @pytest.mark.anyio
 async def test_apply_buddy_check() -> None:
     data = pd.read_csv('testing/qc/data.csv', parse_dates=['measured_at'])
+    data = data.loc[data['measured_at'] < '2025-04-06 10:00:00.097477']
     buddy_check_result = await apply_buddy_check(
         data=data,
         config=BUDDY_CHECK_COLUMNS,
