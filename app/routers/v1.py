@@ -166,7 +166,8 @@ async def get_stations_latest_data(
         raise HTTPException(status_code=422, detail='max_age must be positive')
 
     columns: list[InstrumentedAttribute[Any]] = [getattr(LatestData, i) for i in param]
-    not_null_conditions = [c.isnot(None) for c in columns]
+    # don't apply the criterion on the qc columns - the check might still be pending
+    not_null_conditions = [c.isnot(None) for c in columns if 'qc' not in c.name]
     query = select(
         LatestData.station_id,
         LatestData.long_name,

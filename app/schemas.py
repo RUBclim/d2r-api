@@ -1308,7 +1308,7 @@ class ParametersAgg(BaseModel):
     )
 
 
-class StationParams(StationMetadata, Parameters):
+class StationParams(StationMetadata, Parameters, QCFlags):
     """Parameters provided by a station"""
     measured_at: datetime = Field(
         examples=[datetime(2024, 8, 28, 18, 50, 13, 169)],
