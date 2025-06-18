@@ -129,12 +129,14 @@ def metadata_check(
         check_lon: bool = True,
         check_elev: bool = True,
         check_laf: bool = True,
+        /,
 ) -> npt.NDArray[np.integer]: ...
 
 def range_check(
         values: npt.NDArray[T],
         min: npt.NDArray[T],
         max: npt.NDArray[T],
+        /,
 ) -> npt.NDArray[np.integer]: ...
 
 def sct(
@@ -155,6 +157,7 @@ def sct(
         prob_gross_error: npt.NDArray[T],
         rep: npt.NDArray[T],
         obs_to_check: Sequence[int] = [],
+        /,
 ) -> npt.NDArray[np.integer]: ...
 
 
@@ -185,6 +188,7 @@ def sct_resistant(
         tneg: npt.NDArray[T],
         debug: bool,
         basic: bool,
+        /,
 ) -> npt.NDArray[np.integer]: ...
 
 
@@ -205,4 +209,5 @@ def sct_dual(
         vertical_scale: float,
         test_thresholds: npt.NDArray[T],
         debug: bool,
+        /,
 ) -> npt.NDArray[np.integer]: ...
