@@ -270,6 +270,50 @@ async def test_get_station_latest_data(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize('biomet_data', [{'n_stations': 2, 'n_data': 3}], indirect=True)
+@freezegun.freeze_time('2024-08-01 01:00')
+async def test_get_station_latest_data_qc_flags(
+        app: AsyncClient,
+        biomet_data: list[BiometData],
+) -> None:
+    resp = await app.get(
+        '/v1/stations/latest_data',
+        params={
+            'param': ['utci', 'air_temperature_qc_range_check'],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()['data'] == [
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-1',
+            'longitude': 7.2627,
+            'station_id': 'DOB1',
+            'station_type': 'biomet',
+            'measured_at': '2024-08-01T00:15:00Z',
+            'utci': 35.5,
+            'air_temperature_qc_range_check': None,
+        },
+        {
+            'altitude': 100.0,
+            'district': 'Innenstadt',
+            'latitude': 51.446,
+            'lcz': '2',
+            'long_name': 'test-station-2',
+            'longitude': 7.2627,
+            'station_id': 'DOB2',
+            'station_type': 'biomet',
+            'measured_at': '2024-08-01T00:15:00Z',
+            'utci': 35.5,
+            'air_temperature_qc_range_check': None,
+        },
+    ]
+
+
+@pytest.mark.anyio
 async def test_get_station_latest_data_no_data(app: AsyncClient) -> None:
     resp = await app.get('/v1/stations/latest_data', params={'param': 'utci'})
     assert resp.status_code == 200

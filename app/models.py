@@ -1243,29 +1243,9 @@ class TempRHData(
     )
 
 
-class BuddyCheckQc(Base):
-    """The quality control flags returned by the buddy check for a station."""
-    __tablename__ = 'buddy_check_qc'
-    __table_args__ = (
-        Index(
-            'ix_buddy_check_qc_station_id_measured_at',
-            'station_id',
-            'measured_at',
-            unique=True,
-        ),
-    )
-    measured_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        primary_key=True,
-        index=True,
-        doc='The exact time the value was measured in **UTC**',
-    )
-    station_id: Mapped[str] = mapped_column(
-        ForeignKey('station.station_id'),
-        primary_key=True,
-        index=True,
-        doc='id of the station these measurements were taken at',
-    )
+class _BuddyCheckQcBase(Base):
+    __abstract__ = True
+
     air_temperature_qc_isolated_check: Mapped[bool] = mapped_column(
         nullable=True,
         doc='quality control for the air temperature using an isolation check',
@@ -1289,6 +1269,31 @@ class BuddyCheckQc(Base):
     atmospheric_pressure_qc_buddy_check: Mapped[bool] = mapped_column(
         nullable=True,
         doc='quality control for the atmospheric pressure using a buddy check',
+    )
+
+
+class BuddyCheckQc(_BuddyCheckQcBase):
+    """The quality control flags returned by the buddy check for a station."""
+    __tablename__ = 'buddy_check_qc'
+    __table_args__ = (
+        Index(
+            'ix_buddy_check_qc_station_id_measured_at',
+            'station_id',
+            'measured_at',
+            unique=True,
+        ),
+    )
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        primary_key=True,
+        index=True,
+        doc='The exact time the value was measured in **UTC**',
+    )
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        primary_key=True,
+        index=True,
+        doc='id of the station these measurements were taken at',
     )
 
 
@@ -1363,6 +1368,10 @@ class LatestData(
     _ATM41DataRawBase,
     _BLGDataRawBase,
     _TempRHDerivatives,
+    _ATM41DataRawBaseQC,
+    _BLGDataRawBaseQC,
+    _SHT35DataRawBaseQC,
+    _BuddyCheckQcBase,
 ):
     """This is not an actual table, but a materialized view. We simply trick sqlalchemy
     into thinking this was a table. Querying a materialized view does not differ from
@@ -1448,7 +1457,7 @@ class LatestData(
     CREATE MATERIALIZED VIEW IF NOT EXISTS latest_data AS
     (
         SELECT DISTINCT ON (station_id)
-            station_id,
+            biomet_data.station_id,
             long_name,
             latitude,
             longitude,
@@ -1456,7 +1465,7 @@ class LatestData(
             district,
             lcz,
             station_type,
-            measured_at,
+            biomet_data.measured_at,
             air_temperature,
             relative_humidity,
             dew_point,
@@ -1487,15 +1496,66 @@ class LatestData(
             black_globe_temperature,
             thermistor_resistance,
             voltage_ratio,
+            air_temperature_qc_range_check,
+            air_temperature_qc_persistence_check,
+            air_temperature_qc_spike_dip_check,
+            relative_humidity_qc_range_check,
+            relative_humidity_qc_persistence_check,
+            relative_humidity_qc_spike_dip_check,
+            atmospheric_pressure_qc_range_check,
+            atmospheric_pressure_qc_persistence_check,
+            atmospheric_pressure_qc_spike_dip_check,
+            wind_speed_qc_range_check,
+            wind_speed_qc_persistence_check,
+            wind_speed_qc_spike_dip_check,
+            wind_direction_qc_range_check,
+            wind_direction_qc_persistence_check,
+            u_wind_qc_range_check,
+            u_wind_qc_persistence_check,
+            u_wind_qc_spike_dip_check,
+            v_wind_qc_range_check,
+            v_wind_qc_persistence_check,
+            v_wind_qc_spike_dip_check,
+            maximum_wind_speed_qc_range_check,
+            maximum_wind_speed_qc_persistence_check,
+            precipitation_sum_qc_range_check,
+            precipitation_sum_qc_persistence_check,
+            precipitation_sum_qc_spike_dip_check,
+            solar_radiation_qc_range_check,
+            solar_radiation_qc_persistence_check,
+            solar_radiation_qc_spike_dip_check,
+            lightning_average_distance_qc_range_check,
+            lightning_average_distance_qc_persistence_check,
+            lightning_strike_count_qc_range_check,
+            lightning_strike_count_qc_persistence_check,
+            x_orientation_angle_qc_range_check,
+            x_orientation_angle_qc_spike_dip_check,
+            y_orientation_angle_qc_range_check,
+            y_orientation_angle_qc_spike_dip_check,
+            black_globe_temperature_qc_range_check,
+            black_globe_temperature_qc_persistence_check,
+            black_globe_temperature_qc_spike_dip_check,
+            qc_flagged,
+            air_temperature_qc_isolated_check,
+            air_temperature_qc_buddy_check,
+            relative_humidity_qc_isolated_check,
+            relative_humidity_qc_buddy_check,
+            atmospheric_pressure_qc_isolated_check,
+            atmospheric_pressure_qc_buddy_check,
             battery_voltage,
             protocol_version
-        FROM biomet_data INNER JOIN station USING(station_id)
-        ORDER BY station_id, measured_at DESC
+        FROM biomet_data
+            INNER JOIN station ON biomet_data.station_id = station.station_id
+            LEFT OUTER JOIN buddy_check_qc ON (
+                biomet_data.station_id = buddy_check_qc.station_id AND
+                biomet_data.measured_at = buddy_check_qc.measured_at
+            )
+        ORDER BY biomet_data.station_id, biomet_data.measured_at DESC
     )
     UNION ALL
     (
         SELECT DISTINCT ON (station_id)
-            station_id,
+            temp_rh_data.station_id,
             long_name,
             latitude,
             longitude,
@@ -1503,7 +1563,7 @@ class LatestData(
             district,
             lcz,
             station_type,
-            measured_at,
+            temp_rh_data.measured_at,
             air_temperature,
             relative_humidity,
             dew_point,
@@ -1534,11 +1594,62 @@ class LatestData(
             NULL,
             NULL,
             NULL,
+            air_temperature_qc_range_check,
+            air_temperature_qc_persistence_check,
+            air_temperature_qc_spike_dip_check,
+            relative_humidity_qc_range_check,
+            relative_humidity_qc_persistence_check,
+            relative_humidity_qc_spike_dip_check,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            qc_flagged,
+            air_temperature_qc_isolated_check,
+            air_temperature_qc_buddy_check,
+            relative_humidity_qc_isolated_check,
+            relative_humidity_qc_buddy_check,
+            NULL,
+            NULL,
             battery_voltage,
             protocol_version
-        FROM temp_rh_data INNER JOIN station USING(station_id)
+        FROM temp_rh_data
+            INNER JOIN station ON temp_rh_data.station_id = station.station_id
+            LEFT OUTER JOIN buddy_check_qc ON (
+                temp_rh_data.station_id = buddy_check_qc.station_id AND
+                temp_rh_data.measured_at = buddy_check_qc.measured_at
+            )
         WHERE station.station_type <> 'double'
-        ORDER BY station_id, measured_at DESC
+        ORDER BY temp_rh_data.station_id, temp_rh_data.measured_at DESC
     )
     ''')
 
@@ -1583,6 +1694,49 @@ class LatestData(
             f'black_globe_temperature={self.black_globe_temperature!r}, '
             f'thermistor_resistance={self.thermistor_resistance!r}, '
             f'voltage_ratio={self.voltage_ratio!r}, '
+            f'air_temperature_qc_range_check={self.air_temperature_qc_range_check!r}, '
+            f'air_temperature_qc_persistence_check={self.air_temperature_qc_persistence_check!r}, '  # noqa: E501
+            f'air_temperature_qc_spike_dip_check={self.air_temperature_qc_spike_dip_check!r}, '  # noqa: E501
+            f'relative_humidity_qc_range_check={self.relative_humidity_qc_range_check!r}, '  # noqa: E501
+            f'relative_humidity_qc_persistence_check={self.relative_humidity_qc_persistence_check!r}, '  # noqa: E501
+            f'relative_humidity_qc_spike_dip_check={self.relative_humidity_qc_spike_dip_check!r}, '  # noqa: E501
+            f'atmospheric_pressure_qc_range_check={self.atmospheric_pressure_qc_range_check!r}, '  # noqa: E501
+            f'atmospheric_pressure_qc_persistence_check={self.atmospheric_pressure_qc_persistence_check!r}, '  # noqa: E501
+            f'atmospheric_pressure_qc_spike_dip_check={self.atmospheric_pressure_qc_spike_dip_check!r}, '  # noqa: E501
+            f'wind_speed_qc_range_check={self.wind_speed_qc_range_check!r}, '
+            f'wind_speed_qc_persistence_check={self.wind_speed_qc_persistence_check!r}, '  # noqa: E501
+            f'wind_speed_qc_spike_dip_check={self.wind_speed_qc_spike_dip_check!r}, '
+            f'wind_direction_qc_range_check={self.wind_direction_qc_range_check!r}, '
+            f'wind_direction_qc_persistence_check={self.wind_direction_qc_persistence_check!r}, '  # noqa: E501
+            f'u_wind_qc_range_check={self.u_wind_qc_range_check!r}, '
+            f'u_wind_qc_persistence_check={self.u_wind_qc_persistence_check!r}, '
+            f'u_wind_qc_spike_dip_check={self.u_wind_qc_spike_dip_check!r}, '
+            f'v_wind_qc_range_check={self.v_wind_qc_range_check!r}, '
+            f'v_wind_qc_persistence_check={self.v_wind_qc_persistence_check!r}, '
+            f'v_wind_qc_spike_dip_check={self.v_wind_qc_spike_dip_check!r}, '
+            f'maximum_wind_speed_qc_range_check={self.maximum_wind_speed_qc_range_check!r}, '  # noqa: E501
+            f'maximum_wind_speed_qc_persistence_check={self.maximum_wind_speed_qc_persistence_check!r}, '  # noqa: E501
+            f'precipitation_sum_qc_range_check={self.precipitation_sum_qc_range_check!r}, '  # noqa: E501
+            f'precipitation_sum_qc_persistence_check={self.precipitation_sum_qc_persistence_check!r}, '  # noqa: E501
+            f'precipitation_sum_qc_spike_dip_check={self.precipitation_sum_qc_spike_dip_check!r}, '  # noqa: E501
+            f'solar_radiation_qc_range_check={self.solar_radiation_qc_range_check!r}, '  # noqa: E501
+            f'solar_radiation_qc_persistence_check={self.solar_radiation_qc_persistence_check!r}, '  # noqa: E501
+            f'solar_radiation_qc_spike_dip_check={self.solar_radiation_qc_spike_dip_check!r}, '  # noqa: E501
+            f'lightning_average_distance_qc_range_check={self.lightning_average_distance_qc_range_check!r}, '  # noqa: E501
+            f'lightning_average_distance_qc_persistence_check={self.lightning_average_distance_qc_persistence_check!r}, '  # noqa: E501
+            f'lightning_strike_count_qc_range_check={self.lightning_strike_count_qc_range_check!r}, '  # noqa: E501
+            f'lightning_strike_count_qc_persistence_check={self.lightning_strike_count_qc_persistence_check!r}, '  # noqa: E501
+            f'x_orientation_angle_qc_range_check={self.x_orientation_angle_qc_range_check!r}, '  # noqa: E501
+            f'x_orientation_angle_qc_spike_dip_check={self.x_orientation_angle_qc_spike_dip_check!r}, '  # noqa: E501
+            f'y_orientation_angle_qc_range_check={self.y_orientation_angle_qc_range_check!r}, '  # noqa: E501
+            f'y_orientation_angle_qc_spike_dip_check={self.y_orientation_angle_qc_spike_dip_check!r}, '  # noqa: E501
+            f'qc_flagged={self.qc_flagged!r}, '
+            f'air_temperature_qc_isolated_check{self.air_temperature_qc_isolated_check!r}, '  # noqa: E501
+            f'air_temperature_qc_buddy_check{self.air_temperature_qc_buddy_check!r}, '
+            f'relative_humidity_qc_isolated_check{self.relative_humidity_qc_isolated_check!r}, '  # noqa: E501
+            f'relative_humidity_qc_buddy_check{self.relative_humidity_qc_buddy_check!r}, '  # noqa: E501
+            f'atmospheric_pressure_qc_isolated_check{self.atmospheric_pressure_qc_isolated_check!r}, '  # noqa: E501
+            f'atmospheric_pressure_qc_buddy_check{self.atmospheric_pressure_qc_buddy_check!r}, '  # noqa: E501
             f'battery_voltage={self.battery_voltage!r}, '
             f'protocol_version={self.protocol_version!r}'
             f')'
