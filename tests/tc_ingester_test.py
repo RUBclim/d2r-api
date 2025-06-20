@@ -1,10 +1,15 @@
 import functools
+import shutil
+from pathlib import Path
 from typing import Any
 
+import freezegun
 import pytest
+from pytest import CaptureFixture
 from terracotta.drivers import TerracottaDriver
 
 from app.tc_ingester import _RasterKeys
+from app.tc_ingester import apply_raster_lifecycle
 from app.tc_ingester import ingest_raster
 from app.tc_ingester import InvalidRasterError
 
@@ -423,3 +428,126 @@ def test_ingest_raster_metadata_computed_correctly_categorized_raster(
     metadata = raster_driver.get_metadata(keys=(param, '2025', '113', '12'))
     custom_metadata = metadata['metadata']
     assert custom_metadata == expected_metadata
+
+
+@freezegun.freeze_time('2025-06-17 18:30')  # doy 168
+def test_apply_raster_lifecycle(
+        raster_driver: TerracottaDriver,
+        tmp_path: Path,
+) -> None:
+    # prepare a few datasets to add to the database
+    keys = (
+        ('PET', '2025', '165', '20'),  # still ok
+        ('MRT', '2025', '165', '17'),  # not ok
+        ('UTCI', '2025', '110', '17'),  # way too old
+    )
+    for k in keys:
+        fname = f'{k[0]}_{k[1]}_{k[2]}_{k[3]}_v0.7.2_cog.tif'
+        shutil.copy(
+            'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
+            tmp_path / fname,
+        )
+        raster_driver.insert(keys=k, path=str(tmp_path / fname))
+
+    ds = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    assert ds == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
+    apply_raster_lifecycle(days=3)
+    ds_after = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    assert ds_after == [('PET', '2025', '165', '20')]
+
+
+@freezegun.freeze_time('2025-06-17 18:30')  # doy 168
+def test_apply_raster_lifecycle_file_does_not_exist(
+        raster_driver: TerracottaDriver,
+        tmp_path: Path,
+        capsys: CaptureFixture,
+) -> None:
+    # prepare a few datasets to add to the database
+    keys = (
+        ('PET', '2025', '165', '20'),  # still ok
+        ('MRT', '2025', '165', '17'),  # not ok
+        ('UTCI', '2025', '110', '17'),  # way too old
+    )
+    for k in keys:
+        fname = f'{k[0]}_{k[1]}_{k[2]}_{k[3]}_v0.7.2_cog.tif'
+        shutil.copy(
+            'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
+            tmp_path / fname,
+        )
+        raster_driver.insert(keys=k, path=str(tmp_path / fname))
+        (tmp_path / fname).unlink()
+
+    ds = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    assert ds == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
+    apply_raster_lifecycle(days=3)
+    ds_after = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    # make sure nothing was deleted
+    assert ds_after == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
+    # make sure the warning was printed
+    std, _ = capsys.readouterr()
+    assert 'MRT_2025_165_17_v0.7.2_cog.tif does not exist, skipping deletion' in std
+    assert 'UTCI_2025_110_17_v0.7.2_cog.tif does not exist, skipping deletion' in std
+
+
+@freezegun.freeze_time('2025-06-17 18:30')  # doy 168
+def test_apply_raster_lifecycle_force_file_does_not_exist(
+        raster_driver: TerracottaDriver,
+        tmp_path: Path,
+) -> None:
+    # prepare a few datasets to add to the database
+    keys = (
+        ('PET', '2025', '165', '20'),  # still ok
+        ('MRT', '2025', '165', '17'),  # not ok
+        ('UTCI', '2025', '110', '17'),  # way too old
+    )
+    for k in keys:
+        fname = f'{k[0]}_{k[1]}_{k[2]}_{k[3]}_v0.7.2_cog.tif'
+        shutil.copy(
+            'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
+            tmp_path / fname,
+        )
+        raster_driver.insert(keys=k, path=str(tmp_path / fname))
+        (tmp_path / fname).unlink()
+
+    ds = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    assert ds == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
+    apply_raster_lifecycle(days=3, force=True)
+    ds_after = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    # make sure nothing was deleted
+    assert ds_after == [
+        ('PET', '2025', '165', '20'),
+    ]

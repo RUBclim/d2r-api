@@ -63,6 +63,7 @@ from app.models import UTCI_STRESS_CATEGORIES
 from app.qc import apply_buddy_check
 from app.qc import apply_qc
 from app.qc import BUDDY_CHECK_COLUMNS
+from app.tc_ingester import apply_raster_lifecycle
 
 
 # https://github.com/sbdchd/celery-types/issues/80
@@ -107,6 +108,12 @@ def setup_periodic_tasks(
         # once a day refresh all views in case something was changed in older data
         refresh_all_views.s(),
         name='refresh-all-views-periodic',
+        expires=60*60,
+    )
+    sender.add_periodic_task(
+        crontab(minute='34', hour='*/1'),
+        apply_raster_lifecycle.s(days=int(os.environ['RASTER_LIFECYCLE_DAYS'])),
+        name='apply-raster-lifecycle-periodic',
         expires=60*60,
     )
 

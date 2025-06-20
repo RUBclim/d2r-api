@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from typing import NamedTuple
 from typing import TypedDict
 
@@ -210,3 +213,46 @@ def ingest_raster(path: str, override_path: str = '') -> None:
             override_path=raster_info['override_path'],
             metadata=metadata,
         )
+
+
+@celery_app.task(name='raster-lifecycle')
+def apply_raster_lifecycle(days: int, force: bool = False) -> None:
+    """Apply the raster lifecycle to the datasets in the database.
+    This will delete datasets that are older than the configured amount of days
+
+    :param days: the number of days to keep the datasets
+    :param override_path: if set, the path to the dataset in the container will be
+        overridden with this path
+    :param dry_run: if set, the datasets will not be deleted, but only logged
+    :param force: if set, the datasets will be deleted from the metadata store even if
+        the raster file does not exist in the filesystem
+    """
+    driver = get_driver()
+    cut_off_date = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    # check every dataset in the database if it is older than the cut-off date
+    for (param, year, doy, hour), path in driver.get_datasets().items():
+        ds_date = datetime.strptime(f"{year}-{doy} {hour}:00", '%Y-%j %H:%M').replace(
+            tzinfo=timezone.utc,
+        )
+        if ds_date < cut_off_date:
+            # before deleting the dataset, make sure the raster actually exists
+            if force is False and not os.path.exists(path):
+                print(f"Dataset {path} does not exist, skipping deletion")
+                continue
+            # delete the dataset from the metadata store
+            driver.delete(
+                keys={
+                    'param': param,
+                    'year': year,
+                    'doy': doy,
+                    'hour': hour,
+                },
+            )
+            # delete the dataset from the filesystem
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                if force is True:
+                    print(f"File {path} does not exist, but force is set, continuing")
+                else:
+                    raise
