@@ -11,6 +11,7 @@ from typing import Literal
 from typing import NamedTuple
 
 from sqlalchemy import Column
+from sqlalchemy import Date
 from sqlalchemy import func
 from sqlalchemy import Function
 from sqlalchemy import Index
@@ -30,18 +31,24 @@ from app.models import TempRHData
 
 # definition of template strings for generating SQL code
 _VIEW_TEMPLATE_BASE = '''
-CREATE MATERIALIZED VIEW IF NOT EXISTS {view_name} AS
 WITH data_bounds AS (
     SELECT
         station_id,
         MIN(measured_at) AS start_time,
         MAX(measured_at) AS end_time
     FROM {target_table}
+    WHERE measured_at BETWEEN :window_start AND :window_end
     GROUP BY station_id
 ), filling_time_series AS (
     SELECT generate_series(
-        DATE_TRUNC('hour', (SELECT MIN(measured_at) FROM {target_table})),
-        DATE_TRUNC('hour', (SELECT MAX(measured_at) FROM {target_table}) + '1 hour'::INTERVAL),
+        DATE_TRUNC('hour', (
+            SELECT MIN(measured_at) FROM {target_table}
+            WHERE measured_at BETWEEN :window_start AND :window_end)
+        ),
+        DATE_TRUNC('hour', (
+            SELECT MAX(measured_at) FROM {target_table}
+            WHERE measured_at BETWEEN :window_start AND :window_end) + '1 hour'::INTERVAL
+        ),
         '1 hour'::INTERVAL
     ) AS measured_at
 ),
@@ -76,6 +83,7 @@ time_station_combinations AS (
             station_id,
 {basic_column_names}
         FROM {target_table}
+        WHERE measured_at BETWEEN :window_start AND :window_end
     )
 ) SELECT
     {time_bucket_function} AS measured_at,
@@ -121,8 +129,8 @@ class {view_name}{inherits}:
             f')'
         )
 
-    creation_sql = text('''\\{creation_sql}
-    '''){noqa}
+    creation_sql = '''\\{creation_sql}
+    '''{noqa}
 """
 
 
@@ -139,6 +147,8 @@ class Col(NamedTuple):
     total_vals: int = 1
     skip_py: bool = False
     threshold: float = 0.0
+    args: tuple[Any, ...] | None = None
+    kwargs: dict[str, Any] | None = None
 
     @property
     def full_name(self) -> str:
@@ -199,6 +209,11 @@ class Col(NamedTuple):
         if not doc:
             doc = comment
         args = []
+        if self.args is not None:
+            for arg in self.args:
+                args.append(
+                    f'{arg!r}',
+                )
         if nullable is not None:
             args.append(f'nullable={nullable!r}')
         if comment is not None:
@@ -214,6 +229,9 @@ class Col(NamedTuple):
             else:
                 doc = f"{doc!r}"
             args.append(f'doc={doc}')
+        if self.kwargs is not None:
+            for k, v in self.kwargs.items():
+                args.append(f'{k}={v!r}')
 
         row = ATTR_TEMPLATE.format(
             attr_name=self.full_name,
@@ -236,6 +254,7 @@ def generate_sql_aggregate(
         target_agg: Literal['daily', 'hourly'],
 ) -> str:
     """Generate a SQL definition for a materialized view"""
+    columns = sorted(columns, key=lambda x: x.full_name)
     basic_columns = [
         i for i in columns if not i.full_name.endswith(('_min', '_max'))
     ]
@@ -334,7 +353,9 @@ def generate_sqlalchemy_class(
         Col(
             name='measured_at',
             sqlalchemy_col=table.measured_at,
-            skip_py=avgs_defined_by_inheritance,
+            skip_py=True if target_agg == 'hourly' else False,
+            kwargs={'primary_key': True},
+            args=(Date(),) if target_agg == 'daily' else None,
         ),
         *sorted_cols,
     ]

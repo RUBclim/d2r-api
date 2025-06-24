@@ -13,6 +13,7 @@ from app.models import BiometData
 from app.models import BiometDataDaily
 from app.models import BiometDataHourly
 from app.models import BLGDataRaw
+from app.models import HeatStressCategories
 from app.models import LatestData
 from app.models import Sensor
 from app.models import SensorDeployment
@@ -855,3 +856,391 @@ async def test_generated_qc_flag_is_true_when_single_test_failed(
     db.add(biomet_data)
     await db.commit()
     assert biomet_data.qc_flagged is True
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_temp_rh_data_hourly_view_order_is_correct(db: AsyncSession) -> None:
+    d = TempRHData(
+        measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+        station_id='DOB1',
+        sensor_id='DEC1',
+        air_temperature_raw=0,
+        air_temperature=1,
+        relative_humidity_raw=2,
+        relative_humidity=3,
+        dew_point=4,
+        absolute_humidity=5,
+        specific_humidity=6,
+        heat_index=7,
+        wet_bulb_temperature=8,
+        battery_voltage=9,
+        protocol_version=10,
+    )
+    db.add(d)
+    await db.commit()
+    await TempRHDataHourly.refresh()
+    q = select(TempRHDataHourly)
+    result = (await db.execute(q)).scalar_one()
+
+    # this way it's easier to find where it differs
+    assert result.measured_at == datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc)
+    assert result.absolute_humidity == Decimal('5.0')
+    assert result.absolute_humidity_min == Decimal('5.0')
+    assert result.absolute_humidity_max == Decimal('5.0')
+    assert result.air_temperature == Decimal('1.0')
+    assert result.air_temperature_min == Decimal('1.0')
+    assert result.air_temperature_max == Decimal('1.0')
+    assert result.air_temperature_raw == Decimal('0.0')
+    assert result.air_temperature_raw_min == Decimal('0.0')
+    assert result.air_temperature_raw_max == Decimal('0.0')
+    assert result.battery_voltage == Decimal('9.0')
+    assert result.battery_voltage_min == Decimal('9.0')
+    assert result.battery_voltage_max == Decimal('9.0')
+    assert result.dew_point == Decimal('4.0')
+    assert result.dew_point_min == Decimal('4.0')
+    assert result.dew_point_max == Decimal('4.0')
+    assert result.heat_index == Decimal('7.0')
+    assert result.heat_index_min == Decimal('7.0')
+    assert result.heat_index_max == Decimal('7.0')
+    assert result.protocol_version == 10
+    assert result.relative_humidity == Decimal('3.0')
+    assert result.relative_humidity_min == Decimal('3.0')
+    assert result.relative_humidity_max == Decimal('3.0')
+    assert result.relative_humidity_raw == Decimal('2.0')
+    assert result.relative_humidity_raw_min == Decimal('2.0')
+    assert result.relative_humidity_raw_max == Decimal('2.0')
+    assert result.specific_humidity == Decimal('6.0')
+    assert result.specific_humidity_min == Decimal('6.0')
+    assert result.specific_humidity_max == Decimal('6.0')
+    assert result.wet_bulb_temperature == Decimal('8.0')
+    assert result.wet_bulb_temperature_min == Decimal('8.0')
+    assert result.wet_bulb_temperature_max == Decimal('8.0')
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_temp_rh_data_daily_view_order_is_correct(db: AsyncSession) -> None:
+    for i in range(250):
+        diff = timedelta(minutes=5 * i)
+        d = TempRHData(
+            measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + diff,
+            station_id='DOB1',
+            sensor_id='DEC1',
+            air_temperature_raw=0,
+            air_temperature=1,
+            relative_humidity_raw=2,
+            relative_humidity=3,
+            dew_point=4,
+            absolute_humidity=5,
+            specific_humidity=6,
+            heat_index=7,
+            wet_bulb_temperature=8,
+            battery_voltage=9,
+            protocol_version=10,
+        )
+        db.add(d)
+    await db.commit()
+    await TempRHDataDaily.refresh()
+    q = select(TempRHDataDaily)
+    result = (await db.execute(q)).scalar_one()
+
+    # this way it's easier to find where it differs
+    assert result.measured_at == date(2024, 1, 1)
+    assert result.absolute_humidity == Decimal('5.0')
+    assert result.absolute_humidity_min == Decimal('5.0')
+    assert result.absolute_humidity_max == Decimal('5.0')
+    assert result.air_temperature == Decimal('1.0')
+    assert result.air_temperature_min == Decimal('1.0')
+    assert result.air_temperature_max == Decimal('1.0')
+    assert result.air_temperature_raw == Decimal('0.0')
+    assert result.air_temperature_raw_min == Decimal('0.0')
+    assert result.air_temperature_raw_max == Decimal('0.0')
+    assert result.battery_voltage == Decimal('9.0')
+    assert result.battery_voltage_min == Decimal('9.0')
+    assert result.battery_voltage_max == Decimal('9.0')
+    assert result.dew_point == Decimal('4.0')
+    assert result.dew_point_min == Decimal('4.0')
+    assert result.dew_point_max == Decimal('4.0')
+    assert result.heat_index == Decimal('7.0')
+    assert result.heat_index_min == Decimal('7.0')
+    assert result.heat_index_max == Decimal('7.0')
+    assert result.protocol_version == 10
+    assert result.relative_humidity == Decimal('3.0')
+    assert result.relative_humidity_min == Decimal('3.0')
+    assert result.relative_humidity_max == Decimal('3.0')
+    assert result.relative_humidity_raw == Decimal('2.0')
+    assert result.relative_humidity_raw_min == Decimal('2.0')
+    assert result.relative_humidity_raw_max == Decimal('2.0')
+    assert result.specific_humidity == Decimal('6.0')
+    assert result.specific_humidity_min == Decimal('6.0')
+    assert result.specific_humidity_max == Decimal('6.0')
+    assert result.wet_bulb_temperature == Decimal('8.0')
+    assert result.wet_bulb_temperature_min == Decimal('8.0')
+    assert result.wet_bulb_temperature_max == Decimal('8.0')
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_biomet_data_hourly_view_order_is_correct(db: AsyncSession) -> None:
+    d = BiometData(
+        measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc),
+        station_id='DOB1',
+        sensor_id='DEC1',
+        air_temperature=1,
+        relative_humidity=3,
+        dew_point=4,
+        absolute_humidity=5,
+        specific_humidity=6,
+        heat_index=7,
+        wet_bulb_temperature=8,
+        battery_voltage=9,
+        protocol_version=10,
+        atmospheric_pressure=11,
+        vapor_pressure=12,
+        wind_speed=13,
+        wind_direction=14,
+        u_wind=15,
+        v_wind=16,
+        maximum_wind_speed=17,
+        precipitation_sum=18,
+        solar_radiation=19,
+        lightning_average_distance=20,
+        lightning_strike_count=21,
+        x_orientation_angle=22,
+        y_orientation_angle=23,
+        black_globe_temperature=24,
+        thermistor_resistance=25,
+        voltage_ratio=26,
+        mrt=27,
+        utci=28,
+        utci_category=HeatStressCategories.extreme_heat_stress,
+        pet=29,
+        pet_category=HeatStressCategories.extreme_heat_stress,
+        atmospheric_pressure_reduced=30,
+        blg_battery_voltage=31,
+    )
+    db.add(d)
+    await db.commit()
+    await BiometDataHourly.refresh()
+    q = select(BiometDataHourly)
+    result = (await db.execute(q)).scalar_one()
+
+    # this way it's easier to find where it differs
+    assert result.measured_at == datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc)
+    assert result.absolute_humidity == Decimal('5.0')
+    assert result.absolute_humidity_min == Decimal('5.0')
+    assert result.absolute_humidity_max == Decimal('5.0')
+    assert result.air_temperature == Decimal('1.0')
+    assert result.air_temperature_min == Decimal('1.0')
+    assert result.air_temperature_max == Decimal('1.0')
+    assert result.battery_voltage == Decimal('9.0')
+    assert result.battery_voltage_min == Decimal('9.0')
+    assert result.battery_voltage_max == Decimal('9.0')
+    assert result.dew_point == Decimal('4.0')
+    assert result.dew_point_min == Decimal('4.0')
+    assert result.dew_point_max == Decimal('4.0')
+    assert result.heat_index == Decimal('7.0')
+    assert result.heat_index_min == Decimal('7.0')
+    assert result.heat_index_max == Decimal('7.0')
+    assert result.protocol_version == 10
+    assert result.relative_humidity == Decimal('3.0')
+    assert result.relative_humidity_min == Decimal('3.0')
+    assert result.relative_humidity_max == Decimal('3.0')
+    assert result.specific_humidity == Decimal('6.0')
+    assert result.specific_humidity_min == Decimal('6.0')
+    assert result.specific_humidity_max == Decimal('6.0')
+    assert result.wet_bulb_temperature == Decimal('8.0')
+    assert result.wet_bulb_temperature_min == Decimal('8.0')
+    assert result.wet_bulb_temperature_max == Decimal('8.0')
+    assert result.atmospheric_pressure == Decimal('11.0')
+    assert result.atmospheric_pressure_min == Decimal('11.0')
+    assert result.atmospheric_pressure_max == Decimal('11.0')
+    assert result.vapor_pressure == Decimal('12.0')
+    assert result.vapor_pressure_min == Decimal('12.0')
+    assert result.vapor_pressure_max == Decimal('12.0')
+    assert result.wind_speed == Decimal('13.0')
+    assert result.wind_speed_min == Decimal('13.0')
+    assert result.wind_speed_max == Decimal('13.0')
+    assert result.wind_direction == Decimal('14.0')
+    assert result.u_wind == Decimal('15.0')
+    assert result.u_wind_min == Decimal('15.0')
+    assert result.u_wind_max == Decimal('15.0')
+    assert result.v_wind == Decimal('16.0')
+    assert result.v_wind_min == Decimal('16.0')
+    assert result.v_wind_max == Decimal('16.0')
+    assert result.maximum_wind_speed == Decimal('17.0')
+    assert result.precipitation_sum == Decimal('18.0')
+    assert result.solar_radiation == Decimal('19.0')
+    assert result.solar_radiation_min == Decimal('19.0')
+    assert result.solar_radiation_max == Decimal('19.0')
+    assert result.lightning_average_distance == Decimal('20.0')
+    assert result.lightning_average_distance_min == Decimal('20.0')
+    assert result.lightning_average_distance_max == Decimal('20.0')
+    assert result.lightning_strike_count == Decimal('21.0')
+    assert result.x_orientation_angle == Decimal('22.0')
+    assert result.x_orientation_angle_min == Decimal('22.0')
+    assert result.x_orientation_angle_max == Decimal('22.0')
+    assert result.y_orientation_angle == Decimal('23.0')
+    assert result.y_orientation_angle_min == Decimal('23.0')
+    assert result.y_orientation_angle_max == Decimal('23.0')
+    assert result.black_globe_temperature == Decimal('24.0')
+    assert result.black_globe_temperature_min == Decimal('24.0')
+    assert result.black_globe_temperature_max == Decimal('24.0')
+    assert result.thermistor_resistance == Decimal('25.0')
+    assert result.thermistor_resistance_min == Decimal('25.0')
+    assert result.thermistor_resistance_max == Decimal('25.0')
+    assert result.voltage_ratio == Decimal('26.0')
+    assert result.voltage_ratio_min == Decimal('26.0')
+    assert result.voltage_ratio_max == Decimal('26.0')
+    assert result.mrt == Decimal('27.0')
+    assert result.mrt_min == Decimal('27.0')
+    assert result.mrt_max == Decimal('27.0')
+    assert result.utci == Decimal('28.0')
+    assert result.utci_min == Decimal('28.0')
+    assert result.utci_max == Decimal('28.0')
+    assert result.utci_category == HeatStressCategories.extreme_heat_stress
+    assert result.pet == Decimal('29.0')
+    assert result.pet_min == Decimal('29.0')
+    assert result.pet_max == Decimal('29.0')
+    assert result.pet_category == HeatStressCategories.extreme_heat_stress
+    assert result.atmospheric_pressure_reduced == Decimal('30.0')
+    assert result.atmospheric_pressure_reduced_min == Decimal('30.0')
+    assert result.atmospheric_pressure_reduced_max == Decimal('30.0')
+    assert result.blg_battery_voltage == Decimal('31.0')
+    assert result.blg_battery_voltage_min == Decimal('31.0')
+    assert result.blg_battery_voltage_max == Decimal('31.0')
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_biomet_data_daily_view_order_is_correct(db: AsyncSession) -> None:
+    for i in range(250):
+        diff = timedelta(minutes=5 * i)
+        d = BiometData(
+            measured_at=datetime(2024, 1, 1, 0, tzinfo=timezone.utc) + diff,
+            station_id='DOB1',
+            sensor_id='DEC1',
+            air_temperature=32,
+            relative_humidity=3,
+            dew_point=4,
+            absolute_humidity=5,
+            specific_humidity=6,
+            heat_index=7,
+            wet_bulb_temperature=8,
+            battery_voltage=9,
+            protocol_version=10,
+            atmospheric_pressure=11,
+            vapor_pressure=12,
+            wind_speed=13,
+            wind_direction=14,
+            u_wind=15,
+            v_wind=16,
+            maximum_wind_speed=17,
+            precipitation_sum=0,
+            solar_radiation=19,
+            lightning_average_distance=20,
+            lightning_strike_count=1,
+            x_orientation_angle=22,
+            y_orientation_angle=23,
+            black_globe_temperature=24,
+            thermistor_resistance=25,
+            voltage_ratio=26,
+            mrt=27,
+            utci=28,
+            utci_category=HeatStressCategories.extreme_heat_stress,
+            pet=29,
+            pet_category=HeatStressCategories.extreme_heat_stress,
+            atmospheric_pressure_reduced=30,
+            blg_battery_voltage=31,
+        )
+        db.add(d)
+    await db.commit()
+    await BiometDataDaily.refresh()
+    q = select(BiometDataDaily)
+    result = (await db.execute(q)).scalar_one()
+
+    # this way it's easier to find where it differs
+    assert result.measured_at == date(2024, 1, 1)
+    assert result.absolute_humidity == Decimal('5.0')
+    assert result.absolute_humidity_min == Decimal('5.0')
+    assert result.absolute_humidity_max == Decimal('5.0')
+    assert result.air_temperature == Decimal('32.0')
+    assert result.air_temperature_min == Decimal('32.0')
+    assert result.air_temperature_max == Decimal('32.0')
+    assert result.battery_voltage == Decimal('9.0')
+    assert result.battery_voltage_min == Decimal('9.0')
+    assert result.battery_voltage_max == Decimal('9.0')
+    assert result.dew_point == Decimal('4.0')
+    assert result.dew_point_min == Decimal('4.0')
+    assert result.dew_point_max == Decimal('4.0')
+    assert result.heat_index == Decimal('7.0')
+    assert result.heat_index_min == Decimal('7.0')
+    assert result.heat_index_max == Decimal('7.0')
+    assert result.protocol_version == 10
+    assert result.relative_humidity == Decimal('3.0')
+    assert result.relative_humidity_min == Decimal('3.0')
+    assert result.relative_humidity_max == Decimal('3.0')
+    assert result.specific_humidity == Decimal('6.0')
+    assert result.specific_humidity_min == Decimal('6.0')
+    assert result.specific_humidity_max == Decimal('6.0')
+    assert result.wet_bulb_temperature == Decimal('8.0')
+    assert result.wet_bulb_temperature_min == Decimal('8.0')
+    assert result.wet_bulb_temperature_max == Decimal('8.0')
+    assert result.atmospheric_pressure == Decimal('11.0')
+    assert result.atmospheric_pressure_min == Decimal('11.0')
+    assert result.atmospheric_pressure_max == Decimal('11.0')
+    assert result.vapor_pressure == Decimal('12.0')
+    assert result.vapor_pressure_min == Decimal('12.0')
+    assert result.vapor_pressure_max == Decimal('12.0')
+    assert result.wind_speed == Decimal('13.0')
+    assert result.wind_speed_min == Decimal('13.0')
+    assert result.wind_speed_max == Decimal('13.0')
+    assert result.wind_direction == Decimal('14.0')
+    assert result.u_wind == Decimal('15.0')
+    assert result.u_wind_min == Decimal('15.0')
+    assert result.u_wind_max == Decimal('15.0')
+    assert result.v_wind == Decimal('16.0')
+    assert result.v_wind_min == Decimal('16.0')
+    assert result.v_wind_max == Decimal('16.0')
+    assert result.maximum_wind_speed == Decimal('17.0')
+    assert result.precipitation_sum == Decimal('0.0')
+    assert result.solar_radiation == Decimal('19.0')
+    assert result.solar_radiation_min == Decimal('19.0')
+    assert result.solar_radiation_max == Decimal('19.0')
+    assert result.lightning_average_distance == Decimal('20.0')
+    assert result.lightning_average_distance_min == Decimal('20.0')
+    assert result.lightning_average_distance_max == Decimal('20.0')
+    assert result.lightning_strike_count == Decimal('250.0')
+    assert result.x_orientation_angle == Decimal('22.0')
+    assert result.x_orientation_angle_min == Decimal('22.0')
+    assert result.x_orientation_angle_max == Decimal('22.0')
+    assert result.y_orientation_angle == Decimal('23.0')
+    assert result.y_orientation_angle_min == Decimal('23.0')
+    assert result.y_orientation_angle_max == Decimal('23.0')
+    assert result.black_globe_temperature == Decimal('24.0')
+    assert result.black_globe_temperature_min == Decimal('24.0')
+    assert result.black_globe_temperature_max == Decimal('24.0')
+    assert result.thermistor_resistance == Decimal('25.0')
+    assert result.thermistor_resistance_min == Decimal('25.0')
+    assert result.thermistor_resistance_max == Decimal('25.0')
+    assert result.voltage_ratio == Decimal('26.0')
+    assert result.voltage_ratio_min == Decimal('26.0')
+    assert result.voltage_ratio_max == Decimal('26.0')
+    assert result.mrt == Decimal('27.0')
+    assert result.mrt_min == Decimal('27.0')
+    assert result.mrt_max == Decimal('27.0')
+    assert result.utci == Decimal('28.0')
+    assert result.utci_min == Decimal('28.0')
+    assert result.utci_max == Decimal('28.0')
+    assert result.utci_category == HeatStressCategories.extreme_heat_stress
+    assert result.pet == Decimal('29.0')
+    assert result.pet_min == Decimal('29.0')
+    assert result.pet_max == Decimal('29.0')
+    assert result.pet_category == HeatStressCategories.extreme_heat_stress
+    assert result.atmospheric_pressure_reduced == Decimal('30.0')
+    assert result.atmospheric_pressure_reduced_min == Decimal('30.0')
+    assert result.atmospheric_pressure_reduced_max == Decimal('30.0')
+    assert result.blg_battery_voltage == Decimal('31.0')
+    assert result.blg_battery_voltage_min == Decimal('31.0')
+    assert result.blg_battery_voltage_max == Decimal('31.0')
