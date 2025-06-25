@@ -1316,14 +1316,6 @@ class StationParams(StationMetadata, Parameters, QCFlags):
     )
 
 
-class DistrictParams(Parameters):
-    """Parameters provided by a district"""
-    district: str = Field(
-        examples=['Innenstadt'],
-        description='The name of the city district',
-    )
-
-
 class StationData(Parameters, QCFlags, BuddyCheckQCFlags):
     """Data from a single station"""
     measured_at: datetime = Field(
