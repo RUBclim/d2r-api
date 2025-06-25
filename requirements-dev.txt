@@ -44,8 +44,8 @@ imagesize==1.4.1
 iniconfig==2.1.0
 itsdangerous==2.2.0
 jinja2==3.1.6
-locust==2.37.10
-locust-cloud==1.23.1
+locust==2.37.11
+locust-cloud==1.24.2
 markdown-it-py==3.0.0
 markupsafe==3.0.2
 mdit-py-plugins==0.4.2
@@ -54,7 +54,7 @@ more-itertools==10.7.0
 msgpack==1.1.1
 myst-parser==4.0.1
 natsort==8.4.0
-numpy==2.3.0
+numpy==2.3.1
 outcome==1.3.0.post0
 packaging==25.0
 pandas-stubs==2.2.3.250527
@@ -63,12 +63,12 @@ pluggy==1.6.0
 psutil==7.0.0
 pydantic==2.9.2
 pydantic-core==2.23.4
-pydantic-settings==2.9.1
-pygments==2.19.1
+pydantic-settings==2.10.1
+pygments==2.19.2
 pytest==8.4.1
 pytest-randomly==3.16.0
 python-dateutil==2.9.0.post0
-python-dotenv==1.1.0
+python-dotenv==1.1.1
 python-engineio==4.12.2
 python-socketio==5.13.0
 pyyaml==6.0.2
@@ -88,7 +88,7 @@ sphinx-autodoc-typehints==2.3.0
 sphinx-basic-ng==1.0.0b2
 sphinx-copybutton==0.5.2
 sphinx-jinja2-compat==0.3.0
-sphinx-prompt==1.8.0
+sphinx-prompt==1.10.0
 sphinx-sqlalchemy==0.3.0
 sphinx-tabs==3.4.5
 sphinx-toolbox==4.0.0
@@ -105,8 +105,8 @@ trio==0.30.0
 types-pytz==2025.2.0.20250516
 typing-extensions==4.14.0
 typing-inspection==0.4.1
-urllib3==2.4.0
-uv==0.7.13
+urllib3==2.5.0
+uv==0.7.14
 webencodings==0.5.1
 websocket-client==1.8.0
 werkzeug==3.1.3
