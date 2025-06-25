@@ -9,6 +9,7 @@ services:
           cpus: "4"
 
   app:
+    image: ghcr.io/rubclim/d2r-api:latest
     restart: always
     env_file:
       - .env.prod
@@ -49,6 +50,7 @@ services:
 
   celery:
     # TODO: this a bit fragile and may change based on the deployment
+    image: ghcr.io/rubclim/d2r-api:latest
     user: 1003:1004
     restart: always
     env_file:
@@ -74,6 +76,7 @@ services:
           memory: 2048M
 
   celery-beat:
+    image: ghcr.io/rubclim/d2r-api:latest
     env_file:
       - .env.prod
     command: [
@@ -98,6 +101,7 @@ services:
           memory: 200M
 
   terracotta-server:
+    image: ghcr.io/rubclim/d2r-api:latest
     env_file:
       - .env.prod
     command: [
