@@ -18,16 +18,13 @@ from fastapi import Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import and_
 from sqlalchemy import cast
-from sqlalchemy import Column
 from sqlalchemy import CompoundSelect
 from sqlalchemy import exists
 from sqlalchemy import func
-from sqlalchemy import Function
 from sqlalchemy import not_
 from sqlalchemy import Select
 from sqlalchemy import select
 from sqlalchemy import TIMESTAMP
-from sqlalchemy import WithinGroup
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -189,102 +186,18 @@ async def get_stations_latest_data(
 
 
 @router.get(
-    '/districts/latest_data',
-    response_model=Response[list[schemas.DistrictParams]],
-    response_model_exclude_unset=True,
-    tags=['districts'],
-    deprecated=True,
-)
-async def get_districts_latest_data(
-        param: list[PublicParamsBiomet] = Query(
-            description=(
-                'The parameter(-s) to get data for. Multiple parameters can be '
-                'specified. Only data from districts that provide all specified values '
-                'will be returned.'
-            ),
-        ),
-        max_age: timedelta = Query(timedelta(hours=1), description=MAX_AGE_DESCRIPTION),
-        db: AsyncSession = Depends(get_db_session),
-) -> Any:
-    """API-endpoint for getting the latest data on a per-district level. Only
-    districts that can provide all parameters are returned. The availability
-    depends on the `StationType`. Stations of type `StationType.biomet` support **all**
-    parameters, stations of type `StationType.temprh` only support a **subset** of
-    parameters, that can be derived from `air_temperature` and `relative_humidity`
-    which are:
-
-    - `air_temperature`
-    - `relative_humidity`
-    - `dew_point`
-    - `absolute_humidity`
-    - `heat_index`
-    - `wet_bulb_temperature`
-
-    If biomet-specific parameters are requested, only biomet stations are included in
-    the spatial aggregate. If both station types support the parameter all station types
-    are used.
-    """
-    if max_age.total_seconds() < 0:
-        raise HTTPException(status_code=422, detail='max_age must be positive')
-
-    query_parts = []
-    not_null_conditions = []
-    for p in param:
-        column: InstrumentedAttribute[Any] = getattr(LatestData, p)
-        query_part = get_aggregator(col=column, area_average=True).label(p)
-        not_null_conditions.append(column.isnot(None))
-        query_parts.append(query_part)
-
-    query = select(LatestData.district, *query_parts).where(
-        (LatestData.measured_at > datetime.now(tz=timezone.utc) - max_age) &
-        (LatestData.district.isnot(None)),
-        and_(*not_null_conditions),
-    ).group_by(LatestData.district).order_by(LatestData.district)
-    data = await db.execute(query)
-    return Response(data=data.mappings().all())
-
-
-def get_aggregator(
-        col: Column[Any] | InstrumentedAttribute[Any],
-        area_average: bool = False,
-) -> Function[Any] | WithinGroup[Any]:
-    """choose an appropriate aggregator based on the column name"""
-    if 'max' in col.name:
-        return func.max(col)
-    elif 'min' in col.name:
-        return func.min(col)
-    elif 'category' in col.name:
-        return func.mode().within_group(col.asc())
-    elif 'direction' in col.name:
-        return func.avg_angle(col)
-    elif ('sum' in col.name or 'count' in col.name) and not area_average:
-        return func.sum(col)
-    else:
-        return func.avg(col)
-
-
-@router.get(
     '/trends/{param}',
     response_model=Response[schemas.Trends],
-    tags=['districts', 'stations'],
+    tags=['stations'],
 )
 async def get_trends(
         param: PublicParamsAggBiomet | PublicParamsAggTempRH = Path(
             description=(
-                'The parameter to get data for. Only data from districts that provide '
+                'The parameter to get data for. Only data from stations that provide '
                 'the value will be returned.'
             ),
         ),
-        spatial_level: Literal['stations', 'districts'] = Query(
-            description=(
-                'Whether to get data for specific stations or all stations in a '
-                'district, aggregating them spatially.'
-            ),
-            deprecated=True,
-        ),
-        item_ids: list[str] = Query(
-            description='Either names of the districts or ids of the stations',
-        ),
+        item_ids: list[str] = Query(description='The ids of the stations'),
         start_date: datetime = Query(
             description=(
                 'Provide data only after this date and time (inclusive). The format '
@@ -329,150 +242,58 @@ async def get_trends(
         None,
     )
 
-    # we need to to do this completely different depending on whether stations or
-    # districts are requested
-    if spatial_level == 'stations':
-        # get the supported ids which are needed for the API return, probably for
-        # possible comparison
-        biomet_id_query = select(BiometDataHourly.station_id).distinct(
-            BiometDataHourly.station_id,
+    # get the supported ids which are needed for the API return, probably for
+    # possible comparison
+    biomet_id_query = select(BiometDataHourly.station_id).distinct(
+        BiometDataHourly.station_id,
+    ).where(
+        BiometDataHourly.measured_at.between(start_date, end_date) &
+        (column_biomet.is_not(None)),
+    )
+    supported_biomet_ids = set((await db.execute(biomet_id_query)).scalars().all())
+
+    # now get the data for the requested item_ids
+    query = select(
+        BiometDataHourly.measured_at,
+        BiometDataHourly.station_id.label('key'),
+        column_biomet.label('value'),
+    ).where(
+        BiometDataHourly.measured_at.between(start_date, end_date) &
+        BiometDataHourly.station_id.in_(item_ids) &
+        (func.extract('hour', BiometDataHourly.measured_at) == hour),
+    ).order_by(BiometDataHourly.station_id, column_biomet)
+    # if column_temp_rh is None, the entire station type is not supported, hence we
+    # can start with a default of an empty set and change it if needed.
+    supported_temp_rh_ids = set()
+    if column_temp_rh is not None:
+        temp_rh_id_query = select(TempRHDataHourly.station_id).distinct(
+            TempRHDataHourly.station_id.label('key'),
         ).where(
-            BiometDataHourly.measured_at.between(start_date, end_date) &
-            (column_biomet.is_not(None)),
+            TempRHDataHourly.measured_at.between(start_date, end_date) &
+            (column_temp_rh.is_not(None)),
         )
-        supported_biomet_ids = set((await db.execute(biomet_id_query)).scalars().all())
-
-        # now get the data for the requested item_ids
-        query = select(
-            BiometDataHourly.measured_at,
-            BiometDataHourly.station_id.label('key'),
-            column_biomet.label('value'),
-        ).where(
-            BiometDataHourly.measured_at.between(start_date, end_date) &
-            BiometDataHourly.station_id.in_(item_ids) &
-            (func.extract('hour', BiometDataHourly.measured_at) == hour),
-        ).order_by(BiometDataHourly.station_id, column_biomet)
-        # if column_temp_rh is None, the entire station type is not supported, hence we
-        # can start with a default of an empty set and change it if needed.
-        supported_temp_rh_ids = set()
-        if column_temp_rh is not None:
-            temp_rh_id_query = select(TempRHDataHourly.station_id).distinct(
-                TempRHDataHourly.station_id.label('key'),
-            ).where(
-                TempRHDataHourly.measured_at.between(start_date, end_date) &
-                (column_temp_rh.is_not(None)),
-            )
-            supported_temp_rh_ids = set(
-                (await db.execute(temp_rh_id_query)).scalars().all(),
-            )
-
-            # now get the data for the requested item_ids. We label this as value, so we
-            # can create key-value pairs later on
-            query_temp_rh = select(
-                TempRHDataHourly.measured_at,
-                TempRHDataHourly.station_id.label('key'),
-                column_temp_rh.label('value'),
-            ).where(
-                TempRHDataHourly.measured_at.between(start_date, end_date) &
-                TempRHDataHourly.station_id.in_(item_ids) &
-                (func.extract('hour', TempRHDataHourly.measured_at) == hour),
-            )
-            # we can safely combine both queries since we have this parameter at both
-            # types of stations
-            sub_query = query.union_all(query_temp_rh).subquery()
-            query = select(sub_query).order_by(sub_query.c.key, sub_query.c.value)
-
-        supported_ids = sorted(supported_biomet_ids | supported_temp_rh_ids)
-        data = await db.execute(query)
-    else:
-        # now the only other option are districts
-        # get the supported district names
-        biomet_districts_query = select(Station.district).distinct(
-            Station.district,
-        ).join(
-            BiometDataHourly, Station.station_id == BiometDataHourly.station_id,
-        ).where(
-            BiometDataHourly.measured_at.between(start_date, end_date) &
-            (column_biomet.is_not(None)),
-        )
-        supported_biomet_districts = set((
-            await db.execute(biomet_districts_query)
-        ).scalars().all())
-
-        # start with the biomet, since this type supports all params
-        biomet = select(
-            BiometDataHourly.measured_at,
-            Station.district,
-            column_biomet.label('value'),
-        ).join(
-            Station, Station.station_id == BiometDataHourly.station_id, isouter=True,
-        ).where(
-            BiometDataHourly.measured_at.between(start_date, end_date) &
-            Station.district.in_(item_ids) &
-            (func.extract('hour', BiometDataHourly.measured_at) == hour),
+        supported_temp_rh_ids = set(
+            (await db.execute(temp_rh_id_query)).scalars().all(),
         )
 
-        supported_temp_rh_districts = set()
-        if column_temp_rh is not None:
-            temp_rh_districts_query = select(Station.district).distinct(
-                Station.district,
-            ).join(
-                TempRHDataHourly, Station.station_id == TempRHDataHourly.station_id,
-            ).where(
-                TempRHDataHourly.measured_at.between(start_date, end_date) &
-                (column_temp_rh.is_not(None)),
-            )
-            supported_temp_rh_districts = set((
-                await db.execute(temp_rh_districts_query)
-            ).scalars().all())
-            # since we have data from both station types, we have to combine
-            # both datasets
-            temp_rh = select(
-                TempRHDataHourly.measured_at,
-                Station.district,
-                column_temp_rh.label('value'),
-            ).join(
-                Station, Station.station_id == TempRHDataHourly.station_id,
-                isouter=True,
-            ).where(
-                TempRHDataHourly.measured_at.between(start_date, end_date) &
-                Station.district.in_(item_ids) &
-                (func.extract('hour', TempRHDataHourly.measured_at) == hour),
-            )
-            # both have the same columns, so we can simply union both queries
-            all_data = biomet.union_all(temp_rh).subquery()
-            # finalize and aggregate on a district level based on the combined data
-            query = select(
-                all_data.c.measured_at,
-                all_data.c.district.label('key'),
-                func.avg(all_data.c.value).label('value'),
-            ).group_by(all_data.c.district, all_data.c.measured_at).order_by(
-                all_data.c.district,
-                all_data.c.measured_at,
-            )
-        else:
-            # we have no data from a temp_rh station, just query biomet
-            biomet_subquery = biomet.subquery()
-            agg_col: WithinGroup[Any] | Function[Any]
-            if 'max' in param:
-                agg_col = func.max(biomet_subquery.c.value)
-            elif 'category' in param:
-                agg_col = func.mode().within_group(biomet_subquery.c.value.asc())
-            elif 'direction' in param:
-                agg_col = func.avg_angle(biomet_subquery.c.value)
-            else:
-                agg_col = func.avg(biomet_subquery.c.value)
+        # now get the data for the requested item_ids. We label this as value, so we
+        # can create key-value pairs later on
+        query_temp_rh = select(
+            TempRHDataHourly.measured_at,
+            TempRHDataHourly.station_id.label('key'),
+            column_temp_rh.label('value'),
+        ).where(
+            TempRHDataHourly.measured_at.between(start_date, end_date) &
+            TempRHDataHourly.station_id.in_(item_ids) &
+            (func.extract('hour', TempRHDataHourly.measured_at) == hour),
+        )
+        # we can safely combine both queries since we have this parameter at both
+        # types of stations
+        sub_query = query.union_all(query_temp_rh).subquery()
+        query = select(sub_query).order_by(sub_query.c.key, sub_query.c.value)
 
-            query = select(
-                biomet_subquery.c.measured_at,
-                biomet_subquery.c.district.label('key'),
-                agg_col.label('value'),
-            ).group_by(
-                biomet_subquery.c.district, biomet_subquery.c.measured_at,
-            ).order_by(biomet_subquery.c.district, biomet_subquery.c.measured_at)
-
-        supported_ids = sorted(supported_biomet_districts | supported_temp_rh_districts)
-        data = await db.execute(query)
+    supported_ids = sorted(supported_biomet_ids | supported_temp_rh_ids)
+    data = await db.execute(query)
 
     # we now need to slightly change the format of the data for the schema we are
     # aiming for

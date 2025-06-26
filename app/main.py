@@ -72,10 +72,6 @@ def create_app() -> FastAPI:
                 'name': 'stations',
                 'description': 'operations on a per-station or all-stations level',
             },
-            {
-                'name': 'districts',
-                'description': 'operations on a per-district or all-districts level',
-            },
         ],
         lifespan=lifespan,
     )
