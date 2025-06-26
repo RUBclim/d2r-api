@@ -7,22 +7,16 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from psycopg.errors import DuplicateTable
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sqlalchemy import Table
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 
 from app import ALLOW_ORIGIN_REGEX
 from app.database import angle_avg_funcs
 from app.database import Base
 from app.database import sessionmanager
-from app.models import BiometDataDaily
-from app.models import BiometDataHourly
 from app.models import LatestData
-from app.models import TempRHDataDaily
-from app.models import TempRHDataHourly
 from app.routers import general
 from app.routers import v1
 from app.schemas import get_current_version
@@ -42,15 +36,7 @@ def create_app() -> FastAPI:
             # we need to exclude tables that actually represent views.
             # We trick sqlalchemy into thinking this was a table, but of course
             # we must prevent it trying to create it.
-            views: set[
-                type[
-                    LatestData | BiometDataHourly | BiometDataDaily | TempRHDataHourly |
-                    TempRHDataDaily
-                ]
-            ] = {
-                LatestData, BiometDataHourly, BiometDataDaily, TempRHDataHourly,
-                TempRHDataDaily,
-            }
+            views: set[type[LatestData]] = {LatestData}
             view_names = {n.__tablename__ for n in views}
             tables_to_create = [
                 v for k, v in Base.metadata.tables.items() if k not in view_names
@@ -61,19 +47,11 @@ def create_app() -> FastAPI:
         # create the views which cannot be created as part of a transaction
         async with sessionmanager.connect(as_transaction=False) as con:
             for v in views:
-                await con.execute(v.creation_sql)
+                await con.execute(text(v.creation_sql))
                 # create indexes for views
                 view_table_obj = cast(Table, v.__table__)
                 for idx in view_table_obj.indexes:
-                    try:
-                        await con.run_sync(idx.create, checkfirst=True)
-                    # timescale materialized views already have some indexes created by
-                    # default (i.e. on the temporal dimension)
-                    except ProgrammingError as e:
-                        if isinstance(e.orig, DuplicateTable):
-                            pass
-                        else:  # pragma: no cover
-                            raise
+                    await con.run_sync(idx.create, checkfirst=True)
         yield
         await sessionmanager.close()
 

@@ -100,6 +100,15 @@ def setup_periodic_tasks(
         name='spatial-buddy-check-periodic',
         expires=10*60,
     )
+    sender.add_periodic_task(
+        # we download data every 5 minutes (0, 5, 10, 15, ...) so let's try
+        # minute 3 to avoid collisions with the download task
+        crontab(hour='1', minute='3'),
+        # once a day refresh all views in case something was changed in older data
+        refresh_all_views.s(),
+        name='refresh-all-views-periodic',
+        expires=60*60,
+    )
 
 
 api = ElementApi(
@@ -257,20 +266,43 @@ VIEW_MAPPING: dict[TableNames, type[MaterializedView]] = {
 
 
 @async_task(app=celery_app, name='refresh-view')
-async def _refresh_view(view_name: TableNames) -> None:
+async def _refresh_view(
+        view_name: TableNames,
+        window_start: datetime | None,
+        window_end: datetime | None,
+) -> None:
     """Refresh a view as a celery task."""
     view = VIEW_MAPPING[view_name]
-    await view.refresh()
+    await view.refresh(window_start=window_start, window_end=window_end)
 
 
 @async_task(app=celery_app, name='refresh-all-views')
-async def refresh_all_views(*args: Any, **kwargs: Any) -> AsyncResult[Any]:
+async def refresh_all_views(
+        prev_res: Sequence[Any] = [],
+        window_start: datetime | None = None,
+        window_end: datetime | None = None,
+        *args: Any,
+        **kwargs: dict[str, Any],
+) -> AsyncResult[Any]:
     """Refresh all views in the database. This is a task that is called after
     all data was inserted. We need to accept any arguments, as the chord task
     will pass the results of the individual tasks to this task. We don't care
     about the results, but need to accept them.
+
+    :param prev_res: The results of the previous tasks, which we don't care about
+        however, it is passed as the first positional argument by the chord task so
+        we need to accept it.
+    :param window_start: The start of the time window to refresh the views for
+    :param window_end: The end of the time window to refresh the views for
+    :param args: Additional positional arguments
     """
-    refresh_group = group(_refresh_view.s(view_name) for view_name in VIEW_MAPPING)
+    refresh_group = group(
+        _refresh_view.s(
+            view_name=view_name,
+            window_start=window_start,
+            window_end=window_end,
+        ) for view_name in VIEW_MAPPING
+    )
     return refresh_group.apply_async()
 
 
@@ -319,7 +351,39 @@ async def _sync_data_wrapper() -> None:
         task_group = group(tasks)
         task_chord = chord(task_group)
         # TODO: this is not executed if any of the tasks fail
-        task_chord(refresh_all_views.s())
+        # let's not refresh the entire database, but only the last day
+        # we need to check the state of the view so in case the system was down for a
+        # while we properly refresh to an up-to-date state.
+        oldest_view_state = (
+            await sess.execute(
+                select(
+                    func.least(
+                        select(
+                            func.max(BiometDataHourly.measured_at),
+                        ).scalar_subquery(),
+                        select(
+                            func.max(BiometDataDaily.measured_at),
+                        ).scalar_subquery(),
+                        select(
+                            func.max(TempRHDataHourly.measured_at),
+                        ).scalar_subquery(),
+                        select(
+                            func.max(TempRHDataDaily.measured_at),
+                        ).scalar_subquery(),
+                    ),
+                ),
+            )
+        ).scalar_one_or_none()
+        if oldest_view_state is not None:
+            # give an hour overlap to ensure that we don't miss any data
+            # round down to the nearest full hour and then subtract one hour
+            # from this. This avoids not using a full hour in the query even though it
+            # would be present
+            oldest_view_state = (
+                pd.Timestamp(oldest_view_state).floor('1h') - timedelta(hours=1)
+            ).to_pydatetime()
+
+        task_chord(refresh_all_views.s(window_start=oldest_view_state))
 
 
 class DeploymentInfo(NamedTuple):
