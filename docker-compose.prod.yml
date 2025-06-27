@@ -48,6 +48,8 @@ services:
           memory: 250M
 
   celery:
+    # TODO: this a bit fragile and may change based on the deployment
+    user: 1003:1004
     restart: always
     env_file:
       - .env.prod
