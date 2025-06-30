@@ -112,7 +112,10 @@ def setup_periodic_tasks(
     )
     sender.add_periodic_task(
         crontab(minute='34', hour='*/1'),
-        apply_raster_lifecycle.s(days=int(os.environ['RASTER_LIFECYCLE_DAYS'])),
+        apply_raster_lifecycle.s(
+            days=int(os.environ['RASTER_LIFECYCLE_DAYS']),
+            override_path='/usr/src/app/rasters/',
+        ),
         name='apply-raster-lifecycle-periodic',
         expires=60*60,
     )

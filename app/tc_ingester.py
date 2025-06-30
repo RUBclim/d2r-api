@@ -216,7 +216,11 @@ def ingest_raster(path: str, override_path: str = '') -> None:
 
 
 @celery_app.task(name='raster-lifecycle')
-def apply_raster_lifecycle(days: int, force: bool = False) -> None:
+def apply_raster_lifecycle(
+        days: int,
+        override_path: str = '',
+        force: bool = False,
+) -> None:
     """Apply the raster lifecycle to the datasets in the database.
     This will delete datasets that are older than the configured amount of days
 
@@ -224,6 +228,9 @@ def apply_raster_lifecycle(days: int, force: bool = False) -> None:
     :param override_path: if set, the path to the dataset in the container will be
         overridden with this path
     :param dry_run: if set, the datasets will not be deleted, but only logged
+    :param override_path: if set, the path to the dataset in the container will be
+        overridden with this path. The param folder name must not be included in the
+        override path, it will be derived from the dataset name.
     :param force: if set, the datasets will be deleted from the metadata store even if
         the raster file does not exist in the filesystem
     """
@@ -234,6 +241,9 @@ def apply_raster_lifecycle(days: int, force: bool = False) -> None:
         ds_date = datetime.strptime(f"{year}-{doy} {hour}:00", '%Y-%j %H:%M').replace(
             tzinfo=timezone.utc,
         )
+        if override_path:
+            path = os.path.join(override_path, param, os.path.basename(path))
+
         if ds_date < cut_off_date:
             # before deleting the dataset, make sure the raster actually exists
             if force is False and not os.path.exists(path):
