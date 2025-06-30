@@ -9,6 +9,7 @@ from typing import ClassVar
 from typing import Protocol
 
 from psycopg import sql
+from sqlalchemy import and_
 from sqlalchemy import BigInteger
 from sqlalchemy import ColumnElement
 from sqlalchemy import Computed
@@ -18,7 +19,9 @@ from sqlalchemy import DateTime
 from sqlalchemy import desc
 from sqlalchemy import event
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Index
+from sqlalchemy import select
 from sqlalchemy import Table
 from sqlalchemy import Text
 from sqlalchemy import text
@@ -1340,9 +1343,9 @@ class MaterializedView(Base):
             reads to the view can still be performed. This only applies to vanilla
             postgres materialized views.
         :param window_start: The start of the window that will be refreshed. This only
-            applies to continuous aggregates.
+            applies to continuous aggregates. This **is not** inclusive.
         :param window_end: The end of the window that will be refreshed. This only
-            applies to continuous aggregates.
+            applies to continuous aggregates. This **is** inclusive.
         """
         async with sessionmanager.connect(as_transaction=False) as sess:
             try:
@@ -1352,17 +1355,18 @@ class MaterializedView(Base):
                 time_constraint: ColumnElement[bool] | None = None
 
                 if window_start is not None and window_end is not None:
-                    time_constraint = table.c.measured_at.between(
-                        window_start, window_end,
+                    time_constraint = and_(
+                        table.c.measured_at > window_start,
+                        table.c.measured_at <= window_end,
                     )
                     window_start_param = window_start
                     window_end_param = window_end
                 elif window_start is not None and window_end is None:
-                    time_constraint = table.c.measured_at >= window_start
+                    time_constraint = table.c.measured_at > window_start
                     window_start_param = window_start
                     window_end_param = datetime.max
                 elif window_end is not None:
-                    time_constraint = table.c.measured_at < window_end
+                    time_constraint = table.c.measured_at <= window_end
                     window_start_param = datetime.min
                     window_end_param = window_end
                 else:
@@ -1395,7 +1399,15 @@ class MaterializedView(Base):
                 await sess.rollback()
                 raise
 
-    # ideally this shoudl be an abstract property, but that's tricky with sqlalchemy
+    @classmethod
+    async def get_view_state(cls) -> datetime | None:
+        table: Table = cls.__table__  # type: ignore[assignment]
+        async with sessionmanager.connect() as sess:
+            r = await sess.execute(select(func.max(table.c.measured_at)))
+
+        return r.scalar_one_or_none()
+
+    # ideally this should be an abstract property, but that's tricky with sqlalchemy
     creation_sql: str
 
 
