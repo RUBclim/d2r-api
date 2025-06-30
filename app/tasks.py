@@ -288,6 +288,7 @@ async def refresh_all_views(
         prev_res: Sequence[Any] = [],
         window_start: datetime | None = None,
         window_end: datetime | None = None,
+        state_based: bool = False,
         *args: Any,
         **kwargs: dict[str, Any],
 ) -> AsyncResult[Any]:
@@ -301,15 +302,49 @@ async def refresh_all_views(
         we need to accept it.
     :param window_start: The start of the time window to refresh the views for
     :param window_end: The end of the time window to refresh the views for
+    :param state_based: If set to True, the window_start will be set to the current
+        state of the view, which is the latest data in the view minus a pre-defined
+        overlap. This is mutually exclusive with the ``window_start`` and ``window_end``
     :param args: Additional positional arguments
     """
-    refresh_group = group(
-        _refresh_view.s(
-            view_name=view_name,
-            window_start=window_start,
-            window_end=window_end,
-        ) for view_name in VIEW_MAPPING
-    )
+    if (window_start is not None or window_end is not None) and state_based is True:
+        raise ValueError('You cannot use both window_start/window_end and state_based')
+
+    tasks = []
+    for view_name, view in VIEW_MAPPING.items():
+        if state_based:
+            window_start = await view.get_view_state()
+            # give an hour overlap to ensure that we don't miss any data. Round down to
+            # the nearest full hour and then subtract one hour from this. This avoids
+            # not using a full hour in the query even though it would be present.
+            if window_start is not None:
+                window_start = (
+                    pd.Timestamp(window_start).floor('1h') - timedelta(hours=1)
+                ).to_pydatetime()
+
+        # we need to modify the window_start and window_end for the daily views so we
+        # make sure an entire day is fully refreshed. We work at UTC+1 so we need data
+        # between 23:00:00.1 and 23:00:00 of the next day
+        if view in {BiometDataDaily, TempRHDataDaily}:
+            # daily views should only ever return 00:00 times so it's safe to replace?
+            if window_start is not None:
+                window_start = (window_start - timedelta(days=1)).replace(
+                    hour=23, minute=0, second=0, microsecond=1,
+                )
+            if window_end is not None:
+                window_end = window_end.replace(
+                    hour=23, minute=0, second=0, microsecond=0,
+                )
+
+        tasks.append(
+            _refresh_view.s(
+                view_name=view_name,
+                window_start=window_start,
+                window_end=window_end,
+            ),
+        )
+
+    refresh_group = group(tasks)
     return refresh_group.apply_async()
 
 
@@ -361,36 +396,8 @@ async def _sync_data_wrapper() -> None:
         # let's not refresh the entire database, but only the last day
         # we need to check the state of the view so in case the system was down for a
         # while we properly refresh to an up-to-date state.
-        oldest_view_state = (
-            await sess.execute(
-                select(
-                    func.least(
-                        select(
-                            func.max(BiometDataHourly.measured_at),
-                        ).scalar_subquery(),
-                        select(
-                            func.max(BiometDataDaily.measured_at),
-                        ).scalar_subquery(),
-                        select(
-                            func.max(TempRHDataHourly.measured_at),
-                        ).scalar_subquery(),
-                        select(
-                            func.max(TempRHDataDaily.measured_at),
-                        ).scalar_subquery(),
-                    ),
-                ),
-            )
-        ).scalar_one_or_none()
-        if oldest_view_state is not None:
-            # give an hour overlap to ensure that we don't miss any data
-            # round down to the nearest full hour and then subtract one hour
-            # from this. This avoids not using a full hour in the query even though it
-            # would be present
-            oldest_view_state = (
-                pd.Timestamp(oldest_view_state).floor('1h') - timedelta(hours=1)
-            ).to_pydatetime()
 
-        task_chord(refresh_all_views.s(window_start=oldest_view_state))
+        task_chord(refresh_all_views.s(state_based=True))
 
 
 class DeploymentInfo(NamedTuple):

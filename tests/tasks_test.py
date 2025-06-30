@@ -1613,7 +1613,8 @@ async def test_refresh_all_views_partially(db: AsyncSession) -> None:
         assert len((await db.execute(select(TempRHDataDaily))).all()) == 2
         # now refresh only a small window
         coro = await refresh_all_views(
-            window_start=datetime(2025, 1, 1, 2),
+            # start is not inclusive!
+            window_start=datetime(2025, 1, 1, 1),
             window_end=datetime(2025, 1, 1, 23),
         )
         await coro
@@ -1621,9 +1622,11 @@ async def test_refresh_all_views_partially(db: AsyncSession) -> None:
         # we should only have the two rows that were outside of the window
         exp_h = [
             datetime(2025, 1, 1, 1, tzinfo=timezone.utc),
-            datetime(2025, 1, 2, tzinfo=timezone.utc),
+            datetime(2025, 1, 2, 0, tzinfo=timezone.utc),
         ]
-        exp_d = [date(2025, 1, 1), date(2025, 1, 2)]
+        # we only get the 2nd since the first is refreshed and since we deleted the data
+        # it is removed
+        exp_d = [date(2025, 1, 2)]
         assert (
             await db.execute(select(BiometDataHourly.measured_at))
         ).scalars().all() == exp_h
@@ -1658,6 +1661,149 @@ async def test_refresh_all_views_partially(db: AsyncSession) -> None:
         assert (
             await db.execute(select(TempRHDataDaily.measured_at))
         ).scalars().all() == exp_d
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_refresh_all_views_state_based(db: AsyncSession) -> None:
+    # add some data
+    stations = [
+        Station(
+            station_id='DOTWFH',
+            long_name='Westfalenhalle',
+            latitude=51.49605,
+            longitude=7.45847,
+            altitude=0.0,
+            station_type=StationType.temprh,
+            leuchtennummer=0,
+            district='44139',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOBFRP',
+            long_name='Friedensplatz',
+            latitude=51.39605,
+            longitude=7.25847,
+            altitude=0.0,
+            station_type=StationType.biomet,
+            leuchtennummer=0,
+            district='44139',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+    ]
+    for s in stations:
+        db.add(s)
+
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=11111,
+            sensor_type=SensorType.sht35,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=22222,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC3',
+            device_id=33333,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    for sensor in sensors:
+        db.add(sensor)
+
+    start = datetime(2025, 1, 1, 0, 5, tzinfo=timezone.utc)
+    for i in range(287):
+        db.add(
+            BiometData(
+                measured_at=start + (i * timedelta(minutes=5)),
+                station_id='DOBFRP',
+                sensor_id='DEC2',
+                blg_sensor_id='DEC3',
+                air_temperature=10.5,
+            ),
+        )
+        db.add(
+            TempRHData(
+                measured_at=start + (i * timedelta(minutes=5)),
+                station_id='DOTWFH',
+                sensor_id='DEC1',
+                air_temperature=12.5,
+            ),
+        )
+    await db.commit()
+    # check the data is there...
+    assert len((await db.execute(select(BiometData))).all()) == 287
+    assert len((await db.execute(select(TempRHData))).all()) == 287
+    # ...but the views are empty
+    assert len((await db.execute(select(LatestData))).all()) == 0
+    assert len((await db.execute(select(BiometDataHourly))).all()) == 0
+    assert len((await db.execute(select(BiometDataDaily))).all()) == 0
+    assert len((await db.execute(select(TempRHDataHourly))).all()) == 0
+    assert len((await db.execute(select(TempRHDataDaily))).all()) == 0
+
+    with mock.patch.object(app.tasks, 'group', side_effect=FakeGroup):
+        # we are a bit in async hell with nested coroutines
+        coro = await refresh_all_views(state_based=True)
+        await coro
+
+        # however, after refreshing them they should contain data
+        assert len((await db.execute(select(LatestData))).all()) == 2
+        assert len((await db.execute(select(BiometDataHourly))).all()) == 24
+        # we calculate daily at UTC+1 which shifts the date by one hour
+        assert len((await db.execute(select(BiometDataDaily))).all()) == 2
+        assert len((await db.execute(select(TempRHDataHourly))).all()) == 24
+        assert len((await db.execute(select(TempRHDataDaily))).all()) == 2
+        # now delete the data
+        assert (await db.execute(delete(BiometData)))
+        assert (await db.execute(delete(TempRHData)))
+        await db.commit()
+
+        # now refresh the views again, due to our 1-hour overlap we loose one hour
+        # we also cannot compute an entire day any longer (we move back to 23:00 of the
+        # previous day)
+        coro = await refresh_all_views(state_based=True)
+        await coro
+        assert len((await db.execute(select(BiometDataHourly))).all()) == 23
+        assert len((await db.execute(select(BiometDataDaily))).all()) == 0
+        assert len((await db.execute(select(TempRHDataHourly))).all()) == 23
+        assert len((await db.execute(select(TempRHDataDaily))).all()) == 0
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ('window_start', 'window_end'),
+    (
+        (
+            datetime(2024, 1, 1, tzinfo=timezone.utc),
+            datetime(2024, 1, 2, tzinfo=timezone.utc),
+        ),
+        (datetime(2024, 1, 1, tzinfo=timezone.utc), None),
+        (None, datetime(2024, 1, 2, tzinfo=timezone.utc)),
+    ),
+)
+async def test_refresh_all_views_window_and_state_based_defined(
+        window_start: datetime | None,
+        window_end: datetime | None,
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        await refresh_all_views(
+            window_start=window_start,
+            window_end=window_end,
+            state_based=True,
+        )
+
+    assert exc_info.value.args[0] == (
+        'You cannot use both window_start/window_end and state_based'
+    )
 
 
 @pytest.mark.usefixtures('clean_db')

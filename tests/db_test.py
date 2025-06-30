@@ -1,10 +1,13 @@
+import random
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from decimal import Decimal
 
+import pandas as pd
 import pytest
+from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1244,3 +1247,59 @@ async def test_biomet_data_daily_view_order_is_correct(db: AsyncSession) -> None
     assert result.blg_battery_voltage == Decimal('31.0')
     assert result.blg_battery_voltage_min == Decimal('31.0')
     assert result.blg_battery_voltage_max == Decimal('31.0')
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db', 'stations')
+async def test_reproducer(db: AsyncSession) -> None:
+    for i in range(24):
+        diff = timedelta(minutes=5 * i, microseconds=random.randint(0, 1000))
+        d = TempRHData(
+            measured_at=datetime(2025, 6, 29, 22, tzinfo=timezone.utc) + diff,
+            station_id='DOB1',
+            sensor_id='DEC1',
+            air_temperature_raw=0,
+            air_temperature=1,
+            relative_humidity_raw=2,
+            relative_humidity=3,
+            dew_point=4,
+            absolute_humidity=5,
+            specific_humidity=6,
+            heat_index=7,
+            wet_bulb_temperature=8,
+            battery_voltage=9,
+            protocol_version=10,
+        )
+        db.add(d)
+    await db.commit()
+
+    # 1st full refresh
+    await TempRHDataHourly.refresh()
+    q = select(TempRHDataHourly.measured_at).where(
+        (func.extract('hour', TempRHDataHourly.measured_at) == 23),
+    ).order_by(TempRHDataHourly.measured_at)
+    result = (await db.execute(q)).scalar_one()
+
+    # everything ok after the 1st refresh
+    assert result == datetime(2025, 6, 29, 23, 0, tzinfo=timezone.utc)
+    # now perform only an incremental refresh
+
+    # this is what the refresh view task does
+    oldest_view_state = await TempRHDataHourly.get_view_state()
+    assert oldest_view_state is not None
+    oldest_view_state = (
+        pd.Timestamp(oldest_view_state).floor('1h') - timedelta(hours=1)
+    ).to_pydatetime()
+    await TempRHDataHourly.refresh(window_start=oldest_view_state)
+    result = (await db.execute(q)).scalar_one()
+    # now it should be the same. The bug had 23:00 missing!
+    assert result == datetime(2025, 6, 29, 23, 0, tzinfo=timezone.utc)
+
+    # now with both defined (different code path, but same result)
+    await TempRHDataHourly.refresh(
+        window_start=oldest_view_state,
+        window_end=datetime.max,
+    )
+    result = (await db.execute(q)).scalar_one()
+    # now it should be the same. The bug had 23:00 missing!
+    assert result == datetime(2025, 6, 29, 23, 0, tzinfo=timezone.utc)
