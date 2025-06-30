@@ -1,4 +1,5 @@
 import functools
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -551,3 +552,62 @@ def test_apply_raster_lifecycle_force_file_does_not_exist(
     assert ds_after == [
         ('PET', '2025', '165', '20'),
     ]
+
+
+@freezegun.freeze_time('2025-06-17 18:30')  # doy 168
+def test_apply_raster_lifecycle_override_path_specified(
+        raster_driver: TerracottaDriver,
+        tmp_path: Path,
+) -> None:
+    # prepare a few datasets to add to the database
+    keys = (
+        ('PET', '2025', '165', '20'),  # still ok
+        ('MRT', '2025', '165', '17'),  # not ok
+        ('UTCI', '2025', '110', '17'),  # way too old
+    )
+    for k in keys:
+        fname = f'{k[0]}_{k[1]}_{k[2]}_{k[3]}_v0.7.2_cog.tif'
+        target_dir = tmp_path / k[0]
+        target_dir.mkdir(exist_ok=True)
+        override_dir = tmp_path / 'foo' / 'bar' / k[0]
+        override_dir.mkdir(parents=True)
+        shutil.copy(
+            'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
+            tmp_path / k[0] / fname,
+        )
+        raster_driver.insert(
+            keys=k,
+            path=str(target_dir / fname),
+            # intentionally override the path to simulate a different location
+            override_path=str(override_dir / f'{k[0]}/{fname}'),
+        )
+        # also copy the file to the override path
+        shutil.copy(
+            'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
+            str(override_dir / fname),
+        )
+
+    ds = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    assert ds == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
+    apply_raster_lifecycle(days=3, override_path=str(tmp_path / 'foo' / 'bar'))
+    ds_after = sorted(
+        raster_driver.get_datasets().keys(),
+        key=lambda x: (x[0], x[1], x[2], x[3]),
+    )
+    # make sure the datasets were deleted and the override path was respected
+    assert ds_after == [
+        ('PET', '2025', '165', '20'),
+    ]
+    files = []
+    for root, _, filenames in os.walk(tmp_path / 'foo' / 'bar'):
+        for filename in filenames:
+            files.append(filename)
+
+    assert files == ['PET_2025_165_20_v0.7.2_cog.tif']
