@@ -25,6 +25,9 @@ from app.models import TempRHDataDaily
 from app.models import TempRHDataHourly
 from app.routers.v1 import compute_colormap_range
 from app.schemas import ParamSettings
+from app.schemas import PublicParamsAggBiomet
+from app.schemas import PublicParamsBiomet
+from app.schemas import PublicStationMetadata
 
 VERSION_PATTERN = re.compile(
     r'^\d+\.\d+(\.\d+)?(?:\.dev\d+\+g[0-9a-f]+(?:\.d[0-9]{8})?)?$',
@@ -3173,3 +3176,95 @@ def test_compute_cmap(
 def test_cors_regex(url: str) -> None:
     pattern = re.compile(ALLOW_ORIGIN_REGEX)
     assert pattern.fullmatch(url) is not None
+
+
+@pytest.mark.parametrize(
+    'param',
+    [i.name for i in PublicStationMetadata],
+)
+@pytest.mark.anyio
+async def test_get_metadata_takes_params_as_advertised(
+        app: AsyncClient,
+        param: str,
+) -> None:
+    resp = await app.get('/v1/stations/metadata', params={'param': param})
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'param',
+    [i.name for i in PublicParamsBiomet],
+)
+@pytest.mark.anyio
+async def test_get_latest_data_takes_params_as_advertised(
+        app: AsyncClient,
+        param: str,
+) -> None:
+    resp = await app.get('/v1/stations/latest_data', params={'param': param})
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'param',
+    [i.name for i in PublicParamsAggBiomet],
+)
+@pytest.mark.parametrize('stations', [1], indirect=True)
+@pytest.mark.anyio
+async def test_get_trends_takes_params_as_advertised(
+        app: AsyncClient,
+        param: str,
+        stations: list[Station],
+) -> None:
+    resp = await app.get(
+        f'/v1/trends/{param}',
+        params={
+            'item_ids': [stations[0].station_id],
+            'start_date': '2025-01-01',
+            'hour': 13,
+        },
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'param',
+    [i.name for i in PublicParamsBiomet],
+)
+@pytest.mark.parametrize('stations', [1], indirect=True)
+@pytest.mark.anyio
+async def test_get_data_takes_params_as_advertised(
+        app: AsyncClient,
+        param: str,
+        stations: list[Station],
+) -> None:
+    resp = await app.get(
+        f'/v1/data/{stations[0].station_id}',
+        params={
+            'start_date': '2025-01-01',
+            'end_date': '2025-01-02',
+            'param': param,
+        },
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'param',
+    [i.name for i in PublicParamsAggBiomet],
+)
+@pytest.mark.parametrize('stations', [1], indirect=True)
+@pytest.mark.anyio
+async def test_get_network_snapshot_takes_params_as_advertised(
+        app: AsyncClient,
+        param: str,
+        stations: list[Station],
+) -> None:
+    resp = await app.get(
+        '/v1/network-snapshot',
+        params={
+            'param': param,
+            'scale': 'hourly',
+            'date': '2025-01-01',
+        },
+    )
+    assert resp.status_code == 200

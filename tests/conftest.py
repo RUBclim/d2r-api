@@ -71,7 +71,7 @@ async def clean_db(db: AsyncSession) -> AsyncGenerator[None]:
     await db.commit()
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 async def app() -> AsyncGenerator[AsyncClient]:
     """This has to always be the first fixture that is called"""
     app = create_app()
