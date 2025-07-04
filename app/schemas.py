@@ -61,6 +61,8 @@ UNIT_MAPPING: dict[str, Units] = {
     'heat_index_max': Units.deg_c,
     'heat_index_min': Units.deg_c,
     'lightning_average_distance': Units.km,
+    'lightning_average_distance_min': Units.km,
+    'lightning_average_distance_max': Units.km,
     'lightning_strike_count': Units.unitless,
     'mrt': Units.deg_c,
     'mrt_max': Units.deg_c,
