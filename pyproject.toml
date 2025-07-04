@@ -10,6 +10,9 @@ authors = [{ name = "D2R-Team", email = "climate@rub.de" }]
 maintainers = [{ name = "Jonas Kittner", email = "jonas.kittner@rub.de" }]
 description = "API for the Data2Resilience project providing measurements from the station network"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE*"]
+
 [project.urls]
 Homepage = "https://data2resilience.de"
 Documentation = "https://api.data2resilience.de/docs"
