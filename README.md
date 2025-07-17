@@ -1,5 +1,7 @@
 [![ci](https://github.com/RUBclim/d2r-api/actions/workflows/CI.yaml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/CI.yaml)
 [![pre-commit](https://github.com/RUBclim/d2r-api/actions/workflows/pre-commit.yaml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/pre-commit.yaml)
+[![deploy docs to gh-page](https://github.com/RUBclim/d2r-api/actions/workflows/pages.yml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/pages.yml)
+[![Release Workflow](https://github.com/RUBclim/d2r-api/actions/workflows/release.yaml/badge.svg)](https://github.com/RUBclim/d2r-api/actions/workflows/release.yaml)
 
 # d2r-api
 
