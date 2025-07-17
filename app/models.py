@@ -1275,6 +1275,15 @@ class _BuddyCheckQcBase(Base):
         nullable=True,
         doc='quality control for the atmospheric pressure using a buddy check',
     )
+    # we put this into here, so we can include the buddy check in the score while still
+    # taking the other checks into account
+    qc_score: Mapped[Decimal] = mapped_column(
+        nullable=True,
+        doc=(
+            'Quality control score of the data. This is calculated by weighting the '
+            'different QC checks according to their severity'
+        ),
+    )
 
 
 class BuddyCheckQc(_BuddyCheckQcBase):
@@ -1590,6 +1599,7 @@ class LatestData(
             relative_humidity_qc_buddy_check,
             atmospheric_pressure_qc_isolated_check,
             atmospheric_pressure_qc_buddy_check,
+            qc_score,
             battery_voltage,
             protocol_version
         FROM biomet_data
@@ -1688,6 +1698,7 @@ class LatestData(
             relative_humidity_qc_buddy_check,
             NULL,
             NULL,
+            qc_score,
             battery_voltage,
             protocol_version
         FROM temp_rh_data

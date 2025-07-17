@@ -274,6 +274,8 @@ async def test_apply_buddy_check() -> None:
         parse_dates=['measured_at'],
         index_col=['measured_at', 'station_id'],
     ).sort_index()
+    # the qc_score is added later on and is not part of the expected result
+    expected_result = expected_result.drop('qc_score', axis=1)
     expected_result.replace(float('nan'), None, inplace=True)
     assert_frame_equal(
         buddy_check_result.sort_index(),

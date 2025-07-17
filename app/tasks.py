@@ -23,6 +23,7 @@ from sqlalchemy import and_
 from sqlalchemy import Boolean
 from sqlalchemy import func
 from sqlalchemy import literal
+from sqlalchemy import Numeric
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import union_all
@@ -63,6 +64,7 @@ from app.models import UTCI_STRESS_CATEGORIES
 from app.qc import apply_buddy_check
 from app.qc import apply_qc
 from app.qc import BUDDY_CHECK_COLUMNS
+from app.qc import calculate_qc_score
 from app.tc_ingester import apply_raster_lifecycle
 
 
@@ -1117,6 +1119,42 @@ async def perform_spatial_buddy_check() -> None:
                 BiometData.air_temperature,
                 BiometData.relative_humidity,
                 BiometData.atmospheric_pressure,
+                BiometData.air_temperature_qc_range_check,
+                BiometData.air_temperature_qc_persistence_check,
+                BiometData.air_temperature_qc_spike_dip_check,
+                BiometData.relative_humidity_qc_range_check,
+                BiometData.relative_humidity_qc_persistence_check,
+                BiometData.relative_humidity_qc_spike_dip_check,
+                BiometData.atmospheric_pressure_qc_range_check,
+                BiometData.atmospheric_pressure_qc_persistence_check,
+                BiometData.atmospheric_pressure_qc_spike_dip_check,
+                BiometData.wind_speed_qc_range_check,
+                BiometData.wind_speed_qc_persistence_check,
+                BiometData.wind_speed_qc_spike_dip_check,
+                BiometData.wind_direction_qc_range_check,
+                BiometData.wind_direction_qc_persistence_check,
+                BiometData.u_wind_qc_range_check,
+                BiometData.u_wind_qc_persistence_check,
+                BiometData.u_wind_qc_spike_dip_check,
+                BiometData.v_wind_qc_range_check,
+                BiometData.v_wind_qc_persistence_check,
+                BiometData.v_wind_qc_spike_dip_check,
+                BiometData.maximum_wind_speed_qc_range_check,
+                BiometData.maximum_wind_speed_qc_persistence_check,
+                BiometData.precipitation_sum_qc_range_check,
+                BiometData.precipitation_sum_qc_persistence_check,
+                BiometData.precipitation_sum_qc_spike_dip_check,
+                BiometData.solar_radiation_qc_range_check,
+                BiometData.solar_radiation_qc_persistence_check,
+                BiometData.solar_radiation_qc_spike_dip_check,
+                BiometData.lightning_average_distance_qc_range_check,
+                BiometData.lightning_average_distance_qc_persistence_check,
+                BiometData.lightning_strike_count_qc_range_check,
+                BiometData.lightning_strike_count_qc_persistence_check,
+                BiometData.x_orientation_angle_qc_range_check,
+                BiometData.x_orientation_angle_qc_spike_dip_check,
+                BiometData.y_orientation_angle_qc_range_check,
+                BiometData.y_orientation_angle_qc_spike_dip_check,
             ).join(Station).join(latest_buddy_checks, isouter=True).where(
                 (BiometData.measured_at > latest_buddy_checks.c.last_check) |
                 (latest_buddy_checks.c.last_check.is_(None)),
@@ -1131,6 +1169,12 @@ async def perform_spatial_buddy_check() -> None:
                 Station.altitude,
                 TempRHData.air_temperature,
                 TempRHData.relative_humidity,
+                TempRHData.air_temperature_qc_range_check,
+                TempRHData.air_temperature_qc_persistence_check,
+                TempRHData.air_temperature_qc_spike_dip_check,
+                TempRHData.relative_humidity_qc_range_check,
+                TempRHData.relative_humidity_qc_persistence_check,
+                TempRHData.relative_humidity_qc_spike_dip_check,
             ).join(Station).join(latest_buddy_checks, isouter=True).where(
                 Station.station_type == StationType.temprh,
                 (
@@ -1168,6 +1212,42 @@ async def perform_spatial_buddy_check() -> None:
                 biomet_query.c.air_temperature,
                 biomet_query.c.relative_humidity,
                 biomet_query.c.atmospheric_pressure,
+                biomet_query.c.air_temperature_qc_range_check,
+                biomet_query.c.air_temperature_qc_persistence_check,
+                biomet_query.c.air_temperature_qc_spike_dip_check,
+                biomet_query.c.relative_humidity_qc_range_check,
+                biomet_query.c.relative_humidity_qc_persistence_check,
+                biomet_query.c.relative_humidity_qc_spike_dip_check,
+                biomet_query.c.atmospheric_pressure_qc_range_check,
+                biomet_query.c.atmospheric_pressure_qc_persistence_check,
+                biomet_query.c.atmospheric_pressure_qc_spike_dip_check,
+                biomet_query.c.wind_speed_qc_range_check,
+                biomet_query.c.wind_speed_qc_persistence_check,
+                biomet_query.c.wind_speed_qc_spike_dip_check,
+                biomet_query.c.wind_direction_qc_range_check,
+                biomet_query.c.wind_direction_qc_persistence_check,
+                biomet_query.c.u_wind_qc_range_check,
+                biomet_query.c.u_wind_qc_persistence_check,
+                biomet_query.c.u_wind_qc_spike_dip_check,
+                biomet_query.c.v_wind_qc_range_check,
+                biomet_query.c.v_wind_qc_persistence_check,
+                biomet_query.c.v_wind_qc_spike_dip_check,
+                biomet_query.c.maximum_wind_speed_qc_range_check,
+                biomet_query.c.maximum_wind_speed_qc_persistence_check,
+                biomet_query.c.precipitation_sum_qc_range_check,
+                biomet_query.c.precipitation_sum_qc_persistence_check,
+                biomet_query.c.precipitation_sum_qc_spike_dip_check,
+                biomet_query.c.solar_radiation_qc_range_check,
+                biomet_query.c.solar_radiation_qc_persistence_check,
+                biomet_query.c.solar_radiation_qc_spike_dip_check,
+                biomet_query.c.lightning_average_distance_qc_range_check,
+                biomet_query.c.lightning_average_distance_qc_persistence_check,
+                biomet_query.c.lightning_strike_count_qc_range_check,
+                biomet_query.c.lightning_strike_count_qc_persistence_check,
+                biomet_query.c.x_orientation_angle_qc_range_check,
+                biomet_query.c.x_orientation_angle_qc_spike_dip_check,
+                biomet_query.c.y_orientation_angle_qc_range_check,
+                biomet_query.c.y_orientation_angle_qc_spike_dip_check,
             ).where(biomet_query.c.measured_at <= cut_off_date),
             select(
                 temp_rh_query.c.measured_at,
@@ -1178,6 +1258,70 @@ async def perform_spatial_buddy_check() -> None:
                 temp_rh_query.c.air_temperature,
                 temp_rh_query.c.relative_humidity,
                 literal(None).label(BiometData.atmospheric_pressure.name),
+                temp_rh_query.c.air_temperature_qc_range_check,
+                temp_rh_query.c.air_temperature_qc_persistence_check,
+                temp_rh_query.c.air_temperature_qc_spike_dip_check,
+                temp_rh_query.c.relative_humidity_qc_range_check,
+                temp_rh_query.c.relative_humidity_qc_persistence_check,
+                temp_rh_query.c.relative_humidity_qc_spike_dip_check,
+                literal(None).label(
+                    BiometData.atmospheric_pressure_qc_range_check.name,
+                ),
+                literal(None).label(
+                    BiometData.atmospheric_pressure_qc_persistence_check.name,
+                ),
+                literal(None).label(
+                    BiometData.atmospheric_pressure_qc_spike_dip_check.name,
+                ),
+                literal(None).label(BiometData.wind_speed_qc_range_check.name),
+                literal(None).label(BiometData.wind_speed_qc_persistence_check.name),
+                literal(None).label(BiometData.wind_speed_qc_spike_dip_check.name),
+                literal(None).label(BiometData.wind_direction_qc_range_check.name),
+                literal(None).label(
+                    BiometData.wind_direction_qc_persistence_check.name,
+                ),
+                literal(None).label(BiometData.u_wind_qc_range_check.name),
+                literal(None).label(BiometData.u_wind_qc_persistence_check.name),
+                literal(None).label(BiometData.u_wind_qc_spike_dip_check.name),
+                literal(None).label(BiometData.v_wind_qc_range_check.name),
+                literal(None).label(BiometData.v_wind_qc_persistence_check.name),
+                literal(None).label(BiometData.v_wind_qc_spike_dip_check.name),
+                literal(None).label(BiometData.maximum_wind_speed_qc_range_check.name),
+                literal(None).label(
+                    BiometData.maximum_wind_speed_qc_persistence_check.name,
+                ),
+                literal(None).label(BiometData.precipitation_sum_qc_range_check.name),
+                literal(None).label(
+                    BiometData.precipitation_sum_qc_persistence_check.name,
+                ),
+                literal(None).label(
+                    BiometData.precipitation_sum_qc_spike_dip_check.name,
+                ),
+                literal(None).label(BiometData.solar_radiation_qc_range_check.name),
+                literal(None).label(
+                    BiometData.solar_radiation_qc_persistence_check.name,
+                ),
+                literal(None).label(BiometData.solar_radiation_qc_spike_dip_check.name),
+                literal(None).label(
+                    BiometData.lightning_average_distance_qc_range_check.name,
+                ),
+                literal(None).label(
+                    BiometData.lightning_average_distance_qc_persistence_check.name,
+                ),
+                literal(None).label(
+                    BiometData.lightning_strike_count_qc_range_check.name,
+                ),
+                literal(None).label(
+                    BiometData.lightning_strike_count_qc_persistence_check.name,
+                ),
+                literal(None).label(BiometData.x_orientation_angle_qc_range_check.name),
+                literal(None).label(
+                    BiometData.x_orientation_angle_qc_spike_dip_check.name,
+                ),
+                literal(None).label(BiometData.y_orientation_angle_qc_range_check.name),
+                literal(None).label(
+                    BiometData.y_orientation_angle_qc_spike_dip_check.name,
+                ),
             ).where(temp_rh_query.c.measured_at <= cut_off_date),
         )
         con = await sess.connection()
@@ -1187,9 +1331,20 @@ async def perform_spatial_buddy_check() -> None:
         # no data, no qc
         if db_data.empty:
             return None
-
+        columns_insert_types = {
+            'air_temperature_qc_isolated_check': Boolean,
+            'air_temperature_qc_buddy_check': Boolean,
+            'relative_humidity_qc_isolated_check': Boolean,
+            'relative_humidity_qc_buddy_check': Boolean,
+            'atmospheric_pressure_qc_isolated_check': Boolean,
+            'atmospheric_pressure_qc_buddy_check': Boolean,
+            'qc_score': Numeric,
+        }
         qc_flags = await apply_buddy_check(db_data, config=BUDDY_CHECK_COLUMNS)
-
+        # now calculate the qc-score
+        qc_flags['qc_score'] = await calculate_qc_score(qc_flags)
+        qc_flags = qc_flags[columns_insert_types.keys()]
+        qc_flags = qc_flags.sort_index()
         await con.run_sync(
             lambda con: qc_flags.to_sql(
                 name=BuddyCheckQc.__tablename__,
@@ -1197,14 +1352,7 @@ async def perform_spatial_buddy_check() -> None:
                 method='multi',
                 if_exists='append',
                 chunksize=65535 // (len(qc_flags.columns) + len(qc_flags.index.names)),
-                dtype={
-                    'air_temperature_qc_isolated_check': Boolean,
-                    'air_temperature_qc_buddy_check': Boolean,
-                    'relative_humidity_qc_isolated_check': Boolean,
-                    'relative_humidity_qc_buddy_check': Boolean,
-                    'atmospheric_pressure_qc_isolated_check': Boolean,
-                    'atmospheric_pressure_qc_buddy_check': Boolean,
-                },
+                dtype=columns_insert_types,
             ),
         )
         await sess.commit()

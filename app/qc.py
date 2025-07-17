@@ -371,6 +371,85 @@ COLUMNS = {
         partial(spike_dip_check, delta=40),
     ],
 }
+# failing range checks are severe
+# persistence checks are less severe
+# spike/dip checks are even less severe
+QC_SCORE_WEIGHTS = pd.Series({
+    'air_temperature_qc_range_check': 100,
+    'air_temperature_qc_persistence_check': 50,
+    'air_temperature_qc_spike_dip_check': 30,
+    'relative_humidity_qc_range_check': 100,
+    'relative_humidity_qc_persistence_check': 50,
+    'relative_humidity_qc_spike_dip_check': 30,
+    'atmospheric_pressure_qc_range_check': 100,
+    'atmospheric_pressure_qc_persistence_check': 50,
+    'atmospheric_pressure_qc_spike_dip_check': 30,
+    'wind_speed_qc_range_check': 100,
+    'wind_speed_qc_persistence_check': 50,
+    'wind_speed_qc_spike_dip_check': 30,
+    'wind_direction_qc_range_check': 100,
+    'wind_direction_qc_persistence_check': 50,
+    'u_wind_qc_range_check': 100,
+    'u_wind_qc_persistence_check': 50,
+    'u_wind_qc_spike_dip_check': 30,
+    'v_wind_qc_range_check': 100,
+    'v_wind_qc_persistence_check': 50,
+    'v_wind_qc_spike_dip_check': 30,
+    'maximum_wind_speed_qc_range_check': 100,
+    'maximum_wind_speed_qc_persistence_check': 50,
+    'precipitation_sum_qc_range_check': 100,
+    'precipitation_sum_qc_persistence_check': 50,
+    'precipitation_sum_qc_spike_dip_check': 30,
+    'solar_radiation_qc_range_check': 100,
+    'solar_radiation_qc_persistence_check': 50,
+    'solar_radiation_qc_spike_dip_check': 30,
+    'lightning_average_distance_qc_range_check': 100,
+    'lightning_average_distance_qc_persistence_check': 50,
+    'lightning_strike_count_qc_range_check': 100,
+    'lightning_strike_count_qc_persistence_check': 50,
+    # a slightly tilted sensors is less of a problem
+    'x_orientation_angle_qc_range_check': 50,
+    'x_orientation_angle_qc_spike_dip_check': 20,
+    'y_orientation_angle_qc_range_check': 50,
+    'y_orientation_angle_qc_spike_dip_check': 20,
+    # buddy checks are generally considered less severe
+    # isolated checks are not severe at all
+    'air_temperature_qc_isolated_check': 0,
+    'air_temperature_qc_buddy_check': 20,
+    'relative_humidity_qc_isolated_check': 0,
+    'relative_humidity_qc_buddy_check': 20,
+    'atmospheric_pressure_qc_isolated_check': 0,
+    'atmospheric_pressure_qc_buddy_check': 20,
+})
+
+
+def _score_qc(x: 'pd.Series[float]') -> float:
+    # check what flags are relevant to the current selection
+    relevant_flags = QC_SCORE_WEIGHTS.index.intersection(x.index)
+
+    # only select the relevant flags
+    weights = QC_SCORE_WEIGHTS[relevant_flags]
+    flags = x[relevant_flags]
+
+    # we can only consider valid flags, so we filter out NaN values
+    valid = flags.notna() & weights.notna()
+    weights = weights[valid]
+    flags = flags[valid]
+    if weights.empty or flags.empty or weights.sum() == 0:
+        return float('nan')
+
+    score = (weights * flags).sum() / weights.sum()
+    return score
+
+
+async def calculate_qc_score(data: pd.DataFrame) -> 'pd.Series[float]':
+    """Calculate the quality control score for the data.
+
+    :param data: The data to calculate the quality control score for.
+
+    :return: A Series with the quality control score for each row.
+    """
+    return data.apply(_score_qc, axis=1)
 
 
 async def apply_qc(data: pd.DataFrame, station_id: str) -> pd.DataFrame:
