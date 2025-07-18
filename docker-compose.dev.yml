@@ -6,6 +6,10 @@ services:
       - "127.0.0.1:5432:5432"
 
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: d2r-api
     env_file:
       - .env.dev
     command: [
@@ -27,6 +31,8 @@ services:
       - "127.0.0.1:6379:6379"
 
   celery:
+    # TODO: maybe build a separate image
+    image: d2r-api
     restart: always
     env_file:
       - .env.dev
@@ -40,6 +46,7 @@ services:
       - ./app:/usr/src/app/app:ro
 
   celery-beat:
+    image: d2r-api
     env_file:
       - .env.dev
     command: [
@@ -57,6 +64,7 @@ services:
       - "127.0.0.1:5433:5432"
 
   terracotta-server:
+    image: d2r-api
     env_file:
       - .env.dev
     command: [

@@ -21,10 +21,6 @@ services:
       start_period: 30s
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: d2r-api
     user: nobody
     healthcheck:
       test: ["CMD-SHELL", "wget --spider http://localhost:5000/v1/healthcheck || exit 1"]
@@ -48,8 +44,6 @@ services:
   celery:
     container_name: celery
     hostname: celery
-    # TODO: maybe build a separate image
-    image: d2r-api
     # we don't want any parallelism in parallel celery workers (prevent fork bomb)
     environment:
       OMP_NUM_THREADS: 1
@@ -68,7 +62,6 @@ services:
   celery-beat:
     container_name: celery-beat
     user: nobody
-    image: d2r-api
     depends_on:
       - redis
 
@@ -90,7 +83,6 @@ services:
       start_period: 60s
 
   terracotta-server:
-    image: d2r-api
     user: nobody
     environment:
       TC_DRIVER_PATH: ${POSTGRES_USER}:${POSTGRES_PASSWORD}@${TC_DATABASE_HOST}/${TC_DATABASE_NAME}
