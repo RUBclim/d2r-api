@@ -117,6 +117,7 @@ class PublicParamsTempRH(StrEnum):
     relative_humidity_qc_persistence_check = 'relative_humidity_qc_persistence_check'
     relative_humidity_qc_spike_dip_check = 'relative_humidity_qc_spike_dip_check'
     qc_flagged = 'qc_flagged'
+    qc_score = 'qc_score'
     air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
     air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
     relative_humidity_qc_isolated_check = 'relative_humidity_qc_isolated_check'
@@ -179,6 +180,7 @@ class PublicParamsBiomet(StrEnum):
     wind_speed_qc_range_check = 'wind_speed_qc_range_check'
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
     qc_flagged = 'qc_flagged'
+    qc_score = 'qc_score'
     air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
     air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
     relative_humidity_qc_isolated_check = 'relative_humidity_qc_isolated_check'
@@ -383,6 +385,7 @@ class PublicParams(StrEnum):
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
     # qc flag considering all
     qc_flagged = 'qc_flagged'
+    qc_score = 'qc_score'
     # buddy check qc flags
     air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
     air_temperature_qc_buddy_check = 'air_temperature_qc_buddy_check'
@@ -1088,6 +1091,13 @@ class QCFlags(BaseModel):
         examples=[True],
         description=(
             'A flag indicating whether any of the QC checks failed for this parameter'
+        ),
+    )
+    qc_score: float | None = Field(
+        None,
+        examples=[0.75],
+        description=(
+            'A score indicating the quality of the parameter, where 1.0 is perfect'
         ),
     )
 

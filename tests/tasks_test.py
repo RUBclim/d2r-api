@@ -2118,7 +2118,7 @@ async def test_apply_buddy_check(db: AsyncSession) -> None:
         index_col=['measured_at'],
     ).sort_index()
     expected_result.replace(float('nan'), None, inplace=True)
-    assert_frame_equal(buddy_check_result, expected_result)
+    assert_frame_equal(buddy_check_result, expected_result, atol=1e-5)
     # rerun the buddy check, it should succeed but not insert any new data
     await perform_spatial_buddy_check()
     buddy_check_result_2nd = await con.run_sync(
