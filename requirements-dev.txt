@@ -106,7 +106,7 @@ types-pytz==2025.2.0.20250516
 typing-extensions==4.14.1
 typing-inspection==0.4.1
 urllib3==2.5.0
-uv==0.7.22
+uv==0.8.0
 webencodings==0.5.1
 websocket-client==1.8.0
 werkzeug==3.1.3

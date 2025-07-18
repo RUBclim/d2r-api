@@ -60,7 +60,7 @@ sqlalchemy==2.0.41
 sqlmodel==0.0.24
 starlette==0.47.1
 terracotta==0.9.1
-thermal-comfort==1.1.2
+thermal-comfort==1.1.4
 titanlib @ https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 toml==0.10.2
 tqdm==4.67.1
