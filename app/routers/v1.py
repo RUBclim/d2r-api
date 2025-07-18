@@ -179,7 +179,7 @@ async def get_stations_latest_data(
         *columns,
     ).where(
         LatestData.measured_at > (datetime.now(tz=timezone.utc) - max_age),
-        and_(*not_null_conditions),
+        and_(True, *not_null_conditions),
     ).order_by(LatestData.station_id)
     data = await db.execute(query)
     return Response(data=data.mappings().all())

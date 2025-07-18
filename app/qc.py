@@ -438,7 +438,7 @@ def _score_qc(x: 'pd.Series[float]') -> float:
     if weights.empty or flags.empty or weights.sum() == 0:
         return float('nan')
 
-    score = (weights * flags).sum() / weights.sum()
+    score = (weights * ~(flags).astype(bool)).sum() / weights.sum()
     return score
 
 

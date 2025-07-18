@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -13,6 +14,7 @@ from app.models import Station
 from app.qc import apply_buddy_check
 from app.qc import apply_qc
 from app.qc import BUDDY_CHECK_COLUMNS
+from app.qc import calculate_qc_score
 from app.qc import persistence_check
 from app.qc import range_check
 from app.qc import spike_dip_check
@@ -282,3 +284,37 @@ async def test_apply_buddy_check() -> None:
         expected_result,
         check_dtype=False,
     )
+
+
+@pytest.mark.anyio
+async def test_calculate_qc_score() -> None:
+    data = pd.DataFrame(
+        data={
+            'air_temperature_qc_range_check': [False, False, True],
+            'air_temperature_qc_persistence_check': [True, False, True],
+            'air_temperature_qc_spike_dip_check': [True, False, True],
+            'relative_humidity_qc_range_check': [True, False, True],
+            'relative_humidity_qc_persistence_check': [True, False, True],
+            'relative_humidity_qc_spike_dip_check': [True, False, True],
+            'air_temperature_qc_buddy_check': [True, False, True],
+            'relative_humidity_qc_buddy_check': [True, False, True],
+            # has no effect!
+            'air_temperature_qc_isolated_check': [True, True, True],
+            'relative_humidity_qc_isolated_check': [True, True, True],
+        },
+    )
+    result = await calculate_qc_score(data)
+    assert result.to_list() == [0.25, 1.0, 0.0]
+
+
+@pytest.mark.anyio
+async def test_calculate_qc_score_unknown_cols() -> None:
+    data = pd.DataFrame(
+        data={
+            'unknown_1': [False],
+            'unknown_2': [True],
+        },
+    )
+    result = await calculate_qc_score(data)
+    assert len(result) == 1
+    assert math.isnan(result[0])
