@@ -245,3 +245,10 @@ The backup can be restored like this:
       --env-file .env.prod \
       up -d
    ```
+
+## Project Funding
+
+This project was funded by [ICLEI Europe](https://iclei-europe.org/) through the
+[ICLEI Action Fund 2.0](https://iclei-europe.org/funding-opportunities/action-fund), a
+granting scheme supported by [Google.org](https://www.google.org/), under the project
+"Data2Resillience: Data-driven Urban Climate Adaptation".
