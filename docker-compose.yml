@@ -67,7 +67,7 @@ services:
 
   terracotta-db:
     container_name: terracotta-db
-    image: postgres:16-bookworm
+    image: postgres:16-trixie
     volumes:
       # TODO: add properly tuned postgres conf
       - pgdata-terracotta:/var/lib/postgresql/data
