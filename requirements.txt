@@ -4,7 +4,7 @@ affine==2.4.0
 alembic==1.16.4
 amqp==5.3.1
 annotated-types==0.7.0
-anyio==4.9.0
+anyio==4.10.0
 apispec==6.8.2
 apispec-webframeworks==1.2.0
 asgiref==3.9.1
@@ -13,7 +13,7 @@ billiard==4.2.1
 blinker==1.9.0
 cachetools==6.1.0
 celery==5.5.3
-certifi==2025.7.14
+certifi==2025.8.3
 click==8.2.1
 click-didyoumean==0.3.1
 click-plugins==1.1.1.2
@@ -23,9 +23,9 @@ cligj==0.7.2
 color-operations==0.2.0
 element-iot-api==1.0.2
 fastapi==0.116.1
-flask==3.1.1
+flask==3.1.2
 flask-cors==6.0.1
-greenlet==3.2.3
+greenlet==3.2.4
 gunicorn==23.0.0
 h11==0.16.0
 idna==3.10
@@ -36,9 +36,9 @@ mako==1.3.10
 markupsafe==3.0.2
 marshmallow==4.0.0
 mercantile==1.2.1
-numpy==2.3.1
+numpy==2.3.2
 packaging==25.0
-pandas==2.3.1
+pandas==2.3.2
 pillow==11.3.0
 prompt-toolkit==3.0.51
 psycopg==3.2.9
@@ -52,13 +52,13 @@ pytz==2025.2
 pyyaml==6.0.2
 rasterio==1.4.3
 redis==5.2.1
-sentry-sdk==2.33.0
+sentry-sdk==2.35.0
 shapely==2.1.1
 six==1.17.0
 sniffio==1.3.1
-sqlalchemy==2.0.41
+sqlalchemy==2.0.43
 sqlmodel==0.0.24
-starlette==0.47.1
+starlette==0.47.2
 terracotta==0.9.1
 thermal-comfort==1.1.4
 titanlib @ https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
