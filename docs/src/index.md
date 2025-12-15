@@ -10,6 +10,7 @@ maxdepth: 1
 ---
 architecture.md
 development.md
+maintenance.md
 ```
 
 ```{toctree}
