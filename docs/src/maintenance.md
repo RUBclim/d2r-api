@@ -48,7 +48,13 @@ construction the following steps are needed.
    UPDATE sensor_deployment SET teardown_date = '2025-11-28 05:40:00+00' WHERE deployment_id = 51;
    ```
 
-2. Create a new deployment with the sensor that replaces the old sensor
+2. Create a new deployment with the sensor that replaces the old sensor. Make sure that
+   the `station_id` column is present in the element portal. If this is missing, the
+   system cannot process the measurement since it cannot be unambiguously assigned a
+   station. If this was not done right away, you will have to set the `setup_date`
+   between the last value _without_ a `station_id` and the first values _with_ a
+   `station_id`. Make sure the timezones match! The database only accept UTC. The
+   Element UI will show timestamp in the browser's timezone.
 
    ```sql
    INSERT INTO
