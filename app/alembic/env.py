@@ -2,9 +2,11 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from alembic.runtime.environment import NameFilterType
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.schema import SchemaItem
 
 from app import models  # noqa: F401
 from app.database import Base
@@ -30,6 +32,21 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+IGNORE_TALBLES = (
+    'latest_data',
+)
+
+
+def include_object(
+        object: SchemaItem,
+        name: str | None,
+        type_: NameFilterType,
+        reflected: bool,
+        compare_to: SchemaItem | None,
+) -> bool:
+    if type_ == 'table' and name is not None and str(name) in IGNORE_TALBLES:
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -50,6 +67,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={'paramstyle': 'named'},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -57,7 +75,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
