@@ -7,6 +7,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.staticfiles import StaticFiles
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from sqlalchemy import Table
@@ -99,6 +100,8 @@ def create_app() -> FastAPI:
         # https://data-2-resilience.vercel.app
         allow_origin_regex=ALLOW_ORIGIN_REGEX,
     )
+    # TODO we want to serve the images via nginx in production
+    app.mount('/static', StaticFiles(directory='app/static'), name='static')
     return app
 
 

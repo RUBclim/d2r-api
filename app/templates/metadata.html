@@ -1,0 +1,631 @@
+{% macro street_level_photo(station_id, direction, date) %}
+{% set img_id = 'street_level_photo_' + station_id + '_' + direction %}
+  <div class="col-12 col-md-6 p-2 pb-2 text-center clickable-highlight d-flex flex-column" id="{{ img_id }}">
+    <figure class="figure d-flex flex-column flex-grow-1">
+        <div class="d-flex align-items-center justify-content-center flex-grow-1">
+          <img
+            src="{{ url_for('static', path='img/' + station_id + '/' + station_id + '_' + direction + '.jpg') }}"
+            class="figure-img img-fluid rounded"
+            alt="street level photograph facing {{ direction }} at station {{ station_id }}"
+          >
+        </div>
+      <a href="#{{ img_id }}">
+        <figcaption class="figure-caption text-center" style="margin-top: auto;">
+          Photograph taken in the field on {{ date }} facing {{ direction }}.
+        </figcaption>
+      </a>
+    </figure>
+  </div>
+{% endmacro %}
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ station.station_id }} - {{ station.long_name }}</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.css"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script
+      src="https://unpkg.com/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.js"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <style>
+      #map {
+        height: 800px;
+      }
+      #panorama {
+          height: 600px;
+      }
+      #map-container {
+        position: relative;
+      }
+      .map-legend {
+        position: absolute;
+        top: 2%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: grid;
+        grid-template-columns: repeat(4, auto);
+        gap: 8px 12px;
+        align-items: center;
+        justify-items: center;
+        background: rgba(255,255,255,0.95);
+        padding: 6px 10px;
+        border-radius: 8px;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+        font-size: 13px;
+        z-index: 1000;
+      }
+      .map-legend .legend-item { display: flex; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
+      .map-legend .legend-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.2); }
+      @media (max-width: 576px) {
+        .map-legend { grid-template-columns: repeat(2, auto); padding: 6px 8px; font-size: 12px; }
+      }
+      .station-label-mini-map {
+        font-size: 10px !important;
+        font-weight: bold !important;
+        padding: 0px;
+        padding-left: 1px;
+        padding-right: 1px;
+        border-radius: 5px;
+      }
+      .station-label {
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border-radius: 10px;
+        padding: 1px;
+        padding-left: 4px;
+        padding-right: 4px;
+      }
+      .clickable-highlight a,
+      .clickable-highlight a:link,
+      .clickable-highlight a:visited {
+        color: inherit;
+        text-decoration: none;
+      }
+      .clickable-highlight a:hover,
+      .clickable-highlight a:focus {
+        text-decoration: underline;
+      }
+      .clickable-highlight:target {
+        outline: 2px solid #f6f687;
+        background-color: #ffffcc;
+        border-radius: 0.5rem;
+      }
+    .custom-hotspot {
+        height: 200px;
+        width: 9px;
+        background: white;
+        border: 3px solid black;
+        border-radius: 6px;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="text-center">{{ station.station_id }} - {{ station.long_name }}</h1>
+      <div class="row">
+        <div class="col-12 col-md-5">
+          <h5 class="my-3 clickable-highlight h5" id="station-location">
+            <a href="#station-location">1. Station Location and Siting</a>
+          </h5>
+      <table class="table">
+        <tbody>
+          <tr>
+            <td><strong>Station Status:</strong></td>
+            {% if station.active_deployments %}
+              <td><span class="badge bg-success">operational</span></td>
+            {% else %}
+              <td><span class="badge bg-danger">inactive</span></td>
+            {% endif %}
+          </tr>
+          <tr>
+            <td><strong>Station ID:</strong></td>
+            <td>{{ station.station_id }}</td>
+          </tr>
+          <tr>
+            <td><strong>Station Type:</strong></td>
+            <td><code>{{ station.station_type }}</code></td>
+          </tr>
+          <tr>
+            <td><strong>Full Name:</strong></td>
+            <td>{{ station.long_name }}</td>
+          </tr>
+          <tr>
+            <td><strong>Latitude:</strong></td>
+            <td>{{ '%0.7f' %  station.latitude }}°</td>
+          </tr>
+          <tr>
+            <td><strong>Longitude:</strong></td>
+            <td>{{ '%0.7f' % station.longitude }}°</td>
+          </tr>
+          <tr>
+            <td><strong>Topographic Elevation:</strong></td>
+            <td>{{  '%0.2f' % station.altitude }} m</td>
+          </tr>
+          <tr>
+            <td><strong>Address:</strong></td>
+            <td>{{ station.full_address }}</td>
+          </tr>
+          <tr>
+            <td><strong>Administrative Unit:</strong></td>
+            <td>{{ station.city }}, {{ station.district }}</td>
+          </tr>
+          <tr>
+            <td><strong>Local Climate Zone (LCZ):</strong></td>
+            <td>{{ station.lcz }}</td>
+          </tr>
+          <tr>
+            <td><strong>Urban Atlas Class:</strong></td>
+            <td>{{ station.urban_atlas_class_nr }} ({{ station.urban_atlas_class_name }})</td>
+          </tr>
+          <tr>
+            <td><strong>Sky View Factor (SVF):</strong></td>
+            <td>{{ '%0.2f' % station.svf if station.svf else '-'}}</td>
+          </tr>
+          <tr>
+            <td><strong>Surface Below Sensor:</strong></td>
+            <td>{{ station.surface_below_sensor }}</td>
+          </tr>
+          <tr>
+            <td><strong>Mounting Type:</strong></td>
+            <td>{{ station.mounting_type }}</td>
+          </tr>
+          <tr>
+            <td><strong>Mounting Structure Color:</strong></td>
+            <td>{{ station.mounting_structure_color }}</td>
+          </tr>
+          <tr>
+            <td><strong>Distance from Mounting Structure:</strong></td>
+            <td>{{ station.sensor_distance_from_mounting_structure }} m</td>
+          </tr>
+          {% if station.leuchtennummer is not none %}
+            <tr>
+              <td><strong>Lamp ID (Leuchtennummer):</strong></td>
+              <td>{{ station.leuchtennummer }}</td>
+            </tr>
+          {% endif %}
+          <tr>
+            <td><strong>Elevation Above Ground:</strong></td>
+            <td>{{ '%0.2f' % station.sensor_height_agl if station.sensor_height_agl else '-' }} m</td>
+          </tr>
+          {% if station.atm41_sensor_orientation is not none %}
+            <tr>
+              <td><strong>ATM41 Sensor Orientation</strong></td>
+              <td>{{ station.atm41_sensor_orientation }} °</td>
+            </tr>
+          {% endif %}
+          {% if station.blg_sensor_orientation is not none %}
+            <tr>
+              <td><strong>BLG Sensor Orientation</strong></td>
+              <td>{{ station.blg_sensor_orientation }} °</td>
+            </tr>
+          {% endif %}
+          {% if station.sht35_sensor_orientation is not none %}
+            <tr>
+              <td><strong>SHT35 Sensor Orientation</strong></td>
+              <td>{{ station.sht35_sensor_orientation }} °</td>
+            </tr>
+          {% endif %}
+            <tr>
+              <td><strong>Metadata Collection on:</strong></td>
+              <td>{{ station.metadata_collection_date }}</td>
+            </tr>
+        </tbody>
+      </table>
+        </div>
+        <div class="col-12 col-md-7">
+          <h5 class="my-3 clickable-highlight h5" id="map-of-micro-scale-surrounding">
+            <a href="#map-of-micro-scale-surrounding">Map of micro-scale Surroundings</a>
+                </h5>
+                <div class="clickable-highlight p-2 mb-3" id="map-container">
+                  <div id="map"></div>
+                    <div class="map-legend" id="map-legend" aria-hidden="false">
+                      <div class="legend-item fw-bold"><span class="legend-swatch" style="background: red; border: 2px solid darkred;"></span>{{ station.station_id }} (current)</div>
+                      <div class="legend-item"><span class="legend-swatch" style="background: orange;"></span>Biomet</div>
+                      <div class="legend-item"><span class="legend-swatch" style="background: blue;"></span>Biomet & Ta/RH</div>
+                      <div class="legend-item"><span class="legend-swatch" style="background: green;"></span>Ta/RH</div>
+                    </div>
+                    <a href="#map-container">
+                      <figcaption class="figure-caption text-center">
+                        Map of local and micro-scale surroundings. The circles mark 100 m and 500 m around the current station, respectively.
+                        The minimap shows the station's position within the larger context of the network.
+                        Background layers can be changed using the layer control at the top right of the map.
+                      </figcaption>
+                    </a>
+                </div>
+        </div>
+      </div>
+      {% if station.maintenance_notes is not none or station.comment is not none %}
+        <h5 class="my-3 clickable-highlight h5" id="maintenance-notes">
+          <a href="#maintenance-notes">Maintenance Notes and Remarks</a>
+        </h5>
+        <ul>
+          {% if station.maintenance_notes is not none %}
+            <li>{{ station.maintenance_notes }}</li>
+          {% endif %}
+          {% if station.comment is not none %}
+            <li>{{ station.comment }}</li>
+          {% endif %}
+        </ul>
+      {% endif %}
+      <h5 class="my-3 clickable-highlight h5" id="history-and-remarks">
+        <a href="#history-and-remarks">History and Remarks</a>
+      </h5>
+      {% if not station.deployments %}
+        <div class="alert alert-warning text-center" role="alert">
+          This station has no active deployments. Which means it is not installed.
+        </div>
+      {% else %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Start date</th>
+            <th scope="col">End Date</th>
+            <th scope="col">Sensor Type</th>
+            <th scope="col">Sensor ID</th>
+            <th scope="col">Device ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in station.former_deployments %}
+          <tr class="table-secondary">
+            <td>{{ s.setup_date }}</td>
+            <td>{{ s.teardown_date if s.teardown_date }}</td>
+            <td>{{ s.sensor.sensor_type }}</td>
+            <td>{{ s.sensor.sensor_id }}</td>
+            <td>{{ s.sensor.device_id }}</td>
+          </tr>
+          {% endfor %}
+          {% for s in station.active_deployments %}
+          <tr class="table-success">
+            <td>{{ s.setup_date }}</td>
+            <td>{{ s.teardown_date if s.teardown_date else '<i>measurement ongoing</i>' | safe }}</td>
+            <td>{{ s.sensor.sensor_type }}</td>
+            <td>{{ s.sensor.sensor_id }}</td>
+            <td>{{ s.sensor.device_id }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      <h5 class="my-3 clickable-highlight h5" id="panorma-of-micro-scale-surrounding">
+        <a href="#panorma-of-micro-scale-surrounding">Panorama of micro-scale Surroundings</a>
+      </h5>
+      <div class="clickable-highlight p-2" id="panorama-container">
+        <div id="panorama"></div>
+        <a href="#panorama-container">
+          <figcaption class="figure-caption text-center">
+            360° photograph of the micro-scale surroundings of the station.
+            Taken on {{ station.metadata_collection_date }}.
+          </figcaption>
+        </a>
+      </div>
+      <h5 class="my-3 clickable-highlight h5" id="street-level-photographs">
+        <a href="#street-level-photographs">Street-Level Photographs</a>
+      </h5>
+      <div class="row">
+        {{ street_level_photo(station.station_id, 'nord', station.metadata_collection_date) }}
+        {{ street_level_photo(station.station_id, 'ost', station.metadata_collection_date) }}
+      </div>
+      <div class="row">
+        {{ street_level_photo(station.station_id, 'sued', station.metadata_collection_date) }}
+        {{ street_level_photo(station.station_id, 'west', station.metadata_collection_date) }}
+      </div>
+      <h5 class="my-3 clickable-highlight h5" id="sky-view-photograph">
+        <a href="#sky-view-photograph">Sky-View Photograph</a>
+      </h5>
+      <div class="p-2 pb-2 text-center clickable-highlight d-flex flex-column mx-auto w-100 w-md-75 w-lg-50" id="svf-photo">
+      <figure class="figure d-flex flex-column flex-grow-1 align-items-center">
+        <img
+          src="{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_HS_annotated.png') }}",
+          class="figure-img img-fluid rounded mx-auto"
+          alt="sky view photograph above the sensor at station {{ station.station_id }}",
+          width="75%"
+        >
+        <a href="#svf-photo">
+          <figcaption class="figure-caption text-center" style="margin-top: auto;">
+            Sky view photograph above the sensor. Taken on: {{ station.metadata_collection_date }}.
+          </figcaption>
+        </a>
+      </figure>
+      </div>
+    </div>
+  </body>
+  <script>
+    // create enum for colors
+    const Colors = {
+      'biomet': 'orange',
+      'double': '#45A1D5',
+      'temprh': '#30EE00',
+      'highlighted': 'red',
+      'highlighted_accent': 'darkred',
+      'station_halo': 'black',
+      'halo': 'white',
+      'circle': 'black'
+    };
+    const latitude = {{ station.latitude }};
+    const longitude = {{ station.longitude }};
+    const stationId = "{{ station.station_id }}";
+    const longName = "{{ station.long_name }}";
+    var map = L.map(
+      "map",
+      {
+        zoomSnap: 0.25
+      }
+    ).setView([latitude, longitude], 16.5);
+
+    // Layer configuration
+    var osmLayerUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+    var osmLayerOptions = {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    };
+
+    var wmsLayerUrl = "https://geodaten.metropoleruhr.de/dop/dop_2025";
+    var wmsLayerOptions = {
+      layers: 'dop_2025',
+      format: 'image/png',
+      transparent: true,
+      attribution: 'DOP 2025 - Metropole Ruhr'
+    };
+
+    var lczLayerUrl = "https://lcz-generator.rub.de/tms/global-map-tiles/latest/{z}/{x}/{y}.png";
+    var lczLayerOptions = {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://doi.org/10.5194/essd-14-3835-2022">Matthias Demuzere et al. 2022</a>',
+    };
+
+    // Main map layers
+    var osmLayer = L.tileLayer(osmLayerUrl, osmLayerOptions);
+    var wmsLayer = L.tileLayer.wms(wmsLayerUrl, wmsLayerOptions);
+    var lczLayer = L.tileLayer(lczLayerUrl, lczLayerOptions);
+
+    osmLayer.addTo(map);
+
+    var baseLayers = {
+      'OpenStreetMap': osmLayer,
+      'Aerial image 2025': wmsLayer,
+      'LCZ map': lczLayer
+    };
+
+    var layersControl = L.control.layers(baseLayers).addTo(map);
+
+    var stationCircle = L.circleMarker([latitude, longitude], {
+      radius: 8,
+      fillColor: Colors.highlighted,
+      color: Colors.highlighted_accent,
+      weight: 4,
+      opacity: 1,
+      fillOpacity: 0.8
+    }).addTo(map);
+
+    var label = L.tooltip({permanent: true, direction: 'top', className: 'station-label'})
+      .setContent(`${stationId} (${longName})`)
+      .setLatLng([latitude, longitude])
+      .addTo(map);
+
+    // 100 m
+    var haloCircle = L.circle([latitude, longitude], {
+      color: Colors.halo,
+      weight: 7,
+      fill: false,
+      radius: 100
+    }).addTo(map);
+    var circle = L.circle([latitude, longitude], {
+      color: Colors.circle,
+      weight: 2,
+      fill: false,
+      radius: 100
+    }).addTo(map);
+    // 500 m
+    var haloCircle500 = L.circle([latitude, longitude], {
+      color: Colors.halo,
+      weight: 7,
+      fill: false,
+      radius: 500
+    }).addTo(map);
+    var circle500 = L.circle([latitude, longitude], {
+      color: Colors.circle,
+      weight: 2,
+      fill: false,
+      radius: 500
+    }).addTo(map);
+
+    L.control.scale({
+        maxWidth: 250,
+        imperial: false
+    }).addTo(map);
+
+    // Minimap layers (separate instances required)
+    var miniMapOsmLayer = L.tileLayer(osmLayerUrl, osmLayerOptions);
+    var miniMapWmsLayer = L.tileLayer.wms(wmsLayerUrl, wmsLayerOptions);
+    var miniMapLczLayer = L.tileLayer(lczLayerUrl, lczLayerOptions);
+
+    var stationMarker = L.circleMarker([latitude, longitude], {
+      radius: 6,
+      fillColor: Colors.highlighted,
+      color: Colors.highlighted_accent,
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.8
+    });
+    // add permanent tooltip with station id on minimap marker
+    stationMarker.bindTooltip(
+      stationId,
+      {permanent: true, direction: 'right', className: 'station-label-mini-map'}
+    );
+
+    var miniMapGroup = L.layerGroup([miniMapOsmLayer, stationMarker]);
+
+    var miniMap = new L.Control.MiniMap(miniMapGroup, {
+      toggleDisplay: true,
+      position: 'bottomright',
+      width: 250,
+      height: 250,
+      zoomLevelFixed: 10
+    }).addTo(map);
+
+    // Ensure all minimap base layers exist in the internal minimap map
+    miniMap._miniMap.addLayer(miniMapWmsLayer);
+    miniMap._miniMap.addLayer(miniMapLczLayer);
+    // remove the non-default ones so only the default (OSM) is visible
+    miniMap._miniMap.removeLayer(miniMapWmsLayer);
+    miniMap._miniMap.removeLayer(miniMapLczLayer);
+
+    map.on('baselayerchange', function(e) {
+      var miniMapInner = miniMap._miniMap;
+      // remove all known base layers first
+      if (miniMapInner.hasLayer(miniMapOsmLayer)) miniMapInner.removeLayer(miniMapOsmLayer);
+      if (miniMapInner.hasLayer(miniMapWmsLayer)) miniMapInner.removeLayer(miniMapWmsLayer);
+      if (miniMapInner.hasLayer(miniMapLczLayer)) miniMapInner.removeLayer(miniMapLczLayer);
+
+      if (e.name === 'OpenStreetMap') {
+        miniMapInner.addLayer(miniMapOsmLayer);
+      } else if (e.name === 'Aerial image 2025') {
+        miniMapInner.addLayer(miniMapWmsLayer);
+      } else if (e.name === 'LCZ map') {
+        miniMapInner.addLayer(miniMapLczLayer);
+      }
+      // keep marker present
+      if (!miniMapInner.hasLayer(stationMarker)) miniMapInner.addLayer(stationMarker);
+    });
+
+    // Fetch other stations and add as a togglable layer
+    var stationsLayer = L.layerGroup();
+    layersControl.addOverlay(stationsLayer, 'All stations');
+    stationsLayer.addTo(map);
+
+    // create a layer on the minimap to show station markers as well
+    var miniStationsLayer = L.layerGroup();
+    // ensure the minimap internal map exists and add the miniStationsLayer
+    if (miniMap && miniMap._miniMap) {
+      miniMap._miniMap.addLayer(miniStationsLayer);
+    }
+
+    fetch('https://api.data2resilience.de/v1/stations/metadata?param=latitude&param=longitude&param=station_type&param=long_name&include_inactive=true')
+      .then(function(resp){ return resp.json(); })
+      .then(function(json){
+        if(!json || !json.data) return;
+        json.data.forEach(function(s){
+          var lat = s.latitude, lon = s.longitude;
+          if(typeof lat !== 'number' || typeof lon !== 'number') {
+            return;
+          }
+          if(s.station_type === 'biomet') color = Colors.biomet;
+          else if(s.station_type === 'double') color = Colors.double;
+          else if(s.station_type === 'temprh') color = Colors.temprh;
+          else color = 'gray';
+
+          // main map marker
+          var marker = L.circleMarker([lat, lon], {
+            radius: 6,
+            fillColor: color,
+            color: Colors.station_halo,
+            weight: 1,
+            fillOpacity: 0.9
+          });
+          marker.bindPopup(
+            `<a href="${s.station_id}.html">${s.station_id} (${s.long_name || ''})</a>`,
+            {permanent: false, direction: 'top'}
+          );
+          marker.on('mouseover', function(e) {
+            this.openPopup();
+          });
+
+          stationsLayer.addLayer(marker);
+
+          // minimap marker (smaller)
+          try {
+            var miniMarker = L.circleMarker([lat, lon], {
+              radius: 3,
+              fillColor: color,
+              color: Colors.station_halo,
+              weight: 1,
+              fillOpacity: 0.9,
+              interactive: false
+            });
+            miniStationsLayer.addLayer(miniMarker);
+          } catch (e) {
+            // ignore minimap marker errors
+          }
+        });
+
+        // bring highlighted station elements to front so they render above the other station points
+        try {
+          if (typeof stationCircle !== 'undefined' && stationCircle && stationCircle.bringToFront) stationCircle.bringToFront();
+          if (typeof haloCircle !== 'undefined' && haloCircle && haloCircle.bringToFront) haloCircle.bringToFront();
+          if (typeof circle !== 'undefined' && circle && circle.bringToFront) circle.bringToFront();
+          if (typeof stationMarker !== 'undefined' && stationMarker && stationMarker.bringToFront) stationMarker.bringToFront();
+        } catch (e) {
+          console.warn('bringToFront failed', e);
+        }
+
+      }).catch(function(err){ console.error('stations fetch failed', err); });
+      /* pannellum viewer setup */
+      pannellum.viewer('panorama', {
+          type: "equirectangular",
+          panorama: "{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_EQ.png') }}",
+          autoLoad: true,
+          //autoRotate: -5,
+          compass: true,
+          hotSpots: [
+              {
+                  "pitch": 15,
+                  "yaw": 0,
+                  "type": "info",
+                  "text": "North",
+                  "cssClass": "custom-hotspot",
+              },
+              {
+                  "pitch": 15,
+                  "yaw": 90,
+                  "type": "info",
+                  "text": "East",
+                  "cssClass": "custom-hotspot",
+              },
+              {
+                  "pitch": 15,
+                  "yaw": 180,
+                  "type": "info",
+                  "text": "South",
+                  "cssClass": "custom-hotspot",
+              },
+              {
+                  "pitch": 15,
+                  "yaw": -90,
+                  "type": "info",
+                  "text": "West",
+                  "cssClass": "custom-hotspot",
+              }
+              ],
+            });
+  </script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+
+</html>

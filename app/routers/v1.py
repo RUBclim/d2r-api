@@ -15,7 +15,10 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Path
 from fastapi import Query
+from fastapi import Request
+from fastapi.responses import HTMLResponse
 from fastapi.responses import StreamingResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_
 from sqlalchemy import cast
 from sqlalchemy import CompoundSelect
@@ -27,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy import TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import selectinload
 
 from app import schemas
 from app.database import get_db_session
@@ -58,6 +62,7 @@ from app.schemas import VizParamSettings
 from app.schemas import VizResponse
 
 router = APIRouter(prefix='/v1')
+templates = Jinja2Templates(directory='app/templates')
 
 MAX_AGE_DESCRIPTION = '''\
 The maximum age a measurement can have, until the station is omitted  from the results.
@@ -126,6 +131,43 @@ async def get_stations_metadata(
 
     data = (await db.execute(query.order_by(Station.station_id)))
     return Response(data=data.mappings().all())
+
+
+@router.get(
+    '/stations/metadata/{station_id}.html',
+    response_class=HTMLResponse,
+    tags=['stations'],
+)
+async def get_station_rendered_metadata(
+        request: Request,
+        station_id: str = Path(
+            description='The unique identifier of the station e.g. `DOBHAP`',
+        ),
+        db: AsyncSession = Depends(get_db_session),
+) -> Any:
+    """API-endpoint for retrieving metadata from all available stations. This does
+    not take into account whether or not they currently have any up-to-date data."""
+    station = (
+        await db.execute(
+            select(Station)
+            .options(
+                selectinload(Station.active_sensors),
+                selectinload(Station.former_sensors),
+                selectinload(Station.active_deployments),
+                selectinload(Station.former_deployments),
+                selectinload(Station.deployments),
+            )
+            .where(Station.station_id == station_id),
+        )
+    ).scalar_one_or_none()
+    if station is None:
+        raise HTTPException(status_code=404, detail='Station not found')
+
+    return templates.TemplateResponse(
+        request=request,
+        name='metadata.html',
+        context={'station': station},
+    )
 
 
 @router.get(
