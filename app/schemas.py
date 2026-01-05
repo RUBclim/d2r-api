@@ -639,13 +639,26 @@ class PublicStationMetadata(StrEnum):
     city = 'city'
     country = 'country'
     district = 'district'
+    dominant_land_use = 'dominant_land_use'
+    surface_below_sensor = 'surface_below_sensor'
     urban_atlas_class_name = 'urban_atlas_class_name'
     urban_atlas_class_nr = 'urban_atlas_class_nr'
+    orographic_setting = 'orographic_setting'
     svf = 'svf'
     lcz = 'lcz'
+    surrounding_land_cover_description = 'surrounding_land_cover_description'
+    mounting_type = 'mounting_type'
+    mounting_structure_color = 'mounting_structure_color'
+    leuchtennummer = 'leuchtennummer'
     sensor_height_agl = 'sensor_height_agl'
     sensor_distance_from_mounting_structure = 'sensor_distance_from_mounting_structure'
     station_type = 'station_type'
+    atm41_sensor_orientation = 'atm41_sensor_orientation'
+    sht35_sensor_orientation = 'sht35_sensor_orientation'
+    blg_sensor_orientation = 'blg_sensor_orientation'
+    maintenance_notes = 'maintenance_notes'
+    comment = 'comment'
+    metadata_collection_date = 'metadata_collection_date'
 
 
 class StationMetadata(BaseModel):
@@ -704,6 +717,16 @@ class StationMetadata(BaseModel):
         examples=['Innenstadt'],
         description='The name of the city district, that station is located in',
     )
+    dominant_land_use: str | None = Field(
+        None,
+        examples=['Bebaute Flächen, dem Wohnen dienend, bis 3 Geschosse'],
+        description='The dominant land use in the vicinity of the station',
+    )
+    surface_below_sensor: str | None = Field(
+        None,
+        examples=['Asphalt'],
+        description='The surface type directly below the sensor',
+    )
     urban_atlas_class_name: str | None = Field(
         None,
         examples=['Other roads and associated land'],
@@ -720,6 +743,11 @@ class StationMetadata(BaseModel):
             'urban atlas'
         ),
     )
+    orographic_setting: str | None = Field(
+        None,
+        examples=['Valley'],
+        description='The orographic setting of the station',
+    )
     svf: float | None = Field(
         None,
         examples=[0.75],
@@ -731,6 +759,26 @@ class StationMetadata(BaseModel):
         None,
         examples=[2],
         description='The abbreviated Local Climate Zone Class',
+    )
+    surrounding_land_cover_description: str | None = Field(
+        None,
+        examples=['Predominantly low-rise buildings with some trees and grass'],
+        description='Description of the surrounding land cover',
+    )
+    mounting_type: str | None = Field(
+        None,
+        examples=['Lamp Post'],
+        description='The type of mounting of the station',
+    )
+    mounting_structure_color: str | None = Field(
+        None,
+        examples=['Silver metallic'],
+        description='The color of the mounting structure',
+    )
+    leuchtennummer: int | None = Field(
+        None,
+        examples=[78839],
+        description='The identifier of the lamp post the station is mounted on',
     )
     sensor_height_agl: float | None = Field(
         None,
@@ -751,6 +799,42 @@ class StationMetadata(BaseModel):
             'The type of the station. Depending on the station type, a different set '
             'of parameters is available.'
         ),
+    )
+    atm41_sensor_orientation: float | None = Field(
+        None,
+        examples=[180],
+        description='The orientation of the ATM41 sensor in **°**',
+        ge=0,
+        le=360,
+    )
+    sht35_sensor_orientation: float | None = Field(
+        None,
+        examples=[90],
+        description='The orientation of the SHT35 sensor in **°**',
+        ge=0,
+        le=360,
+    )
+    blg_sensor_orientation: float | None = Field(
+        None,
+        examples=[270],
+        description='The orientation of the BLG sensor in **°**',
+        ge=0,
+        le=360,
+    )
+    maintenance_notes: str | None = Field(
+        None,
+        examples=['a lot of leafs'],
+        description='Notes for maintenance activities at the station',
+    )
+    comment: str | None = Field(
+        None,
+        examples=['Street sign is close'],
+        description='Additional comments regarding the station',
+    )
+    metadata_collection_date: datetime | None = Field(
+        None,
+        examples=['2023-08-15T12:34:56Z'],
+        description='The date when the metadata was collected',
     )
 
 

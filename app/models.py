@@ -197,6 +197,12 @@ class Station(Base):
         comment='e.g. residential, commercial, industrial, ...',
         doc='dominant land use at the station',
     )
+    surface_below_sensor: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='surface type directly below the sensor e.g. asphalt, grass, ...',
+        doc='surface type directly below the sensor e.g. asphalt, grass, ...',
+    )
     urban_atlas_class_name: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -216,24 +222,6 @@ class Station(Base):
         nullable=True,
         comment='sky view factor of the station',
     )
-    artificial_heat_sources: Mapped[str] = mapped_column(
-        Text,
-        nullable=True,
-        comment='e.g. cars, buildings, ...',
-        doc='artificial heat sources at the station',
-    )
-    proximity_to_building: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        doc='the distance to the closest building in **m**',
-    )
-    proximity_to_parking: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        doc='the distance to the closest parking lot in **m**',
-    )
-    proximity_to_tree: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        doc='the distance to the closest tree in **m**',
-    )
     surrounding_land_cover_description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -248,36 +236,15 @@ class Station(Base):
         comment='the structure the sensor is mounted to e.g. black mast, building, ...',
         doc='the structure the sensor is mounted to e.g. black mast, building, ...',
     )
+    mounting_structure_color: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment='color of the mounting structure e.g. black, white, ...',
+        doc='color of the mounting structure e.g. black, white, ...',
+    )
     leuchtennummer: Mapped[int] = mapped_column(
         nullable=False,
         doc='the number of the streetlight the sensor is mounted to',
-    )
-    mounting_structure_material: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment=(
-            'The material the structure the sensor is mounted to is made of e.g. '
-            'metal, wood, ...'
-        ),
-        doc=(
-            'The material the structure the sensor is mounted to is made of e.g. '
-            'metal, wood, ...'
-        ),
-    )
-    mounting_structure_height_agl: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        comment='the total height of the mounting structure above ground level',
-        doc='the total height of the mounting structure above ground level',
-    )
-    mounting_structure_diameter: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        comment='the diameter of the mounting structure at the mounting height',
-        doc='the diameter of the mounting structure at the mounting height',
-    )
-    mounting_structure_light_extension_offset: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        comment='when mounted to a lantern post, the overhang of the lantern',
-        doc='when mounted to a lantern post, the overhang of the lantern',
     )
     sensor_height_agl: Mapped[Decimal | None] = mapped_column(
         nullable=True,
@@ -289,7 +256,6 @@ class Station(Base):
         ),
     )
     sensor_distance_from_mounting_structure: Mapped[Decimal | None] = mapped_column(
-        Text,
         nullable=True,
         comment=(
             'the distance of the main component of the station (ATM41 or SHT35) '
@@ -300,37 +266,29 @@ class Station(Base):
             'from the mounting structure'
         ),
     )
-    sensor_orientation: Mapped[Decimal | None] = mapped_column(
-        Text,
+    atm41_sensor_orientation: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment=(
-            'the orientation (-angle) of the arm of the main component of the station '
-            '(ATM41 or SHT35) from the mounting structure'
+            'the orientation (-angle) of the arm of the ATM41 sensor of the station '
+            'from the mounting structure'
         ),
         doc=(
-            'the orientation (-angle) of the arm of the main component of the station '
-            '(ATM41 or SHT35) from the mounting structure'
+            'the orientation (-angle) of the arm of the ATM41 sensor of the station '
+            'from the mounting structure'
         ),
     )
-    blg_sensor_height_agl: Mapped[Decimal | None] = mapped_column(
-        nullable=True,
-        comment='the mounting height of the black globe sensor of the station',
-        doc='the mounting height of the black globe sensor of the station',
-    )
-    blg_sensor_distance_from_mounting_structure: Mapped[Decimal | None] = mapped_column(
-        Text,
+    sht35_sensor_orientation: Mapped[Decimal | None] = mapped_column(
         nullable=True,
         comment=(
-            'the distance of the black globe sensor of the station from the mounting '
-            'structure'
+            'the orientation (-angle) of the arm of the SHT35 sensor of the station '
+            'from the mounting structure'
         ),
         doc=(
-            'the distance of the black globe sensor of the station from the mounting '
-            'structure'
+            'the orientation (-angle) of the arm of the SHT35 sensor of the station '
+            'from the mounting structure'
         ),
     )
     blg_sensor_orientation: Mapped[Decimal | None] = mapped_column(
-        Text,
         nullable=True,
         comment=(
             'the orientation (-angle) of the arm of the black globe sensor of the '
@@ -340,11 +298,21 @@ class Station(Base):
             'the orientation (-angle) of the arm of the black globe sensor of the '
             'station from the mounting structure'
         ),
+    )
+    maintenance_notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc='notes regarding maintenance activities at the station',
     )
     comment: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         doc='a text describing the station',
+    )
+    metadata_collection_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc='the date when the metadata was collected in the field',
     )
 
     # relationships
@@ -447,23 +415,15 @@ class Station(Base):
             f'urban_atlas_class_nr={self.urban_atlas_class_nr!r}, '
             f'orographic_setting={self.orographic_setting!r}, '
             f'svf={self.svf!r}, '
-            f'artificial_heat_sources={self.artificial_heat_sources!r}, '
-            f'proximity_to_building={self.proximity_to_building!r}, '
-            f'proximity_to_parking={self.proximity_to_parking!r}, '
-            f'proximity_to_tree={self.proximity_to_tree!r}, '
             f'surrounding_land_cover_description={self.surrounding_land_cover_description!r}, '  # noqa: E501
             f'mounting_type={self.mounting_type!r}, '
             f'leuchtennummer={self.leuchtennummer!r}, '
-            f'mounting_structure_material={self.mounting_structure_material!r}, '
-            f'mounting_structure_height_agl={self.mounting_structure_height_agl!r}, '
-            f'mounting_structure_diameter={self.mounting_structure_diameter!r}, '
-            f'mounting_structure_light_extension_offset={self.mounting_structure_light_extension_offset!r}, '  # noqa: E501
             f'sensor_height_agl={self.sensor_height_agl!r}, '
             f'sensor_distance_from_mounting_structure={self.sensor_distance_from_mounting_structure!r}, '  # noqa: E501
-            f'sensor_orientation={self.sensor_orientation!r}, '
-            f'blg_sensor_height_agl={self.blg_sensor_height_agl!r}, '
-            f'blg_sensor_distance_from_mounting_structure={self.blg_sensor_distance_from_mounting_structure!r}, '  # noqa: E501
+            f'atm41_sensor_orientation={self.atm41_sensor_orientation!r}, '
+            f'sht35_sensor_orientation={self.sht35_sensor_orientation!r}, '
             f'blg_sensor_orientation={self.blg_sensor_orientation!r}, '
+            f'maintenance_notes={self.maintenance_notes!r}, '
             f'comment={self.comment!r}'
             f')'
         )
