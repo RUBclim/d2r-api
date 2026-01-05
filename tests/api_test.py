@@ -289,6 +289,33 @@ async def test_get_station_metadata_subset_of_cols(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize('stations', [1], indirect=True)
+async def test_get_station_rendered_metadata(
+        app: AsyncClient,
+        stations: list[Station],
+        db: AsyncSession,
+) -> None:
+    station = stations[0]
+    deployment = SensorDeployment(
+        sensor_id='DEC1',
+        station_id=station.station_id,
+        setup_date=datetime(2024, 8, 1, tzinfo=timezone.utc),
+    )
+    db.add(deployment)
+    await db.commit()
+
+    resp = await app.get(f'/v1/stations/metadata/{station.station_id}')
+    assert resp.status_code == 200
+    assert f'{station.station_id} - {station.long_name}' in resp.text
+
+
+@pytest.mark.anyio
+async def test_get_station_rendered_metadata_not_found(app: AsyncClient) -> None:
+    resp = await app.get('/v1/stations/metadata/UNKNOWN')
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize('biomet_data', [{'n_stations': 2, 'n_data': 3}], indirect=True)
 @freezegun.freeze_time('2024-08-01 01:00')
 async def test_get_station_latest_data(
