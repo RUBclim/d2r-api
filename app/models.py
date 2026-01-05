@@ -242,8 +242,8 @@ class Station(Base):
         comment='color of the mounting structure e.g. black, white, ...',
         doc='color of the mounting structure e.g. black, white, ...',
     )
-    leuchtennummer: Mapped[int] = mapped_column(
-        nullable=False,
+    leuchtennummer: Mapped[int | None] = mapped_column(
+        nullable=True,
         doc='the number of the streetlight the sensor is mounted to',
     )
     sensor_height_agl: Mapped[Decimal | None] = mapped_column(

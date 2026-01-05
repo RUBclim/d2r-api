@@ -63,6 +63,13 @@ repos:
     hooks:
     -   id: pyupgrade
         args: [--py313-plus]
+-   repo: https://github.com/rtts/djhtml
+    rev: '3.0.10'
+    hooks:
+      - id: djhtml
+        exclude: ^bin/
+      - id: djcss
+        exclude: ^bin/
 -   repo: https://github.com/rbubley/mirrors-prettier
     rev: "v3.7.4"
     hooks:

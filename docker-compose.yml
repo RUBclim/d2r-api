@@ -118,6 +118,8 @@ services:
     volumes:
       # cache directory for the raster tiles
       - nginx-cache:/var/cache/nginx/tiles
+      # static directory
+      - ${STATIC_DIRECTORY}:/usr/src/app/static:ro
     healthcheck:
       test: ["CMD-SHELL", "service nginx status || exit 1"]
       interval: 30s
