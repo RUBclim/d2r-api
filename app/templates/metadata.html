@@ -222,12 +222,14 @@
                     <dd class="col-7 mb-2">{{ '%0.7f' % station.longitude }}°</dd>
                     <dt class="col-5 text-muted">Elevation</dt>
                     <dd class="col-7 mb-2">{{ '%0.2f' % station.altitude }} m</dd>
-                    <dt class="col-5 text-muted">Surface</dt>
-                    <dd class="col-7 mb-2">{{ station.surface_below_sensor }}</dd>
                     <dt class="col-5 text-muted">Address</dt>
                     <dd class="col-7 mb-2">{{ station.full_address }}</dd>
+                    <dt class="col-5 text-muted">Surface</dt>
+                    <dd class="col-7 mb-2">{{ station.surface_below_sensor }}</dd>
                     <dt class="col-5 text-muted">LCZ</dt>
                     <dd class="col-7 mb-2">{{ station.lcz or 'LCZ not set' }}</dd>
+                    <dt class="col-5 text-muted">Sky View Factor</dt>
+                    <dd class="col-7 mb-2">{{ '%0.2f' % station.svf if station.svf else '' }}</dd>
                     <dt class="col-5 text-muted">Urban atlas</dt>
                     <dd class="col-7 mb-2 text-capitalize">
                       {{ station.urban_atlas_class_nr if station.urban_atlas_class_nr else 'N/A' }}
@@ -292,7 +294,7 @@
           <h5 class="my-3 clickable-highlight h5" id="map-of-micro-scale-surrounding">
             <a href="#map-of-micro-scale-surrounding">
               <i class="bi bi-map me-2" aria-hidden="true"></i>
-              Map of micro-scale Surroundings
+              Map of micro-scale surroundings
             </a>
           </h5>
           <div class="clickable-highlight p-2 mb-3" id="map-container">
@@ -305,7 +307,7 @@
             </div>
             <a href="#map-container">
               <figcaption class="figure-caption text-center">
-                Map of local and micro-scale surroundings. The circles mark 100 m and 500 m around the current station, respectively.
+                Map of local and micro-scale surroundings. The circles mark 200 m and 500 m around the current station, respectively.
                 The minimap shows the station's position within the larger context of the network.
                 Background layers can be changed using the layer control at the top right of the map.
               </figcaption>
@@ -337,14 +339,14 @@
       </h5>
       {% if not station.deployments %}
         <div class="alert alert-warning text-center" role="alert">
-          This station has no active deployments. Which means it is not installed.
+          This station has no active deployments. This means it is not installed.
         </div>
       {% else %}
         <table class="table">
           <thead>
             <tr>
               <th scope="col">Start date</th>
-              <th scope="col">End Date</th>
+              <th scope="col">End date</th>
               <th scope="col">Sensor Type</th>
               <th scope="col">Sensor ID</th>
               <th scope="col">Device ID</th>
@@ -357,7 +359,7 @@
                 <td>{{ s.teardown_date if s.teardown_date }}</td>
                 <td class="text-nowrap">
                   <i class="bi bi-radar-fill text-primary me-1" aria-hidden="true"></i>
-                  {{ s.sensor.sensor_type }}
+                  {{ s.sensor.sensor_type.upper() }}
                 </td>
                 <td>{{ s.sensor.sensor_id }}</td>
                 <td>{{ s.sensor.device_id }}</td>
@@ -369,7 +371,7 @@
                 <td>{{ s.teardown_date if s.teardown_date else '<i>measurement ongoing</i>' | safe }}</td>
                 <td class="text-nowrap">
                   <i class="bi bi-radar-fill text-primary me-1" aria-hidden="true"></i>
-                  {{ s.sensor.sensor_type }}
+                  {{ s.sensor.sensor_type.upper() }}
                 </td>
                 <td>{{ s.sensor.sensor_id }}</td>
                 <td>{{ s.sensor.device_id }}</td>
@@ -434,10 +436,10 @@
           </form>
         </div>
       </div>
-      <h5 class="my-3 clickable-highlight h5" id="panorma-of-micro-scale-surrounding">
-        <a href="#panorma-of-micro-scale-surrounding">
+      <h5 class="my-3 clickable-highlight h5" id="panorama-of-micro-scale-surrounding">
+        <a href="#panorama-of-micro-scale-surrounding">
           <i class="bi bi-camera-reels me-2" aria-hidden="true"></i>
-          Panorama of micro-scale Surroundings
+          Panorama of micro-scale surroundings
         </a>
       </h5>
       <div class="clickable-highlight p-2" id="panorama-container">
@@ -472,9 +474,9 @@
       <div class="p-2 pb-2 text-center clickable-highlight d-flex flex-column mx-auto w-100 w-md-75 w-lg-50" id="svf-photo">
         <figure class="figure d-flex flex-column flex-grow-1 align-items-center">
           <img
-            src="{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_HS_annotated.png') }}",
+            src="{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_HS_annotated.png') }}"
             class="figure-img img-fluid rounded mx-auto"
-            alt="sky view photograph above the sensor at station {{ station.station_id }}",
+            alt="sky view photograph above the sensor at station {{ station.station_id }}"
             width="75%"
           >
           <a href="#svf-photo">
@@ -568,7 +570,7 @@
       {
         zoomSnap: 0.25
       }
-    ).setView([latitude, longitude], 16.5);
+    ).setView([latitude, longitude], 16.25);
 
     // Layer configuration
     var osmLayerUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -620,18 +622,18 @@
       .setLatLng([latitude, longitude])
       .addTo(map);
 
-    // 100 m
+    // 200 m
     var haloCircle = L.circle([latitude, longitude], {
       color: Colors.halo,
       weight: 7,
       fill: false,
-      radius: 100
+      radius: 200
     }).addTo(map);
     var circle = L.circle([latitude, longitude], {
       color: Colors.circle,
       weight: 2,
       fill: false,
-      radius: 100
+      radius: 200
     }).addTo(map);
     // 500 m
     var haloCircle500 = L.circle([latitude, longitude], {
