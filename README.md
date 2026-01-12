@@ -233,7 +233,7 @@ The backup can be restored like this:
 1. stop the temporary container
 
    ```bash
-   docker stop db
+   docker stop terracotta-db
    ```
 
 1. start all services as usual

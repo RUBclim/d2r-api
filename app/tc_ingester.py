@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -215,6 +216,12 @@ def ingest_raster(path: str, override_path: str = '') -> None:
         )
 
 
+def _datetime(year: int | str, doy: int | str, hour: int | str) -> datetime:
+    return datetime.strptime(f"{year}-{doy} {hour}:00", '%Y-%j %H:%M').replace(
+        tzinfo=timezone.utc,
+    )
+
+
 @celery_app.task(name='raster-lifecycle')
 def apply_raster_lifecycle(
         days: int,
@@ -236,15 +243,25 @@ def apply_raster_lifecycle(
     """
     driver = get_driver()
     cut_off_date = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    # get the latest dataset per-parameter so we can avoid deleting the latest dataset
+    param_latest_dates: dict[str, datetime] = defaultdict(
+        lambda: datetime.min.replace(tzinfo=timezone.utc),
+    )
+    datasets = driver.get_datasets(order_by=['param', 'year', 'doy', 'hour'])
+    for param, year, doy, hour in datasets.keys():
+        current_dt = _datetime(year, doy, hour)
+        if param_latest_dates[param] < current_dt:
+            param_latest_dates[param] = current_dt
+
     # check every dataset in the database if it is older than the cut-off date
-    for (param, year, doy, hour), path in driver.get_datasets().items():
+    for (param, year, doy, hour), path in datasets.items():
         ds_date = datetime.strptime(f"{year}-{doy} {hour}:00", '%Y-%j %H:%M').replace(
             tzinfo=timezone.utc,
         )
         if override_path:
             path = os.path.join(override_path, param, os.path.basename(path))
 
-        if ds_date < cut_off_date:
+        if ds_date < cut_off_date and ds_date < param_latest_dates[param]:
             # before deleting the dataset, make sure the raster actually exists
             if force is False and not os.path.exists(path):
                 print(f"Dataset {path} does not exist, skipping deletion")

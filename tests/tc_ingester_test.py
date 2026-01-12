@@ -439,7 +439,8 @@ def test_apply_raster_lifecycle(
     # prepare a few datasets to add to the database
     keys = (
         ('PET', '2025', '165', '20'),  # still ok
-        ('MRT', '2025', '165', '17'),  # not ok
+        ('MRT', '2025', '165', '16'),  # not ok
+        ('MRT', '2025', '165', '17'),  # not ok, but it is the latest, hence keep it
         ('UTCI', '2025', '110', '17'),  # way too old
     )
     for k in keys:
@@ -455,6 +456,7 @@ def test_apply_raster_lifecycle(
         key=lambda x: (x[0], x[1], x[2], x[3]),
     )
     assert ds == [
+        ('MRT', '2025', '165', '16'),
         ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
         ('UTCI', '2025', '110', '17'),
@@ -464,7 +466,11 @@ def test_apply_raster_lifecycle(
         raster_driver.get_datasets().keys(),
         key=lambda x: (x[0], x[1], x[2], x[3]),
     )
-    assert ds_after == [('PET', '2025', '165', '20')]
+    assert ds_after == [
+        ('MRT', '2025', '165', '17'),
+        ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
+    ]
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
@@ -476,8 +482,10 @@ def test_apply_raster_lifecycle_file_does_not_exist(
     # prepare a few datasets to add to the database
     keys = (
         ('PET', '2025', '165', '20'),  # still ok
-        ('MRT', '2025', '165', '17'),  # not ok
-        ('UTCI', '2025', '110', '17'),  # way too old
+        ('MRT', '2025', '165', '16'),  # not ok
+        ('MRT', '2025', '165', '17'),  # not ok, but latest
+        ('UTCI', '2025', '110', '16'),  # way too old
+        ('UTCI', '2025', '110', '17'),  # way too old, but latest
     )
     for k in keys:
         fname = f'{k[0]}_{k[1]}_{k[2]}_{k[3]}_v0.7.2_cog.tif'
@@ -493,8 +501,10 @@ def test_apply_raster_lifecycle_file_does_not_exist(
         key=lambda x: (x[0], x[1], x[2], x[3]),
     )
     assert ds == [
+        ('MRT', '2025', '165', '16'),
         ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '16'),
         ('UTCI', '2025', '110', '17'),
     ]
     apply_raster_lifecycle(days=3)
@@ -504,14 +514,16 @@ def test_apply_raster_lifecycle_file_does_not_exist(
     )
     # make sure nothing was deleted
     assert ds_after == [
+        ('MRT', '2025', '165', '16'),
         ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '16'),
         ('UTCI', '2025', '110', '17'),
     ]
     # make sure the warning was printed
     std, _ = capsys.readouterr()
-    assert 'MRT_2025_165_17_v0.7.2_cog.tif does not exist, skipping deletion' in std
-    assert 'UTCI_2025_110_17_v0.7.2_cog.tif does not exist, skipping deletion' in std
+    assert 'MRT_2025_165_16_v0.7.2_cog.tif does not exist, skipping deletion' in std
+    assert 'UTCI_2025_110_16_v0.7.2_cog.tif does not exist, skipping deletion' in std
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
@@ -522,7 +534,8 @@ def test_apply_raster_lifecycle_force_file_does_not_exist(
     # prepare a few datasets to add to the database
     keys = (
         ('PET', '2025', '165', '20'),  # still ok
-        ('MRT', '2025', '165', '17'),  # not ok
+        ('MRT', '2025', '165', '16'),  # not ok
+        ('MRT', '2025', '165', '17'),  # not ok, but latest
         ('UTCI', '2025', '110', '17'),  # way too old
     )
     for k in keys:
@@ -539,6 +552,7 @@ def test_apply_raster_lifecycle_force_file_does_not_exist(
         key=lambda x: (x[0], x[1], x[2], x[3]),
     )
     assert ds == [
+        ('MRT', '2025', '165', '16'),
         ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
         ('UTCI', '2025', '110', '17'),
@@ -550,7 +564,9 @@ def test_apply_raster_lifecycle_force_file_does_not_exist(
     )
     # make sure nothing was deleted
     assert ds_after == [
+        ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
     ]
 
 
@@ -562,7 +578,8 @@ def test_apply_raster_lifecycle_override_path_specified(
     # prepare a few datasets to add to the database
     keys = (
         ('PET', '2025', '165', '20'),  # still ok
-        ('MRT', '2025', '165', '17'),  # not ok
+        ('MRT', '2025', '165', '16'),  # not ok
+        ('MRT', '2025', '165', '17'),  # not ok, but latest
         ('UTCI', '2025', '110', '17'),  # way too old
     )
     for k in keys:
@@ -570,7 +587,7 @@ def test_apply_raster_lifecycle_override_path_specified(
         target_dir = tmp_path / k[0]
         target_dir.mkdir(exist_ok=True)
         override_dir = tmp_path / 'foo' / 'bar' / k[0]
-        override_dir.mkdir(parents=True)
+        override_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy(
             'testing/rasters/DO_MRT_2025_113_12_v0.7.2_cog.tif',
             tmp_path / k[0] / fname,
@@ -592,6 +609,7 @@ def test_apply_raster_lifecycle_override_path_specified(
         key=lambda x: (x[0], x[1], x[2], x[3]),
     )
     assert ds == [
+        ('MRT', '2025', '165', '16'),
         ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
         ('UTCI', '2025', '110', '17'),
@@ -603,11 +621,17 @@ def test_apply_raster_lifecycle_override_path_specified(
     )
     # make sure the datasets were deleted and the override path was respected
     assert ds_after == [
+        ('MRT', '2025', '165', '17'),
         ('PET', '2025', '165', '20'),
+        ('UTCI', '2025', '110', '17'),
     ]
     files = []
     for root, _, filenames in os.walk(tmp_path / 'foo' / 'bar'):
         for filename in filenames:
             files.append(filename)
 
-    assert files == ['PET_2025_165_20_v0.7.2_cog.tif']
+    assert files == [
+        'MRT_2025_165_17_v0.7.2_cog.tif',
+        'PET_2025_165_20_v0.7.2_cog.tif',
+        'UTCI_2025_110_17_v0.7.2_cog.tif',
+    ]
