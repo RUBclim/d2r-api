@@ -4,7 +4,7 @@
     <figure class="figure d-flex flex-column flex-grow-1">
       <div class="d-flex align-items-center justify-content-center flex-grow-1">
         <img
-          src="{{ url_for('static', path='img/' + station_id + '/' + station_id + '_' + direction + '.jpg') }}"
+          src="/static/img/{{ station_id }}/{{ station_id }}_{{ direction }}.jpg"
           class="figure-img img-fluid rounded"
           alt="street level photograph facing {{ direction }} at station {{ station_id }}"
         >
@@ -474,7 +474,7 @@
       <div class="p-2 pb-2 text-center clickable-highlight d-flex flex-column mx-auto w-100 w-md-75 w-lg-50" id="svf-photo">
         <figure class="figure d-flex flex-column flex-grow-1 align-items-center">
           <img
-            src="{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_HS_annotated.png') }}"
+            src="/static/img/{{ station.station_id }}/{{ station.station_id }}_SVF_HS_annotated.png"
             class="figure-img img-fluid rounded mx-auto"
             alt="sky view photograph above the sensor at station {{ station.station_id }}"
             width="75%"
@@ -797,7 +797,7 @@
       /* pannellum viewer setup */
     pannellum.viewer('panorama', {
       type: "equirectangular",
-      panorama: "{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_EQ.png') }}",
+      panorama: "/static/img/{{ station.station_id }}/{{ station.station_id }}_SVF_EQ.png",
       autoLoad: true,
           //autoRotate: -5,
       compass: true,
