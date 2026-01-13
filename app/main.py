@@ -60,8 +60,18 @@ def create_app() -> FastAPI:
         title='D2R-API',
         description=(
             'API for getting data from the (bio-) meteorological network deployed '
-            'in the [Data2Resilience (D2R) Project](https://data2resilience.de/)'
+            'in the [Data2Resilience (D2R) Project](https://data2resilience.de/)\n\n'
+            '**Please cite the data and network:**\n\n\n'
+            'Hüser, C., Wolf, L., Gottschalk, N., Kittner, J., Kraas, B., '
+            'Mittelstädt, C., Reinhart, V., Sismanidis, P., Wawrzyniak, N., & '
+            'Bechtel, B. (2026). Data2Resilience - A Biometeorological Weather Station '
+            'Network in Dortmund (1.0.0). Zenodo. '
+            '[https://doi.org/10.5281/zenodo.18221203](https://doi.org/10.5281/zenodo.18221203).'  # noqa: E501
         ),
+        license_info={
+            'name': 'CC BY 4.0',
+            'url': 'https://creativecommons.org/licenses/by/4.0/',
+        },
         contact={
             'name': 'Bochum Urban Climate Lab',
             'url': 'https://climate.rub.de',

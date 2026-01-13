@@ -4,7 +4,7 @@
     <figure class="figure d-flex flex-column flex-grow-1">
       <div class="d-flex align-items-center justify-content-center flex-grow-1">
         <img
-          src="{{ url_for('static', path='img/' + station_id + '/' + station_id + '_' + direction + '.jpg') }}"
+          src="/static/img/{{ station_id }}/{{ station_id }}_{{ direction }}.jpg"
           class="figure-img img-fluid rounded"
           alt="street level photograph facing {{ direction }} at station {{ station_id }}"
         >
@@ -474,7 +474,7 @@
       <div class="p-2 pb-2 text-center clickable-highlight d-flex flex-column mx-auto w-100 w-md-75 w-lg-50" id="svf-photo">
         <figure class="figure d-flex flex-column flex-grow-1 align-items-center">
           <img
-            src="{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_HS_annotated.png') }}"
+            src="/static/img/{{ station.station_id }}/{{ station.station_id }}_SVF_HS_annotated.png"
             class="figure-img img-fluid rounded mx-auto"
             alt="sky view photograph above the sensor at station {{ station.station_id }}"
             width="75%"
@@ -593,12 +593,24 @@
       attribution: '&copy; <a href="https://doi.org/10.5194/essd-14-3835-2022">Matthias Demuzere et al. 2022</a>',
     };
 
+    var nrwContourLayerUrl = "https://www.wms.nrw.de/geobasis/wms_nw_hl_hp";
+    var nrwContourLayerOptions = {
+      layers: 'nw_hl_hp_hoehenlinien',
+      format: 'image/png',
+      transparent: true,
+      styles: ['schwarz'],
+      antialias: true,
+      attribution: '&copy; <a href="https://www.bezreg-koeln.nrw.de/geobasis">Geobasis NRW</a>'
+    };
+
     // Main map layers
     var osmLayer = L.tileLayer(osmLayerUrl, osmLayerOptions);
     var wmsLayer = L.tileLayer.wms(wmsLayerUrl, wmsLayerOptions);
     var lczLayer = L.tileLayer(lczLayerUrl, lczLayerOptions);
+    var nrwContourLayer = L.tileLayer.wms(nrwContourLayerUrl, nrwContourLayerOptions);
 
     osmLayer.addTo(map);
+    nrwContourLayer.addTo(map);
 
     var baseLayers = {
       'OpenStreetMap': osmLayer,
@@ -606,7 +618,9 @@
       'LCZ map': lczLayer
     };
 
-    var layersControl = L.control.layers(baseLayers).addTo(map);
+    var overlayLayers = { 'Contour lines (NRW)': nrwContourLayer };
+
+    var layersControl = L.control.layers(baseLayers, overlayLayers).addTo(map);
 
     var stationCircle = L.circleMarker([latitude, longitude], {
       radius: 8,
@@ -658,6 +672,7 @@
     var miniMapOsmLayer = L.tileLayer(osmLayerUrl, osmLayerOptions);
     var miniMapWmsLayer = L.tileLayer.wms(wmsLayerUrl, wmsLayerOptions);
     var miniMapLczLayer = L.tileLayer(lczLayerUrl, lczLayerOptions);
+    var miniMapNrwContourLayer = L.tileLayer.wms(nrwContourLayerUrl, nrwContourLayerOptions);
 
     var stationMarker = L.circleMarker([latitude, longitude], {
       radius: 6,
@@ -782,7 +797,7 @@
       /* pannellum viewer setup */
     pannellum.viewer('panorama', {
       type: "equirectangular",
-      panorama: "{{ url_for('static', path='img/' + station.station_id + '/' + station.station_id + '_' + 'SVF_EQ.png') }}",
+      panorama: "/static/img/{{ station.station_id }}/{{ station.station_id }}_SVF_EQ.png",
       autoLoad: true,
           //autoRotate: -5,
       compass: true,
