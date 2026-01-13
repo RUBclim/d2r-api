@@ -548,8 +548,6 @@
       });
     }
 
-    const apiRoot = "{{ api_root }}";
-
     // create enum for colors
     const Colors = {
       'biomet': 'orange',
@@ -735,7 +733,7 @@
       miniMap._miniMap.addLayer(miniStationsLayer);
     }
 
-    fetch(`${apiRoot}/v1/stations/metadata?param=latitude&param=longitude&param=station_type&param=long_name&include_inactive=true`)
+    fetch('/v1/stations/metadata?param=latitude&param=longitude&param=station_type&param=long_name&include_inactive=true')
       .then(function(resp){ return resp.json(); })
       .then(function(json){
         if(!json || !json.data) return;
