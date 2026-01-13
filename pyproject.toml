@@ -21,8 +21,8 @@ Repository = "https://github.com/RUBclim/d2r-api"
 [tool.setuptools_scm]
 
 [tool.setuptools]
-packages = ["app"]
-include-package-data = false
+packages = { find = { exclude = ["test*", "docs*", "bin*", "venv*"] } }
+include-package-data = true
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
