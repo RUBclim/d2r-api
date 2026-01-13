@@ -1,5 +1,9 @@
+import asyncio
 import os
+from collections.abc import Callable
 from collections.abc import Generator
+from typing import Any
+from typing import TypeVar
 
 import pytest
 from flask import Flask
@@ -7,8 +11,26 @@ from flask.testing import FlaskClient
 from terracotta import update_settings
 from terracotta.drivers import TerracottaDriver
 from terracotta.server import create_app
+from werkzeug.test import TestResponse
 
 from app.tc_ingester import ingest_raster
+
+
+T = TypeVar('T')
+
+
+async def _call(f: Callable[[], T]) -> T:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor=None, func=f)
+
+
+class AsyncTestClient(FlaskClient):
+    """ A facade for the flask test client so we can use it async tests but still run
+    sync flask. It was taken from here: https://stackoverflow.com/a/75674848/17798119
+    """
+
+    async def get(self, *args: Any, **kwargs: Any) -> TestResponse:
+        return await _call(lambda: super(AsyncTestClient, self).get(*args, **kwargs))
 
 
 @pytest.fixture
@@ -42,13 +64,13 @@ def app() -> Generator[Flask]:
 
 @pytest.fixture
 def client(app: Flask) -> Generator[FlaskClient]:
-    with app.test_client() as client:
-        yield client
+    return AsyncTestClient(app, TestResponse, True)
 
 
 @pytest.mark.usefixtures('setup_rasters')
-def test_get_datasets(client: FlaskClient) -> None:
-    response = client.get('/datasets')
+@pytest.mark.anyio
+async def test_get_datasets(client: AsyncTestClient) -> None:
+    response = await client.get('/datasets')
     assert response.status_code == 200
     assert response.json == {
         'datasets': [
@@ -66,8 +88,9 @@ def test_get_datasets(client: FlaskClient) -> None:
 
 
 @pytest.mark.usefixtures('setup_rasters')
-def test_get_keys(client: FlaskClient) -> None:
-    response = client.get('/keys')
+@pytest.mark.anyio
+async def test_get_keys(client: AsyncTestClient) -> None:
+    response = await client.get('/keys')
     assert response.status_code == 200
     assert response.json == {
         'keys': [
@@ -80,16 +103,18 @@ def test_get_keys(client: FlaskClient) -> None:
 
 
 @pytest.mark.usefixtures('setup_rasters')
-def test_get_metadata(client: FlaskClient) -> None:
-    response = client.get('/metadata/MRT/2025/113/12')
+@pytest.mark.anyio
+async def test_get_metadata(client: AsyncTestClient) -> None:
+    response = await client.get('/metadata/MRT/2025/113/12')
     assert response.status_code == 200
     assert response.json is not None
     assert response.json['range'] == [22.004995346069336, 39.25629806518555]
 
 
 @pytest.mark.usefixtures('setup_rasters')
-def test_get_singleband_preview(client: FlaskClient) -> None:
-    response = client.get('/singleband/MRT/2025/113/12/preview.png')
+@pytest.mark.anyio
+async def test_get_singleband_preview(client: AsyncTestClient) -> None:
+    response = await client.get('/singleband/MRT/2025/113/12/preview.png')
     assert response.status_code == 200
     with open('testing/rasters/expected_overview.png', 'rb') as f:
         expected = f.read()
@@ -97,8 +122,9 @@ def test_get_singleband_preview(client: FlaskClient) -> None:
 
 
 @pytest.mark.usefixtures('setup_rasters')
-def test_get_singleband_tile(client: FlaskClient) -> None:
-    response = client.get(
+@pytest.mark.anyio
+async def test_get_singleband_tile(client: AsyncTestClient) -> None:
+    response = await client.get(
         '/singleband/MRT/2025/113/12/17/68254/43582.png?colormap=turbo',
     )
     assert response.status_code == 200

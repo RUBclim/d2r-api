@@ -10,6 +10,7 @@ from typing import NamedTuple
 from typing import TypedDict
 
 import terracotta.exceptions
+from sqlalchemy.exc import OperationalError
 from terracotta.cog import check_raster_file
 from terracotta.drivers import TerracottaDriver
 
@@ -134,10 +135,10 @@ class RasterInfo(TypedDict):
 
 
 def get_driver() -> TerracottaDriver:
+    db_name = os.environ['TC_DATABASE_NAME']
     driver_path = (
         f"{os.environ['POSTGRES_USER']}:{os.environ['POSTGRES_PASSWORD']}@"
-        f"{os.environ['TC_DATABASE_HOST']}:{os.environ['PGPORT']}/"
-        f"{os.environ['TC_DATABASE_NAME']}"
+        f"{os.environ['TC_DATABASE_HOST']}:{os.environ['PGPORT']}/{db_name}"
     )
 
     driver = terracotta.get_driver(driver_path, provider='postgresql')
@@ -148,7 +149,7 @@ def get_driver() -> TerracottaDriver:
     db_exists = True
     try:
         driver.db_version
-    except terracotta.exceptions.InvalidDatabaseError:
+    except (terracotta.exceptions.InvalidDatabaseError, OperationalError):
         db_exists = False
 
     if not db_exists:
