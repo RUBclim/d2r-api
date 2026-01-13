@@ -228,7 +228,8 @@ PET_CLASSES = {
         ),
     ),
 )
-def test_regex_matches_filenames(fname: str, expected: _RasterKeys) -> None:
+@pytest.mark.anyio
+async def test_regex_matches_filenames(fname: str, expected: _RasterKeys) -> None:
     assert _RasterKeys.from_string(fname) == expected
 
 
@@ -236,7 +237,8 @@ def test_regex_matches_filenames(fname: str, expected: _RasterKeys) -> None:
     'fname',
     ('2024_122_00_v0.7.0_cog.tif', 'DO_MRT_2024_122_00.tif'),
 )
-def test_raster_key_file_name_does_not_match(fname: str) -> None:
+@pytest.mark.anyio
+async def test_raster_key_file_name_does_not_match(fname: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         _RasterKeys.from_string(fname)
     assert excinfo.value.args[0] == (
@@ -244,7 +246,8 @@ def test_raster_key_file_name_does_not_match(fname: str) -> None:
     )
 
 
-def test_raster_key_file_invalid_param_values() -> None:
+@pytest.mark.anyio
+async def test_raster_key_file_invalid_param_values() -> None:
     with pytest.raises(ValueError) as excinfo:
         _RasterKeys.from_string('DO_UNKNOWN_2025_021_09_v0.7.0.tif')
     assert excinfo.value.args[0] == 'Invalid param value UNKNOWN'
@@ -254,7 +257,8 @@ def test_raster_key_file_invalid_param_values() -> None:
     'fname',
     ('UTCI_pytherm_3m_v0.6.0_2024_177_23.tif', 'DO_UTCI-class_2025_096_14_v0.7.0.tif'),
 )
-def test_ingest_raster_errors_in_file(
+@pytest.mark.anyio
+async def test_ingest_raster_errors_in_file(
         fname: str,
         raster_driver: TerracottaDriver,
 ) -> None:
@@ -416,7 +420,8 @@ apx = functools.partial(pytest.approx, abs=1e-1)
         ),
     ),
 )
-def test_ingest_raster_metadata_computed_correctly_categorized_raster(
+@pytest.mark.anyio
+async def test_ingest_raster_metadata_computed_correctly_categorized_raster(
         fname: str,
         param: str,
         expected_metadata: dict[str, Any],
@@ -432,7 +437,8 @@ def test_ingest_raster_metadata_computed_correctly_categorized_raster(
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
-def test_apply_raster_lifecycle(
+@pytest.mark.anyio
+async def test_apply_raster_lifecycle(
         raster_driver: TerracottaDriver,
         tmp_path: Path,
 ) -> None:
@@ -474,7 +480,8 @@ def test_apply_raster_lifecycle(
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
-def test_apply_raster_lifecycle_file_does_not_exist(
+@pytest.mark.anyio
+async def test_apply_raster_lifecycle_file_does_not_exist(
         raster_driver: TerracottaDriver,
         tmp_path: Path,
         capsys: CaptureFixture,
@@ -527,7 +534,8 @@ def test_apply_raster_lifecycle_file_does_not_exist(
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
-def test_apply_raster_lifecycle_force_file_does_not_exist(
+@pytest.mark.anyio
+async def test_apply_raster_lifecycle_force_file_does_not_exist(
         raster_driver: TerracottaDriver,
         tmp_path: Path,
 ) -> None:
@@ -571,7 +579,8 @@ def test_apply_raster_lifecycle_force_file_does_not_exist(
 
 
 @freezegun.freeze_time('2025-06-17 18:30')  # doy 168
-def test_apply_raster_lifecycle_override_path_specified(
+@pytest.mark.anyio
+async def test_apply_raster_lifecycle_override_path_specified(
         raster_driver: TerracottaDriver,
         tmp_path: Path,
 ) -> None:
