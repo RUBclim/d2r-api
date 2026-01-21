@@ -7,7 +7,7 @@ gunicorn
 https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 jinja2
 # a stupid pin in pandas-stubs - this needs to be removed when pandas-stubs is updated
-numpy<= 2.3.5
+numpy<= 2.4.1
 pandas
 psycopg2-binary
 psycopg[binary] > 3.2.0
