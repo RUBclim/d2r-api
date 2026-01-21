@@ -1,3 +1,7 @@
+---
+tocdepth: 2
+---
+
 # module `schemas`
 
 The schemas used for validating requests

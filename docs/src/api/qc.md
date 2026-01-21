@@ -1,3 +1,7 @@
+---
+tocdepth: 2
+---
+
 # module `qc`
 
 The implementation of the quality control.
