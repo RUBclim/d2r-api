@@ -100,7 +100,7 @@ commands = [
 ]
 
 [tool.tox.env.docs]
-setenv = { DB_PROVIDER = "postgresql+psycopg", DB_HOST = "localhost", TC_DRIVER_PROVIDER = "postgresql", TC_DATABASE_HOST = "localhost", TC_DATABASE_NAME = "terracotta", TC_RESAMPLING_METHOD = "average", TC_REPROJECTION_METHOD = "average", PGPORT = "5432", POSTGRES_USER = "dbuser", POSTGRES_PASSWORD = "test", POSTGRES_DB = "test_db", CELERY_BROKER_URL = "localhost", QUEUE_SOFT_TIME_LIMIT = "123", ELEMENT_API_KEY = "deadbeef" }
+setenv = { DB_PROVIDER = "postgresql+psycopg", DB_HOST = "localhost", TC_DRIVER_PROVIDER = "postgresql", TC_DATABASE_HOST = "localhost", TC_DATABASE_NAME = "terracotta", TC_RESAMPLING_METHOD = "average", TC_REPROJECTION_METHOD = "average", RASTER_LIFECYCLE_DAYS = "30", PGPORT = "5432", POSTGRES_USER = "dbuser", POSTGRES_PASSWORD = "test", POSTGRES_DB = "test_db", CELERY_BROKER_URL = "localhost", QUEUE_SOFT_TIME_LIMIT = "123", ELEMENT_API_KEY = "deadbeef" }
 deps = [
     "-rrequirements-dev.txt",
     "-rrequirements.txt",
@@ -110,7 +110,7 @@ commands = [
 ]
 
 [tool.tox.env.latex_docs]
-setenv = { DB_PROVIDER = "postgresql+psycopg", DB_HOST = "localhost", TC_DRIVER_PROVIDER = "postgresql", TC_DATABASE_HOST = "localhost", TC_DATABASE_NAME = "terracotta", TC_RESAMPLING_METHOD = "average", TC_REPROJECTION_METHOD = "average", PGPORT = "5432", POSTGRES_USER = "dbuser", POSTGRES_PASSWORD = "test", POSTGRES_DB = "test_db", CELERY_BROKER_URL = "localhost", QUEUE_SOFT_TIME_LIMIT = "123", ELEMENT_API_KEY = "deadbeef" }
+setenv = { DB_PROVIDER = "postgresql+psycopg", DB_HOST = "localhost", TC_DRIVER_PROVIDER = "postgresql", TC_DATABASE_HOST = "localhost", TC_DATABASE_NAME = "terracotta", TC_RESAMPLING_METHOD = "average", TC_REPROJECTION_METHOD = "average",  RASTER_LIFECYCLE_DAYS = "30", PGPORT = "5432", POSTGRES_USER = "dbuser", POSTGRES_PASSWORD = "test", POSTGRES_DB = "test_db", CELERY_BROKER_URL = "localhost", QUEUE_SOFT_TIME_LIMIT = "123", ELEMENT_API_KEY = "deadbeef" }
 allowlist_externals = ["./bin/make_latex"]
 deps = [
     "-rrequirements-dev.txt",

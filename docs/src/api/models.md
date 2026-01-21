@@ -1,3 +1,7 @@
+---
+tocdepth: 2
+---
+
 # module `models`
 
 The database models involved
