@@ -221,6 +221,7 @@ class Station(Base):
     svf: Mapped[Decimal] = mapped_column(
         nullable=True,
         comment='sky view factor of the station',
+        doc='sky view factor of the station',
     )
     surrounding_land_cover_description: Mapped[str | None] = mapped_column(
         Text,
@@ -438,16 +439,28 @@ class SensorDeployment(Base):
     """Deployment of a sensor at a station"""
     __tablename__ = 'sensor_deployment'
 
-    deployment_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    sensor_id: Mapped[str] = mapped_column(ForeignKey('sensor.sensor_id'))
-    station_id: Mapped[str] = mapped_column(ForeignKey('station.station_id'))
+    deployment_id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+        doc='unique id of the deployment',
+    )
+    sensor_id: Mapped[str] = mapped_column(
+        ForeignKey('sensor.sensor_id'),
+        doc='id of the sensor e.g. ``DEC1234``',
+    )
+    station_id: Mapped[str] = mapped_column(
+        ForeignKey('station.station_id'),
+        doc='id of the station the sensor is/was deployed at e.g. ``DOBNOM``',
+    )
     setup_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+        doc='date when the sensor was set up at the station',
     )
     teardown_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        doc='date when the sensor was taken down from the station',
     )
 
     awaitable_attrs: ClassVar[_SensorDeploymentAwaitableAttrs]  # type: ignore[assignment] # noqa: E501
@@ -455,10 +468,12 @@ class SensorDeployment(Base):
         'Sensor',
         back_populates='deployments',
         lazy=True,
+        doc='link to the sensor that is/was deployed',
     )
     station: Mapped[Station] = relationship(
         back_populates='deployments',
         lazy=True,
+        doc='link to the station where the sensor is/was deployed',
     )
 
     def __repr__(self) -> str:
@@ -599,12 +614,52 @@ class _SHT35DataRawBase(_Data):
 class _SHT35DataRawBaseQC(Base):
     __abstract__ = True
 
-    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    air_temperature_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for air temperature. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for air temperature. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.persistence_check` function.'
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for air temperature. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.spike_dip_check` function.'
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for relative humidity. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function.'
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc='persistence check QC flag for relative humidity. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.persistence_check` function.'
+            'Configuration is stored in ``app.qc.COLUMNS``.',
+    )
+    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for relative humidity.  If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.spike_dip_check` function.'
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     # create a column that unifies all qc checks for restrictive filtering
     qc_flagged: Mapped[bool] = mapped_column(
         Computed(
@@ -623,6 +678,10 @@ class _SHT35DataRawBaseQC(Base):
             relative_humidity_qc_spike_dip_check IS NULL
             ''',
             persisted=True,
+        ),
+        doc=(
+            'If ``True``, at least one QC check has flagged the data as bad or is '
+            'missing'
         ),
     )
 
@@ -740,58 +799,254 @@ class _ATM41DataRawBase(_Data):
     )
 
 
-class _ATM41DataRawBaseQC(Base):
+class _ATM41DataRawBaseQC(_SHT35DataRawBaseQC):
     __abstract__ = True
 
-    air_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    air_temperature_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    air_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    relative_humidity_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    atmospheric_pressure_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for atmospheric pressure. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     atmospheric_pressure_qc_persistence_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'persistence check QC flag for atmospheric pressure. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
-    atmospheric_pressure_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    wind_speed_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    atmospheric_pressure_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for atmospheric pressure. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.spike_dip_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    wind_speed_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for wind speed. If ``True``, the data is flagged '
+            'as bad. Uses the :func:`app.qc.range_check` function. Configuration '
+            'is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for wind speed. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.persistence_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    wind_speed_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for wind speed. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.spike_dip_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     # wind direction has no spike/dip check, because it is not a continuous value
-    wind_direction_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    wind_direction_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    u_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    u_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    u_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    v_wind_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    v_wind_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    v_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    wind_direction_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for wind direction. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    wind_direction_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for wind direction. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    u_wind_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for u wind component. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    u_wind_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for u wind component. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    u_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for u wind component. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.spike_dip_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    v_wind_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for v wind component. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    v_wind_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for v wind component. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    v_wind_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for v wind component. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.spike_dip_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     # maximum wind speed has no spike/dip check, because it is intentionally spiky
-    maximum_wind_speed_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    maximum_wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    precipitation_sum_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    precipitation_sum_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    precipitation_sum_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    solar_radiation_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    solar_radiation_qc_persistence_check: Mapped[bool] = mapped_column(nullable=True)
-    solar_radiation_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    maximum_wind_speed_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for maximum wind speed. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    maximum_wind_speed_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for maximum wind speed. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    precipitation_sum_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for precipitation sum. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    precipitation_sum_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for precipitation sum. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    precipitation_sum_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for precipitation sum. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.spike_dip_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    solar_radiation_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for solar radiation. If ``True``, the data is '
+            'flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    solar_radiation_qc_persistence_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'persistence check QC flag for solar radiation. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    solar_radiation_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for solar radiation. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.spike_dip_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     # lightings strikes appear suddenly hence no spike/dip check
     lightning_average_distance_qc_range_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'range check QC flag for lightning average distance. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.range_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
     lightning_average_distance_qc_persistence_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'persistence check QC flag for lightning average distance. If ``True``, '
+            'the data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
-    lightning_strike_count_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    lightning_strike_count_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for lightning strike count. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     lightning_strike_count_qc_persistence_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'persistence check QC flag for lightning strike count. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
     # there is no persistence check for the orientation angles, because they are
     # not expected to change over time
-    x_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    x_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
-    y_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
-    y_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(nullable=True)
+    x_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for x orientation angle. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    x_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for x orientation angle. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.spike_dip_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    y_orientation_angle_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for y orientation angle. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
+    y_orientation_angle_qc_spike_dip_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'spike/dip check QC flag for y orientation angle. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.spike_dip_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
 
 
 class ATM41DataRaw(_ATM41DataRawBase):
@@ -832,12 +1087,29 @@ class _BLGDataRawBase(_Data):
 class _BLGDataRawBaseQC(Base):
     __abstract__ = True
 
-    black_globe_temperature_qc_range_check: Mapped[bool] = mapped_column(nullable=True)
+    black_globe_temperature_qc_range_check: Mapped[bool] = mapped_column(
+        nullable=True,
+        doc=(
+            'range check QC flag for black globe temperature. If ``True``, the data '
+            'is flagged as bad. Uses the :func:`app.qc.range_check` function. '
+            'Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
+    )
     black_globe_temperature_qc_persistence_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'persistence check QC flag for black globe temperature. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.persistence_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
     black_globe_temperature_qc_spike_dip_check: Mapped[bool] = mapped_column(
         nullable=True,
+        doc=(
+            'spike/dip check QC flag for black globe temperature. If ``True``, the '
+            'data is flagged as bad. Uses the :func:`app.qc.spike_dip_check` '
+            'function. Configuration is stored in ``app.qc.COLUMNS``.'
+        ),
     )
 
 
@@ -1116,6 +1388,10 @@ class BiometData(
             ''',
             persisted=True,
         ),
+        doc=(
+            'If ``True``, at least one QC check has flagged the data as bad or is '
+            'missing'
+        ),
     )
 
     awaitable_attrs: ClassVar[_BiometDataAwaitableAttrs]  # type: ignore[assignment]
@@ -1308,7 +1584,7 @@ class MaterializedView(Base):
         postgres materialized view. This needs to be done outside of a transaction.
 
         :param concurrently: Whether to refresh the view concurrently. Refreshing
-            concurrently is slower, however no exclusive lock is acquired. This way
+            concurrently is slower, however, no exclusive lock is acquired. This way
             reads to the view can still be performed. This only applies to vanilla
             postgres materialized views.
         :param window_start: The start of the window that will be refreshed. This only
@@ -1370,6 +1646,7 @@ class MaterializedView(Base):
 
     @classmethod
     async def get_view_state(cls) -> datetime | None:
+        """Get the latest timestamp present in the materialized view."""
         table: Table = cls.__table__  # type: ignore[assignment]
         async with sessionmanager.connect() as sess:
             r = await sess.execute(select(func.max(table.c.measured_at)))
@@ -1679,7 +1956,12 @@ class LatestData(
             concurrently: bool = True,
             **kwargs: Any,
     ) -> None:
-        """override the base refresh since this is actually a materialized view."""
+        """Refresh a materialized view.
+
+        :param concurrently: Whether to refresh the view concurrently. Refreshing
+            concurrently is slower, however, no exclusive lock is acquired. This way
+            reads to the view can still be performed.
+        """
         async with sessionmanager.connect(as_transaction=False) as sess:
             # vanilla postgres
             if concurrently is True:

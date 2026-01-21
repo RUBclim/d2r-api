@@ -1,3 +1,7 @@
+---
+tocdepth: 2
+---
+
 # module `routers`
 
 Routers for the API endpoints.

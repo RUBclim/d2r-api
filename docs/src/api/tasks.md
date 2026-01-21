@@ -1,3 +1,7 @@
+---
+tocdepth: 2
+---
+
 # module `tasks`
 
 The tasks performing data downloading and calculations

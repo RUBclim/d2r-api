@@ -4,6 +4,9 @@ import importlib.metadata
 import os
 import sys
 from datetime import date
+from typing import Any
+
+from sphinx.application import Sphinx
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -92,3 +95,24 @@ source_suffix = {
     '.txt': 'markdown',
     '.md': 'markdown',
 }
+
+SKIP_MEMBERS = {
+    'creation_sql',
+}
+
+
+def skip_member(
+        app: Sphinx,
+        what: str,
+        name: str,
+        obj: object,
+        skip: bool,
+        options: dict[str, Any],
+) -> bool:
+    if name in SKIP_MEMBERS:
+        return True
+    return skip
+
+
+def setup(app: Sphinx) -> None:
+    app.connect('autodoc-skip-member', skip_member)
