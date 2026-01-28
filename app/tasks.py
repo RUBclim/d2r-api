@@ -1069,22 +1069,57 @@ async def self_test_integrity() -> None:
     """Ideally this would be superflous and handle by the database definition, but
     this is hard to implement and complicates all tests. Hence we do it here.
     """
-    # check that a sensor is not deployed simultaneously at two stations, so the
-    # sensor_id must be unique
+    # check that a sensor is not deployed simultaneously at two stations
+    # by checking for overlapping deployment periods
     async with sessionmanager.session() as sess:
-        stm = (
-            select(SensorDeployment.sensor_id)
-            .group_by(SensorDeployment.sensor_id)
-            .having(func.count() > 1)
-        )
-        # get all active deployments
-        duplicates = (await sess.execute(stm)).scalars().all()
-        if duplicates:
+        # Use a self-join to find overlapping deployments at different stations
+        dep1 = select(SensorDeployment).subquery('dep1')
+        dep2 = select(SensorDeployment).subquery('dep2')
+
+        # Find overlapping deployments:
+        # - Same sensor_id
+        # - Different station_id
+        # - Time periods overlap
+        overlapping = select(
+            dep1.c.sensor_id,
+            dep1.c.station_id.label('station1'),
+            dep2.c.station_id.label('station2'),
+        ).select_from(
+            dep1,
+        ).join(
+            dep2,
+            and_(
+                # Same sensor
+                dep1.c.sensor_id == dep2.c.sensor_id,
+                # Use deployment_id to avoid duplicates
+                dep1.c.deployment_id < dep2.c.deployment_id,
+                # Overlapping time periods:
+                # dep1 starts before dep2 ends (or dep2 has no end)
+                or_(
+                    dep1.c.setup_date < dep2.c.teardown_date,
+                    dep2.c.teardown_date.is_(None),
+                ),
+                # dep2 starts before dep1 ends (or dep1 has no end)
+                or_(
+                    dep2.c.setup_date < dep1.c.teardown_date,
+                    dep1.c.teardown_date.is_(None),
+                ),
+            ),
+        ).distinct()
+
+        result = (await sess.execute(overlapping)).all()
+
+        if result:
+            overlapping_sensors = [
+                f'{row.sensor_id} (at {row.station1} and {row.station2})'
+                if row.station1 != row.station2
+                else f'{row.sensor_id} (at {row.station1})'
+                for row in result
+            ]
             raise ValueError(
-                f'Found duplicate sensor deployments affecting theses sensor(s): '
-                f'{", ".join(duplicates)}',
+                f'Found overlapping sensor deployments: '
+                f'{", ".join(overlapping_sensors)}',
             )
-        # TODO: check that contiguous deployments of the same sensor type do not overlap
 
 
 @async_task(app=celery_app, name='buddy-checks', soft_time_limit=15 * 60)

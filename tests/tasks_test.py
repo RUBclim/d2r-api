@@ -1289,8 +1289,58 @@ async def test_self_test_integrity_fails_on_duped_deployment(db: AsyncSession) -
     with pytest.raises(ValueError) as exc_info:
         await self_test_integrity()
     assert exc_info.value.args[0] == (
-        'Found duplicate sensor deployments affecting theses sensor(s): DEC1'
+        'Found overlapping sensor deployments: DEC1 (at DOT1 and DOT2)'
     )
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_same_sensor_interruped_deployment(
+        db: AsyncSession,
+) -> None:
+    # create a structure to test
+    station = Station(
+        station_id='DOT1',
+        long_name='temprh-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+
+    sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=11111,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sensor)
+    # now deploy the sensor twice at the same station, but with a teardown in between
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 2, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 3, tzinfo=timezone.utc),
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+
+    assert await self_test_integrity() is None
 
 
 @pytest.mark.usefixtures('clean_db')
@@ -1366,6 +1416,189 @@ async def test_self_test_integrity_ok(db: AsyncSession) -> None:
 
     # no error etc.
     assert await self_test_integrity() is None
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_empty_db(db: AsyncSession) -> None:
+    assert await self_test_integrity() is None
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_overlapping_one_ongoing(db: AsyncSession) -> None:
+    stations = [
+        Station(
+            station_id='DOT1',
+            long_name='temprh-station-1',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOT2',
+            long_name='temprh-station-2',
+            latitude=51.547,
+            longitude=7.368,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=121,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='other-test-street',
+            plz=12345,
+        ),
+    ]
+    db.add_all(stations)
+
+    sensor = Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35)
+    db.add(sensor)
+
+    # One deployment with teardown, one ongoing - they overlap
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOT2',
+            setup_date=datetime(2023, 1, 5, tzinfo=timezone.utc),
+            # No teardown_date - ongoing
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+
+    with pytest.raises(ValueError) as exc_info:
+        await self_test_integrity()
+    assert 'Found overlapping sensor deployments: DEC1' in exc_info.value.args[0]
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_overlapping_both_with_teardown(
+        db: AsyncSession,
+) -> None:
+    stations = [
+        Station(
+            station_id='DOT1',
+            long_name='temprh-station-1',
+            latitude=51.447,
+            longitude=7.268,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=120,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='test-street',
+            plz=12345,
+        ),
+        Station(
+            station_id='DOT2',
+            long_name='temprh-station-2',
+            latitude=51.547,
+            longitude=7.368,
+            altitude=100,
+            station_type=StationType.temprh,
+            leuchtennummer=121,
+            district='Other District',
+            city='Dortmund',
+            country='Germany',
+            street='other-test-street',
+            plz=12345,
+        ),
+    ]
+    db.add_all(stations)
+
+    sensor = Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35)
+    db.add(sensor)
+
+    # Both deployments have teardown dates and overlap
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOT2',
+            setup_date=datetime(2023, 1, 5, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 15, tzinfo=timezone.utc),
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+
+    with pytest.raises(ValueError) as exc_info:
+        await self_test_integrity()
+    assert 'Found overlapping sensor deployments: DEC1' in exc_info.value.args[0]
+
+
+@pytest.mark.usefixtures('clean_db')
+@pytest.mark.anyio
+async def test_self_test_integrity_same_station_overlapping(db: AsyncSession) -> None:
+    """Test overlapping deployments at the same station - should FAIL"""
+    station = Station(
+        station_id='DOT1',
+        long_name='temprh-station-1',
+        latitude=51.447,
+        longitude=7.268,
+        altitude=100,
+        station_type=StationType.temprh,
+        leuchtennummer=120,
+        district='Other District',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+
+    sensor = Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35)
+    db.add(sensor)
+
+    # Overlapping deployments at the SAME station (this is NOT allowed)
+    deployments = [
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 10, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOT1',
+            setup_date=datetime(2023, 1, 5, tzinfo=timezone.utc),
+            teardown_date=datetime(2023, 1, 15, tzinfo=timezone.utc),
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+
+    # Should raise an error - same station overlaps are NOT allowed
+    with pytest.raises(ValueError) as exc_info:
+        await self_test_integrity()
+    assert 'Found overlapping sensor deployments: DEC1' in exc_info.value.args[0]
 
 
 class FakeGroup:
