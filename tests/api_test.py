@@ -362,7 +362,11 @@ async def test_get_station_latest_data_qc_flags(
     resp = await app.get(
         '/v1/stations/latest_data',
         params={
-            'param': ['utci', 'air_temperature_qc_range_check'],
+            'param': [
+                'utci',
+                'air_temperature_qc_range_check',
+                'x_orientation_angle_qc_range_check',
+            ],
         },
     )
     assert resp.status_code == 200
@@ -379,6 +383,7 @@ async def test_get_station_latest_data_qc_flags(
             'measured_at': '2024-08-01T00:15:00Z',
             'utci': 35.5,
             'air_temperature_qc_range_check': None,
+            'x_orientation_angle_qc_range_check': None,
         },
         {
             'altitude': 100.0,
@@ -392,6 +397,7 @@ async def test_get_station_latest_data_qc_flags(
             'measured_at': '2024-08-01T00:15:00Z',
             'utci': 35.5,
             'air_temperature_qc_range_check': None,
+            'x_orientation_angle_qc_range_check': None,
         },
     ]
 
@@ -2951,7 +2957,7 @@ async def test_download_station_no_data_for_station(
 
     assert len(csv_file) == 1
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_buddy_check,air_temperature_qc_isolated_check,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_buddy_check,atmospheric_pressure_qc_isolated_check,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,qc_score,relative_humidity,relative_humidity_qc_buddy_check,relative_humidity_qc_isolated_check,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,qc_flagged'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_buddy_check,air_temperature_qc_isolated_check,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_buddy_check,atmospheric_pressure_qc_isolated_check,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,qc_score,relative_humidity,relative_humidity_qc_buddy_check,relative_humidity_qc_isolated_check,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,x_orientation_angle,x_orientation_angle_qc_range_check,x_orientation_angle_qc_spike_dip_check,y_orientation_angle,y_orientation_angle_qc_range_check,y_orientation_angle_qc_spike_dip_check,qc_flagged'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -2972,9 +2978,9 @@ async def test_download_station_data_no_dates_set(
     # 11 data points + 1 header
     assert len(csv_file) == 12
     # header correct
-    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_buddy_check,air_temperature_qc_isolated_check,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_buddy_check,atmospheric_pressure_qc_isolated_check,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,qc_score,relative_humidity,relative_humidity_qc_buddy_check,relative_humidity_qc_isolated_check,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,qc_flagged'  # noqa: E501
-    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[0] == 'station_id,measured_at,absolute_humidity,air_temperature,air_temperature_qc_buddy_check,air_temperature_qc_isolated_check,air_temperature_qc_persistence_check,air_temperature_qc_range_check,air_temperature_qc_spike_dip_check,atmospheric_pressure,atmospheric_pressure_qc_buddy_check,atmospheric_pressure_qc_isolated_check,atmospheric_pressure_qc_persistence_check,atmospheric_pressure_qc_range_check,atmospheric_pressure_qc_spike_dip_check,atmospheric_pressure_reduced,dew_point,heat_index,lightning_average_distance,lightning_average_distance_qc_persistence_check,lightning_average_distance_qc_range_check,lightning_strike_count,lightning_strike_count_qc_persistence_check,lightning_strike_count_qc_range_check,maximum_wind_speed,maximum_wind_speed_qc_persistence_check,maximum_wind_speed_qc_range_check,mrt,pet,pet_category,precipitation_sum,precipitation_sum_qc_persistence_check,precipitation_sum_qc_range_check,precipitation_sum_qc_spike_dip_check,qc_score,relative_humidity,relative_humidity_qc_buddy_check,relative_humidity_qc_isolated_check,relative_humidity_qc_persistence_check,relative_humidity_qc_range_check,relative_humidity_qc_spike_dip_check,solar_radiation,solar_radiation_qc_persistence_check,solar_radiation_qc_range_check,solar_radiation_qc_spike_dip_check,specific_humidity,utci,utci_category,vapor_pressure,wet_bulb_temperature,wind_direction,wind_direction_qc_persistence_check,wind_direction_qc_range_check,wind_speed,wind_speed_qc_persistence_check,wind_speed_qc_range_check,wind_speed_qc_spike_dip_check,x_orientation_angle,x_orientation_angle_qc_range_check,x_orientation_angle_qc_spike_dip_check,y_orientation_angle,y_orientation_angle_qc_range_check,y_orientation_angle_qc_spike_dip_check,qc_flagged'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3000,8 +3006,8 @@ async def test_download_station_data_only_start_date_set(
 
     # 11 data points + 1 header
     assert len(csv_file) == 6
-    assert csv_file[1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:50:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3027,8 +3033,8 @@ async def test_download_station_data_only_end_date_set(
 
     # 11 data points + 1 header, a bunch of qc flags, and the final qc flag
     assert len(csv_file) == 8
-    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:00:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio
@@ -3055,8 +3061,8 @@ async def test_download_station_data_both_dates_set(
 
     # 11 data points + 1 header
     assert len(csv_file) == 6
-    assert csv_file[1] == 'DOB1,2024-08-01 00:10:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
-    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[1] == 'DOB1,2024-08-01 00:10:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
+    assert csv_file[-1] == 'DOB1,2024-08-01 00:30:00+00:00,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35.5,,,,,,,,,,,,,,,,,True'  # noqa: E501
 
 
 @pytest.mark.anyio

@@ -152,6 +152,8 @@ class PublicParamsBiomet(StrEnum):
     wind_direction = 'wind_direction'
     wind_speed = 'wind_speed'
     maximum_wind_speed = 'maximum_wind_speed'
+    x_orientation_angle = 'x_orientation_angle'
+    y_orientation_angle = 'y_orientation_angle'
     # corresponding qc flags
     air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
     air_temperature_qc_range_check = 'air_temperature_qc_range_check'
@@ -179,6 +181,10 @@ class PublicParamsBiomet(StrEnum):
     wind_speed_qc_persistence_check = 'wind_speed_qc_persistence_check'
     wind_speed_qc_range_check = 'wind_speed_qc_range_check'
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
+    x_orientation_angle_qc_range_check = 'x_orientation_angle_qc_range_check'
+    x_orientation_angle_qc_spike_dip_check = 'x_orientation_angle_qc_spike_dip_check'
+    y_orientation_angle_qc_range_check = 'y_orientation_angle_qc_range_check'
+    y_orientation_angle_qc_spike_dip_check = 'y_orientation_angle_qc_spike_dip_check'
     qc_flagged = 'qc_flagged'
     qc_score = 'qc_score'
     air_temperature_qc_isolated_check = 'air_temperature_qc_isolated_check'
@@ -356,6 +362,8 @@ class PublicParams(StrEnum):
     wind_speed_max = 'wind_speed_max'
     wind_speed_min = 'wind_speed_min'
     maximum_wind_speed = 'maximum_wind_speed'
+    x_orientation_angle = 'x_orientation_angle'
+    y_orientation_angle = 'y_orientation_angle'
     # qc flags
     air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
     air_temperature_qc_range_check = 'air_temperature_qc_range_check'
@@ -383,6 +391,10 @@ class PublicParams(StrEnum):
     wind_speed_qc_persistence_check = 'wind_speed_qc_persistence_check'
     wind_speed_qc_range_check = 'wind_speed_qc_range_check'
     wind_speed_qc_spike_dip_check = 'wind_speed_qc_spike_dip_check'
+    x_orientation_angle_qc_range_check = 'x_orientation_angle_qc_range_check'
+    x_orientation_angle_qc_spike_dip_check = 'x_orientation_angle_qc_spike_dip_check'
+    y_orientation_angle_qc_range_check = 'y_orientation_angle_qc_range_check'
+    y_orientation_angle_qc_spike_dip_check = 'y_orientation_angle_qc_spike_dip_check'
     # qc flag considering all
     qc_flagged = 'qc_flagged'
     qc_score = 'qc_score'
@@ -1167,6 +1179,36 @@ class QCFlags(BaseModel):
         examples=[True],
         description=(
             'A flag indicating whether the wind speed failed the spike/dip check'
+        ),
+    )
+    x_orientation_angle_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the x orientation angle failed the range check'
+        ),
+    )
+    x_orientation_angle_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the x orientation angle failed the spike/dip '
+            'check'
+        ),
+    )
+    y_orientation_angle_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the y orientation angle failed the range check'
+        ),
+    )
+    y_orientation_angle_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the y orientation angle failed the spike/dip '
+            'check'
         ),
     )
     # qc flag considering all
