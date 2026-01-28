@@ -1121,6 +1121,217 @@ async def test_calculate_biomet_both_data_present(db: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_calculate_biomet_both_data_present_two_deployments_with_gap_involved(
+        db: AsyncSession,
+) -> None:
+    # setup a single biomet station with two deployments for the same sensor but
+    # with a gap between deployments
+    station = Station(
+        station_id='DOTWFP',
+        long_name='Westfalenhalle',
+        latitude=51.49626168307185,
+        longitude=7.458186573064577,
+        altitude=150,
+        station_type=StationType.biomet,
+        leuchtennummer=0,
+        district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    sensors = [
+        Sensor(
+            sensor_id='DEC1',
+            device_id=12345,
+            sensor_type=SensorType.atm41,
+        ),
+        Sensor(
+            sensor_id='DEC2',
+            device_id=67890,
+            sensor_type=SensorType.blg,
+        ),
+    ]
+    db.add_all(sensors)
+    deployments = [
+        # two ATM41 deployments with a gap
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOTWFP',
+            setup_date=datetime(2026, 1, 1, 10, 0,  tzinfo=timezone.utc),
+            teardown_date=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOTWFP',
+            setup_date=datetime(2026, 1, 1, 14, 0,  tzinfo=timezone.utc),
+        ),
+        # one BLG deployment that spans the entire period
+        SensorDeployment(
+            deployment_id=3,
+            sensor_id='DEC2',
+            station_id='DOTWFP',
+            setup_date=datetime(2026, 1, 1, 10, 0,  tzinfo=timezone.utc),
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+    # now add data that spans the entire period including the gap
+    atm_data = [
+        # within the first deployment
+        ATM41DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 10, 30, tzinfo=timezone.utc),
+            air_temperature=5.0,
+        ),
+        # within the gap
+        ATM41DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 12, 30, tzinfo=timezone.utc),
+            air_temperature=5.0,
+        ),
+        # within the second deployment
+        ATM41DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 14, 30, tzinfo=timezone.utc),
+            air_temperature=15.0,
+        ),
+    ]
+    blg_data = [
+        BLGDataRaw(
+            sensor_id='DEC2',
+            measured_at=datetime(2026, 1, 1, 10, 30, tzinfo=timezone.utc),
+            black_globe_temperature=10.0,
+        ),
+        BLGDataRaw(
+            sensor_id='DEC2',
+            measured_at=datetime(2026, 1, 1, 12, 30, tzinfo=timezone.utc),
+            black_globe_temperature=10.0,
+        ),
+        BLGDataRaw(
+            sensor_id='DEC2',
+            measured_at=datetime(2026, 1, 1, 14, 30, tzinfo=timezone.utc),
+            black_globe_temperature=20.0,
+        ),
+    ]
+    db.add_all(atm_data)
+    db.add_all(blg_data)
+    await db.commit()
+    # now compute biomet data and ensure that we skip the gapped values
+    await calculate_biomet('DOTWFP')
+    biomet_data_in_db = (
+        await db.execute(
+            select(BiometData).order_by(BiometData.measured_at),
+        )
+    ).scalars().all()
+    assert len(biomet_data_in_db) == 2
+    assert biomet_data_in_db[0].measured_at == datetime(
+        2026, 1, 1, 10, 30,
+        tzinfo=timezone.utc,
+    )
+    # we MUST BE missing the gap in the deployment
+    assert biomet_data_in_db[1].measured_at == datetime(
+        2026, 1, 1, 14, 30,
+        tzinfo=timezone.utc,
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures('clean_db')
+async def test_calculate_temp_rh_both_data_present_two_deployments_with_gap_involved(
+        db: AsyncSession,
+) -> None:
+    # setup a single temprh station with two deployments for the same sensor but
+    # with a gap between deployments
+    station = Station(
+        station_id='DOTWFP',
+        long_name='Westfalenhalle',
+        latitude=51.49626168307185,
+        longitude=7.458186573064577,
+        altitude=150,
+        station_type=StationType.temprh,
+        leuchtennummer=0,
+        district='44139',
+        city='Dortmund',
+        country='Germany',
+        street='test-street',
+        plz=12345,
+    )
+    db.add(station)
+    sensor = Sensor(
+        sensor_id='DEC1',
+        device_id=12345,
+        sensor_type=SensorType.sht35,
+    )
+    db.add(sensor)
+    deployments = [
+        # two SHT35 deployments with a gap
+        SensorDeployment(
+            deployment_id=1,
+            sensor_id='DEC1',
+            station_id='DOTWFP',
+            setup_date=datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc),
+            teardown_date=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+        ),
+        SensorDeployment(
+            deployment_id=2,
+            sensor_id='DEC1',
+            station_id='DOTWFP',
+            setup_date=datetime(2026, 1, 1, 14, 0, tzinfo=timezone.utc),
+        ),
+    ]
+    db.add_all(deployments)
+    await db.commit()
+    # now add data that spans the entire period including the gap
+    sht35_data = [
+        # within the first deployment
+        SHT35DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 10, 30, tzinfo=timezone.utc),
+            air_temperature=5.0,
+            relative_humidity=50.0,
+        ),
+        # within the gap
+        SHT35DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 12, 30, tzinfo=timezone.utc),
+            air_temperature=5.0,
+            relative_humidity=50.0,
+        ),
+        # within the second deployment
+        SHT35DataRaw(
+            sensor_id='DEC1',
+            measured_at=datetime(2026, 1, 1, 14, 30, tzinfo=timezone.utc),
+            air_temperature=15.0,
+            relative_humidity=60.0,
+        ),
+    ]
+    db.add_all(sht35_data)
+    await db.commit()
+    # now compute temprh data and ensure that we skip the gapped values
+    await calculate_temp_rh('DOTWFP')
+    temprh_data_in_db = (
+        await db.execute(
+            select(TempRHData).order_by(TempRHData.measured_at),
+        )
+    ).scalars().all()
+    assert len(temprh_data_in_db) == 2
+    assert temprh_data_in_db[0].measured_at == datetime(
+        2026, 1, 1, 10, 30,
+        tzinfo=timezone.utc,
+    )
+    # we MUST BE missing the gap in the deployment
+    assert temprh_data_in_db[1].measured_at == datetime(
+        2026, 1, 1, 14, 30,
+        tzinfo=timezone.utc,
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.usefixtures('deployed_biomet_station')
 @pytest.mark.filterwarnings('ignore::RuntimeWarning')
 async def test_calculate_biomet_blg_exceeds_join_tolerance(db: AsyncSession) -> None:
