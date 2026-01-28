@@ -440,7 +440,7 @@ async def get_station_deployments(
     # set it to a date early enough, so there was no data, this specific to this
     # network in Dortmund
     if latest is None:
-        latest = datetime(2024, 1, 1)
+        latest = datetime(2024, 1, 1, tzinfo=timezone.utc)
 
     # 2. get the biomet data, we potentially need to combine multiple deployments
     deployments = (
@@ -512,12 +512,14 @@ async def calculate_biomet(station_id: str | None) -> None:
         df_blg_list = []
         con = await sess.connection()
         for deployment in deployment_info.deployments:
+            data_start = max(deployment.setup_date, deployment_info.latest)
             if (await deployment.awaitable_attrs.sensor).sensor_type == SensorType.atm41:  # noqa: E501
                 df_tmp_atm41 = await con.run_sync(
                     lambda con: pd.read_sql(
                         sql=select(ATM41DataRaw).where(
                             (ATM41DataRaw.sensor_id == deployment.sensor_id) &
-                            (ATM41DataRaw.measured_at > deployment_info.latest) &
+                            # either take the setup date or the latest data we have
+                            (ATM41DataRaw.measured_at > data_start) &
                             (
                                 ATM41DataRaw.measured_at <= (
                                     deployment.teardown_date
@@ -572,7 +574,7 @@ async def calculate_biomet(station_id: str | None) -> None:
                             # tie it to the closest ATM41 measurement, however it must
                             # not be before the start of the current deployment
                             (BLGDataRaw.measured_at > deployment.setup_date) &
-                            (BLGDataRaw.measured_at > (deployment_info.latest - timedelta(minutes=5))) &  # noqa: E501
+                            (BLGDataRaw.measured_at > (data_start - timedelta(minutes=5))) &  # noqa: E501
                             (
                                 BLGDataRaw.measured_at <= (
                                     deployment.teardown_date
@@ -763,6 +765,7 @@ async def calculate_temp_rh(station_id: str | None) -> None:
         df_list = []
         con = await sess.connection()
         for deployment in deployment_info.deployments:
+            data_start = max(deployment.setup_date, deployment_info.latest)
             # this is relevant, if this is a double station
             if (await deployment.awaitable_attrs.sensor).sensor_type != SensorType.sht35:  # noqa: E501
                 continue
@@ -770,7 +773,8 @@ async def calculate_temp_rh(station_id: str | None) -> None:
                 lambda con: pd.read_sql(
                     sql=select(SHT35DataRaw).where(
                         (SHT35DataRaw.sensor_id == deployment.sensor_id) &
-                        (SHT35DataRaw.measured_at > deployment_info.latest) &
+                        # either take the setup date or the latest data we have
+                        (SHT35DataRaw.measured_at > data_start) &
                         (
                             SHT35DataRaw.measured_at <= (
                                 deployment.teardown_date
