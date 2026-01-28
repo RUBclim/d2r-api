@@ -8,7 +8,7 @@ https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titan
 jinja2
 # a stupid pin in pandas-stubs - this needs to be removed when pandas-stubs is updated
 numpy<= 2.4.1
-pandas
+pandas<3.0.0
 psycopg2-binary
 psycopg[binary] > 3.2.0
 pydantic<2.10.0
