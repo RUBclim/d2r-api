@@ -5,8 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile.database
       args:
-        PG_VERSION: 16
-        ANGLE_AVG_VERSION: "0.1.1"
+        PG_VERSION: 18
+        ANGLE_AVG_VERSION: "0.1.2"
     volumes:
       - pgdata:/home/postgres/pgdata/data
     environment:
