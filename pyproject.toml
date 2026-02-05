@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "d2r-api"
 dynamic = ["version", "dependencies", "optional-dependencies"]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 authors = [{ name = "D2R-Team", email = "climate@rub.de" }]
 maintainers = [{ name = "Jonas Kittner", email = "jonas.kittner@rub.de" }]
 description = "API for the Data2Resilience project providing measurements from the station network"
@@ -58,7 +58,7 @@ warn_unused_ignores = true
 
 [tool.tox]
 runner = "uv-venv-runner"
-env_list = ["py313", "pre-commit", "mypy"]
+env_list = ["py314", "pre-commit", "mypy"]
 
 [tool.tox.env_run_base]
 deps = [
