@@ -10,6 +10,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 from pydantic import Field
+from pydantic import model_validator
 from pydantic import RootModel
 
 from app.models import HeatStressCategories
@@ -597,6 +598,20 @@ class Response(BaseModel, Generic[T]):
             'information for the API-response.'
         ),
     )
+
+    @model_validator(mode='after')
+    def _mark_default_factories_as_set(self) -> 'Response[T]':
+        """Mark fields with default factories as set, so they show up in the serialized
+        output even if the user did not explicitly set them.
+
+        There was a subtle breaking change after pydantic 2.10.0 where this changed
+        see: https://github.com/fastapi/fastapi/discussions/13112
+        """
+        if 'timestamp' not in self.model_fields_set:
+            self.model_fields_set.add('timestamp')
+        if 'version' not in self.model_fields_set:
+            self.model_fields_set.add('version')
+        return self
 
 
 class VisualizationSuggestion(BaseModel):
