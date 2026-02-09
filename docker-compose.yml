@@ -5,8 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile.database
       args:
-        PG_VERSION: 16
-        ANGLE_AVG_VERSION: "0.1.1"
+        PG_VERSION: 18
+        ANGLE_AVG_VERSION: "0.1.2"
     volumes:
       - pgdata:/home/postgres/pgdata/data
     environment:
@@ -67,10 +67,10 @@ services:
 
   terracotta-db:
     container_name: terracotta-db
-    image: postgres:16-trixie
+    image: postgres:18-trixie
     volumes:
       # TODO: add properly tuned postgres conf
-      - pgdata-terracotta:/var/lib/postgresql/data
+      - pgdata-terracotta:/var/lib/postgresql
     environment:
       # we need to set this, so ordering is case insensitive
       POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"

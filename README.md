@@ -27,19 +27,19 @@ pip install git+ssh://git@github.com/RUBclim/d2r-api
 
 1. create a virtual environment using `tox` (needs to be available globally)
    ```bash
-   tox --devenv venv -e py313
+   tox --devenv venv -e py314
    ```
 1. alternatively, create the virtual environment manually
    ```bash
-   virtualenv venv -ppy313
+   virtualenv venv -ppy314
    ```
    **or**
    ```bash
-   python3.13 -m venv venv
+   python3.14 -m venv venv
    ```
    **or**
    ```bash
-   uv venv venv -ppython313
+   uv venv venv -ppython314
    ```
 1. and install the requirements
    ```bash
