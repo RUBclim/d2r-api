@@ -23,11 +23,11 @@ click-spinner==0.1.10
 cligj==0.7.2
 color-operations==0.2.0
 element-iot-api==1.0.2
-fastapi==0.128.1
+fastapi==0.128.5
 flask==3.1.2
 flask-cors==6.0.2
 greenlet==3.3.1
-gunicorn==25.0.1
+gunicorn==25.0.3
 h11==0.16.0
 idna==3.11
 itsdangerous==2.2.0
@@ -57,7 +57,7 @@ shapely==2.1.2
 six==1.17.0
 sqlalchemy==2.0.46
 sqlmodel==0.0.32
-starlette==0.50.0
+starlette==0.52.1
 terracotta==0.10.1
 thermal-comfort==1.1.5
 titanlib @ https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
@@ -71,5 +71,5 @@ urllib3==2.6.3
 uvicorn==0.40.0
 uvicorn-worker==0.4.0
 vine==5.1.0
-wcwidth==0.5.3
+wcwidth==0.6.0
 werkzeug==3.1.5
