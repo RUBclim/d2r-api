@@ -9,7 +9,7 @@ httpx
 locust
 myst-parser
 pandas-stubs
-pydantic<2.10.0
+pydantic
 pytest
 pytest-randomly
 sphinx
