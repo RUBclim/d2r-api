@@ -635,11 +635,11 @@ async def test_apply_raster_lifecycle_override_path_specified(
         ('UTCI', '2025', '110', '17'),
     ]
     files = []
-    for root, _, filenames in os.walk(tmp_path / 'foo' / 'bar'):
+    for _, _, filenames in os.walk(tmp_path / 'foo' / 'bar'):
         for filename in filenames:
             files.append(filename)
 
-    assert files == [
+    assert sorted(files) == [
         'MRT_2025_165_17_v0.7.2_cog.tif',
         'PET_2025_165_20_v0.7.2_cog.tif',
         'UTCI_2025_110_17_v0.7.2_cog.tif',
