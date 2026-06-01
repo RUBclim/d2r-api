@@ -257,7 +257,7 @@ async def _download_sensor_data(
     # we cannot trust the api, we need to double check that we don't pass too much data
     # an cause an error when trying to insert into the database
     if not data.empty:
-        data = data.loc[start_date:]  # type: ignore[misc]
+        data = data.loc[start_date:]
 
     return data
 
