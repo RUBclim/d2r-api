@@ -52,6 +52,9 @@ UNIT_MAPPING: dict[str, Units] = {
     'atmospheric_pressure_reduced': Units.hpa,
     'atmospheric_pressure_reduced_max': Units.hpa,
     'atmospheric_pressure_reduced_min': Units.hpa,
+    'black_globe_temperature': Units.deg_c,
+    'black_globe_temperature_max': Units.deg_c,
+    'black_globe_temperature_min': Units.deg_c,
     'air_temperature': Units.deg_c,
     'air_temperature_max': Units.deg_c,
     'air_temperature_min': Units.deg_c,
@@ -135,6 +138,7 @@ class PublicParamsBiomet(StrEnum):
     specific_humidity = 'specific_humidity'
     atmospheric_pressure = 'atmospheric_pressure'
     atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
+    black_globe_temperature = 'black_globe_temperature'
     air_temperature = 'air_temperature'
     dew_point = 'dew_point'
     heat_index = 'heat_index'
@@ -162,6 +166,9 @@ class PublicParamsBiomet(StrEnum):
     atmospheric_pressure_qc_persistence_check = 'atmospheric_pressure_qc_persistence_check'  # noqa: E501
     atmospheric_pressure_qc_range_check = 'atmospheric_pressure_qc_range_check'
     atmospheric_pressure_qc_spike_dip_check = 'atmospheric_pressure_qc_spike_dip_check'
+    black_globe_temperature_qc_range_check = 'black_globe_temperature_qc_range_check'
+    black_globe_temperature_qc_persistence_check = 'black_globe_temperature_qc_persistence_check'  # noqa: E501
+    black_globe_temperature_qc_spike_dip_check = 'black_globe_temperature_qc_spike_dip_check'  # noqa: E501
     lightning_average_distance_qc_persistence_check = 'lightning_average_distance_qc_persistence_check'  # noqa: E501
     lightning_average_distance_qc_range_check = 'lightning_average_distance_qc_range_check'  # noqa: E501
     lightning_strike_count_qc_persistence_check = 'lightning_strike_count_qc_persistence_check'  # noqa: E501
@@ -260,6 +267,9 @@ class PublicParamsAggBiomet(StrEnum):
     atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
     atmospheric_pressure_reduced_max = 'atmospheric_pressure_reduced_max'
     atmospheric_pressure_reduced_min = 'atmospheric_pressure_reduced_min'
+    black_globe_temperature = 'black_globe_temperature'
+    black_globe_temperature_max = 'black_globe_temperature_max'
+    black_globe_temperature_min = 'black_globe_temperature_min'
     air_temperature = 'air_temperature'
     air_temperature_max = 'air_temperature_max'
     air_temperature_min = 'air_temperature_min'
@@ -321,6 +331,9 @@ class PublicParams(StrEnum):
     atmospheric_pressure_reduced = 'atmospheric_pressure_reduced'
     atmospheric_pressure_reduced_max = 'atmospheric_pressure_reduced_max'
     atmospheric_pressure_reduced_min = 'atmospheric_pressure_reduced_min'
+    black_globe_temperature = 'black_globe_temperature'
+    black_globe_temperature_max = 'black_globe_temperature_max'
+    black_globe_temperature_min = 'black_globe_temperature_min'
     air_temperature = 'air_temperature'
     air_temperature_max = 'air_temperature_max'
     air_temperature_min = 'air_temperature_min'
@@ -369,6 +382,9 @@ class PublicParams(StrEnum):
     air_temperature_qc_persistence_check = 'air_temperature_qc_persistence_check'
     air_temperature_qc_range_check = 'air_temperature_qc_range_check'
     air_temperature_qc_spike_dip_check = 'air_temperature_qc_spike_dip_check'
+    black_globe_temperature_qc_range_check = 'black_globe_temperature_qc_range_check'
+    black_globe_temperature_qc_persistence_check = 'black_globe_temperature_qc_persistence_check'  # noqa: E501
+    black_globe_temperature_qc_spike_dip_check = 'black_globe_temperature_qc_spike_dip_check'  # noqa: E501
     atmospheric_pressure_qc_persistence_check = 'atmospheric_pressure_qc_persistence_check'  # noqa: E501
     atmospheric_pressure_qc_range_check = 'atmospheric_pressure_qc_range_check'
     atmospheric_pressure_qc_spike_dip_check = 'atmospheric_pressure_qc_spike_dip_check'
@@ -887,6 +903,11 @@ class Parameters(BaseModel):
         examples=[1020.5],
         description='The atmospheric pressure reduced to sea-level in **hPa**',
     )
+    black_globe_temperature: float | None = Field(
+        None,
+        examples=[25.5],
+        description='The black globe temperature in **°C**',
+    )
     air_temperature: float | None = Field(
         None,
         examples=[12.5],
@@ -1024,6 +1045,30 @@ class QCFlags(BaseModel):
         examples=[True],
         description=(
             'A flag indicating whether the air temperature failed the spike/dip check'
+        ),
+    )
+    black_globe_temperature_qc_range_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the black globe temperature failed the '
+            'range check'
+        ),
+    )
+    black_globe_temperature_qc_persistence_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the black globe temperature failed the '
+            'persistence check'
+        ),
+    )
+    black_globe_temperature_qc_spike_dip_check: bool | None = Field(
+        None,
+        examples=[True],
+        description=(
+            'A flag indicating whether the black globe temperature failed the '
+            'spike/dip check'
         ),
     )
     atmospheric_pressure_qc_persistence_check: bool | None = Field(
@@ -1324,6 +1369,16 @@ class ParametersAgg(BaseModel):
         None,
         examples=[1020.9],
         description='The maximum atmospheric pressure reduced to sea-level in **hPa**',
+    )
+    black_globe_temperature_min: float | None = Field(
+        None,
+        examples=[25.1],
+        description='The minimum black globe temperature in **°C**',
+    )
+    black_globe_temperature_max: float | None = Field(
+        None,
+        examples=[25.9],
+        description='The maximum black globe temperature in **°C**',
     )
     air_temperature_min: float | None = Field(
         None,
