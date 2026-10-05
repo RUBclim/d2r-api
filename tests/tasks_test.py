@@ -7,6 +7,8 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from decimal import Decimal
+from typing import Any
+from typing import cast
 from unittest import mock
 from unittest.mock import call
 
@@ -2507,7 +2509,7 @@ async def test_calculate_temprh_missing_values_are_detected(
 async def test_apply_buddy_check(db: AsyncSession) -> None:
     station = pd.read_csv('testing/qc/stations.csv')
     for _, s in station.iterrows():
-        db.add(Station(**s.to_dict()))
+        db.add(Station(**cast(dict[str, Any], s.to_dict())))
     db.add(Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35))
     await db.commit()
     # add data
@@ -2580,7 +2582,7 @@ async def test_apply_buddy_check(db: AsyncSession) -> None:
 async def test_apply_buddy_check_no_data_in_db(db: AsyncSession) -> None:
     station = pd.read_csv('testing/qc/stations.csv')
     for _, s in station.iterrows():
-        db.add(Station(**s.to_dict()))
+        db.add(Station(**cast(dict[str, Any], s.to_dict())))
     db.add(Sensor(sensor_id='DEC1', device_id=11111, sensor_type=SensorType.sht35))
     await db.commit()
     await perform_spatial_buddy_check()

@@ -61,7 +61,6 @@ celery_app = Celery(
     include=['app.tasks', 'app.tc_ingester'],
     result_expires=timedelta(seconds=600),  # expire after 10 minutes
 )
-celery_app.conf.timezone = 'UTC'
 celery_app.set_default()
 
 

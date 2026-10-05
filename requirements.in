@@ -4,7 +4,7 @@ celery[redis]
 element-iot-api
 fastapi
 gunicorn
-https://github.com/jkittner/titanlib/releases/download/intermediate-wheels/titanlib-0.3.4.dev3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+titanlib
 jinja2
 numpy
 pandas
@@ -12,7 +12,6 @@ psycopg2-binary
 psycopg[binary] > 3.2.0
 pydantic
 sentry_sdk[fastapi]
-sqlmodel
 terracotta>=0.8.6
 thermal-comfort
 uvicorn

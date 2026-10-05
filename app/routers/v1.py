@@ -28,6 +28,7 @@ from sqlalchemy import not_
 from sqlalchemy import Select
 from sqlalchemy import select
 from sqlalchemy import TIMESTAMP
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.orm import selectinload
@@ -287,8 +288,9 @@ async def get_trends(
 
     # get the supported ids which are needed for the API return, probably for
     # possible comparison
-    biomet_id_query = select(BiometDataHourly.station_id).distinct(
-        BiometDataHourly.station_id,
+    # stmt = select(users_table).ext(distinct_on(users_table.c.name))
+    biomet_id_query = select(BiometDataHourly.station_id).ext(
+        distinct_on(BiometDataHourly.station_id),
     ).where(
         BiometDataHourly.measured_at.between(start_date, end_date) &
         (column_biomet.is_not(None)),
@@ -309,8 +311,8 @@ async def get_trends(
     # can start with a default of an empty set and change it if needed.
     supported_temp_rh_ids = set()
     if column_temp_rh is not None:
-        temp_rh_id_query = select(TempRHDataHourly.station_id).distinct(
-            TempRHDataHourly.station_id.label('key'),
+        temp_rh_id_query = select(TempRHDataHourly.station_id).ext(
+            distinct_on(TempRHDataHourly.station_id.label('key')),
         ).where(
             TempRHDataHourly.measured_at.between(start_date, end_date) &
             (column_temp_rh.is_not(None)),

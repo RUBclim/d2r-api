@@ -69,7 +69,11 @@ async def test_get_healthcheck(app: AsyncClient) -> None:
 @pytest.mark.anyio
 async def test_head_healthcheck(app: AsyncClient) -> None:
     resp = await app.head('/v1/healthcheck')
-    assert resp.headers == {'content-length': '26', 'content-type': 'application/json'}
+    assert resp.headers == {
+        'content-length': '26',
+        'content-type': 'application/json',
+        'vary': 'Origin',
+    }
 
 
 @pytest.mark.anyio
