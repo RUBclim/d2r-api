@@ -74,6 +74,7 @@ commands = [
 ]
 
 [tool.tox.env.prime_db]
+base_python = ["python3.14"]
 allowlist_externals = ["timeout"]
 commands = [
     ["timeout", "--preserve-status", "--signal=SIGINT", "10s", "uvicorn", "app.main:app"],

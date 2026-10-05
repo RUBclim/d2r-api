@@ -731,8 +731,8 @@ async def calculate_biomet(station_id: str | None) -> None:
                 ),
                 method='multi',
                 dtype={
-                    'utci_category': _HeatStressCategories,  # type: ignore[dict-item]
-                    'pet_category': _HeatStressCategories,  # type: ignore[dict-item]
+                    'utci_category': _HeatStressCategories,
+                    'pet_category': _HeatStressCategories,
                 },
             ),
         )
