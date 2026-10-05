@@ -12,6 +12,7 @@ psycopg2-binary
 psycopg[binary] > 3.2.0
 pydantic
 sentry_sdk[fastapi]
+sqlalchemy[asyncio]
 terracotta>=0.8.6
 thermal-comfort
 uvicorn
