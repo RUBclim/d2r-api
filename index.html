@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>503 Service Offline</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+        --muted: 210 40% 96.1%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+        --border: 214.3 31.8% 91.4%;
+        --primary: 48 96% 53%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --background: 222.2 84% 4.9%;
+          --foreground: 210 40% 98%;
+          --muted: 217.2 32.6% 17.5%;
+          --muted-foreground: 215 20.2% 65.1%;
+          --border: 217.2 32.6% 17.5%;
+          --primary: 48 96% 53%;
+        }
+      }
+
+      :root[data-theme="dark"] {
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+        --muted: 217.2 32.6% 17.5%;
+        --muted-foreground: 215 20.2% 65.1%;
+        --border: 217.2 32.6% 17.5%;
+        --primary: 48 96% 53%;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: clamp(0.78rem, 0.517647vi + 0.65rem, 1rem);
+        line-height: 1.6;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: hsl(var(--background));
+        color: hsl(var(--foreground));
+        font-family:
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      main {
+        width: 100%;
+        padding: 1.5rem;
+        padding-bottom: 10vh;
+      }
+
+      .wrap {
+        max-width: 28rem;
+        margin: 0 auto;
+      }
+
+      .dot {
+        width: 3rem;
+        height: 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .dot::before {
+        content: "";
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 9999px;
+        background: hsl(var(--primary));
+        box-shadow: 0 0 0 0.35rem hsl(var(--primary) / 0.2);
+      }
+
+      h1 {
+        margin: 1rem 0 0;
+        font-size: clamp(3rem, 8vw, 3.75rem);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.05;
+      }
+
+      h1 span {
+        display: block;
+      }
+
+      .lead {
+        margin: 1rem 0 0;
+        font-size: 1.25rem;
+        color: hsl(var(--muted-foreground));
+      }
+
+      .status {
+        margin: 1.5rem 0 0;
+        padding: 1rem 1.125rem;
+        border: 1px solid hsl(var(--border));
+        border-radius: 0.5rem;
+        background: hsl(var(--muted));
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.875rem;
+        line-height: 1.7;
+        overflow-x: auto;
+      }
+
+      .status .key {
+        color: hsl(var(--muted-foreground));
+        display: inline-block;
+        min-width: 6.5rem;
+      }
+
+      .status .off {
+        color: hsl(var(--primary));
+        font-weight: 700;
+      }
+
+      .apology {
+        margin: 1.5rem 0 0;
+        color: hsl(var(--muted-foreground));
+        font-size: 1rem;
+      }
+
+      .apology strong {
+        color: hsl(var(--foreground));
+        font-weight: 600;
+      }
+
+      @media (max-width: 380px) {
+        main {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="wrap">
+        <div class="dot" aria-hidden="true"></div>
+        <h1>
+          <span>503</span>
+          <span>Service Offline</span>
+        </h1>
+        <p class="lead">
+          The <i>data2resilience</i> dashboard is no longer maintained since the project
+          itself has ended and has been taken offline for security reasons.
+        </p>
+
+        <p class="apology">
+          The dependencies of this application can no longer be kept up to date safely,
+          so we have disabled public access to protect our users and their data.
+          <strong>We apologize for the inconvenience.</strong> Thank you for your
+          understanding.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
