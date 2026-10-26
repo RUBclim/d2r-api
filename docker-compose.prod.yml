@@ -119,15 +119,6 @@ services:
           cpus: "2"
           memory: 1536M
 
-  dashboard:
-    restart: always
-    deploy:
-      mode: replicated
-      replicas: 2
-      resources:
-        limits:
-          memory: 500M
-
   nginx:
     restart: always
     ports:
@@ -141,6 +132,8 @@ services:
       # we need to override this to enable caching of the tiles
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ${NGINX_CERT_DIR}:/etc/nginx/certs:ro
+      # static page served in place of the decommissioned dashboard
+      - ./index.html:/usr/share/nginx/offline/index.html:ro
     deploy:
       resources:
         limits:
