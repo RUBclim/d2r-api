@@ -50,7 +50,7 @@ repos:
     hooks:
     -    id: double-indent
 -   repo: https://github.com/asottile/reorder_python_imports
-    rev: v3.17.0
+    rev: v3.19.0
     hooks:
     -   id: reorder-python-imports
 -   repo: https://github.com/asottile/add-trailing-comma
@@ -58,7 +58,7 @@ repos:
     hooks:
     -   id: add-trailing-comma
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
     -   id: pyupgrade
         args: [--py313-plus]
@@ -70,7 +70,7 @@ repos:
       - id: djcss
         exclude: ^bin/
 -   repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.9.9"
+    rev: "v3.9.10"
     hooks:
       - id: prettier
         args: [--prose-wrap, always, --print-width=88]
