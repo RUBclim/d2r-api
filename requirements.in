@@ -17,3 +17,7 @@ terracotta>=0.8.6
 thermal-comfort
 uvicorn
 uvicorn-worker
+# celery pinned this for whatever reason...
+# https://github.com/celery/celery/pull/10727
+# https://github.com/celery/celery/pull/10727/changes/5e7d9ce72701244980091bc46f99e6783dcbd44d
+python-dateutil==2.9.0.post0
